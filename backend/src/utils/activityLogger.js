@@ -16,7 +16,7 @@ export const logActivity = async ({
       [userId, userName, branchId, module, action, description, ipAddress],
     );
   } catch (err) {
-    console.error("Activity log error:", err);
+    console.error("Activity log error:", err.message);
   }
 };
 

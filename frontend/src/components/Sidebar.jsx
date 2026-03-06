@@ -36,6 +36,7 @@ import {
   FiShare,
   FiShare2,
   FiTruck,
+  FiTrello,
 } from "react-icons/fi";
 
 /*-----------------------------------------
@@ -76,6 +77,13 @@ const menuConfig = [
         path: "/dashboard/products",
         icon: FiPackage,
         permission: "inventory",
+      },
+
+      {
+        label: "Suppliers",
+        path: "/dashboard/suppliers",
+        icon: FiTrello,
+        permission: "suppliers",
       },
 
       {

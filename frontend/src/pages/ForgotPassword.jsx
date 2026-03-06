@@ -8,30 +8,47 @@ import {
   Alert,
   AlertIcon,
   Text,
+  Select,
+  Spinner,
 } from "@chakra-ui/react";
 import { useForm } from "react-hook-form";
 import { useState } from "react";
 import publicApi from "../api/publicApi";
-import { Navigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 
 export default function ForgotPassword() {
   const { register, handleSubmit } = useForm();
-  const [status, setStatus] = useState(null);
+  const navigate = useNavigate();
+  const [alert, setAlert] = useState(null);
+  const [loading, setLoading] = useState(false);
 
   const onSubmit = async (data) => {
-    setStatus(null);
+    setAlert(null);
+    setLoading(true);
+
     try {
-      await publicApi.post("/auth/forgot-password", {
+      const res = await publicApi.post("/auth/forgot-password", {
         email: data.email,
         loginType: data.loginType,
       });
-      setStatus(res.data.message);
+
+      setAlert({
+        type: "success",
+        message:
+          res.data?.message ||
+          "If the email exists, a reset link has been sent.",
+      });
 
       setTimeout(() => {
-        Navigate("/");
+        navigate("/login");
       }, 2000);
     } catch (err) {
-      setStatus(err.response?.data.message || "Something went wrong");
+      setAlert({
+        type: "error",
+        message: err.response?.data?.message || "Something went wrong",
+      });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -42,33 +59,23 @@ export default function ForgotPassword() {
           Forgot Password
         </Text>
 
-        {status === "success" && (
-          <Alert status="success" mb={4}>
+        {alert && (
+          <Alert status={alert.type} mb={4}>
             <AlertIcon />
-            If the email exists, a rest link has been sent.
-          </Alert>
-        )}
-
-        {status === "error" && (
-          <Alert status="error" mb={4}>
-            <AlertIcon />
-            Unable to process request
-          </Alert>
-        )}
-
-        {status && (
-          <Alert status="info" mb={4}>
-            <AlertIcon />
-            {status}
+            {alert.message}
           </Alert>
         )}
 
         <form onSubmit={handleSubmit(onSubmit)}>
           <FormControl mb={4}>
-            <select {...register("loginType", { required: true })}>
+            <FormLabel>Login Type</FormLabel>
+            <Select
+              {...register("loginType", { required: true })}
+              defaultValue="customer"
+            >
               <option value="customer">Customer</option>
               <option value="staff">Staff</option>
-            </select>
+            </Select>
           </FormControl>
 
           <FormControl mb={4}>
@@ -80,8 +87,13 @@ export default function ForgotPassword() {
             />
           </FormControl>
 
-          <Button type="submit" w="100%" colorScheme="blue">
-            Send Reset Link
+          <Button
+            type="submit"
+            w="100%"
+            colorScheme="blue"
+            isDisabled={loading}
+          >
+            {loading ? <Spinner size="sm" /> : "Send Reset Link"}
           </Button>
         </form>
       </Box>

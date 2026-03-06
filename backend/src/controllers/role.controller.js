@@ -16,6 +16,7 @@ const PERMISSION_COLUMNS = [
   "storage",
   "transfer",
   "customers",
+  "suppliers",
   "receive_items",
   "discharge_items",
   "pos_terminals",

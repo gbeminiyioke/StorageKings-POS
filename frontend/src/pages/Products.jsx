@@ -21,6 +21,8 @@ import {
   NumberInput,
   NumberInputField,
   Spinner,
+  VStack,
+  Icon,
 } from "@chakra-ui/react";
 import { useForm, useFieldArray } from "react-hook-form";
 import { useEffect, useState } from "react";
@@ -78,6 +80,7 @@ export default function Products() {
   const [editingId, setEditingId] = useState(null);
   const [productImage, setProductImage] = useState(null);
   const [previewImage, setPreviewImage] = useState(null);
+  const [imageDimensions, setImageDimensions] = useState(null);
 
   useEffect(() => {
     loadProducts();
@@ -190,8 +193,23 @@ export default function Products() {
   const handleImageChange = (e) => {
     const file = e.target.files[0];
     if (!file) return;
+
     setProductImage(file);
-    setPreviewImage(URL.createObjectURL(file));
+
+    const imageUrl = URL.createObjectURL(file);
+    setPreviewImage(imageUrl);
+
+    const img = new window.Image();
+    img.src = imageUrl;
+    img.onload = () => {
+      const maxWidth = 300;
+      const scale = Math.min(maxWidth / img.naturalWidth, 1);
+
+      setImageDimensions({
+        width: img.naturalWidth * scale,
+        height: img.naturalHeight * scale,
+      });
+    };
   };
 
   const onSubmit = async (data) => {
@@ -248,8 +266,64 @@ export default function Products() {
 
         <FormControl>
           <FormLabel>Product Image</FormLabel>
-          <Input type="file" accept="image/*" onChange={handleImageChange} />
-          {previewImage && <Image src={previewImage} boxSize="150px" mt={2} />}
+
+          {/* HIDDEN FILE INPUT */}
+          <Input
+            type="file"
+            accept="image/*"
+            onChange={handleImageChange}
+            display={"none"}
+            id="product-image-upload"
+          />
+
+          {/* CLICKABLE IMAGE PLACE HOLDER */}
+          <Box
+            as="label"
+            htmlFor="product-image-upload"
+            cursor="pointer"
+            border="2px dashed"
+            borderColor="gray.300"
+            borderRadius="md"
+            display="flex"
+            alignItems="center"
+            justifyContent="center"
+            overflow="hidden"
+            bg="gray.50"
+            position="relative"
+            _hover={{ borderColor: "blue.400", bg: "gray.100" }}
+            transition="0.2s"
+            width={imageDimensions ? imageDimensions.width : "200px"}
+            height={imageDimensions ? imageDimensions.height : "170px"}
+          >
+            {previewImage ? (
+              <Image
+                src={previewImage}
+                objectFit="contain"
+                width="100%"
+                height="100%"
+              />
+            ) : (
+              <VStack spacing={2} color="gray.500">
+                <Icon as={AddIcon} boxSize={6} />
+                <Text fontSize="sm">Click to upload image</Text>
+              </VStack>
+            )}
+          </Box>
+
+          {previewImage && (
+            <Button
+              size="xs"
+              mt={2}
+              colorScheme="red"
+              variant="ghost"
+              onClick={() => {
+                setProductImage(null);
+                setPreviewImage(null);
+              }}
+            >
+              Remove Image
+            </Button>
+          )}
         </FormControl>
 
         <FormControl>
@@ -406,6 +480,8 @@ export default function Products() {
                       <Image
                         src={`${BACKEND_URL}${p.image_url}`}
                         boxSize="50px"
+                        objectFit="cover"
+                        borderRadius="md"
                       />
                     )}
                     {p.product_name}

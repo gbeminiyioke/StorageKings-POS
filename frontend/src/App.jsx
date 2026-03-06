@@ -14,6 +14,8 @@ import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 import AdminDashboard from "./pages/AdminDashboard";
 import Products from "./pages/Products";
+import Suppliers from "./pages/Suppliers";
+import Customers from "./pages/Customers";
 
 export default function App() {
   return (
@@ -51,6 +53,24 @@ export default function App() {
           element={
             <ProtectedRoute permission="inventory">
               <Products />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="suppliers"
+          element={
+            <ProtectedRoute permission="suppliers">
+              <Suppliers />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="customers"
+          element={
+            <ProtectedRoute permission="customers">
+              <Customers />
             </ProtectedRoute>
           }
         />

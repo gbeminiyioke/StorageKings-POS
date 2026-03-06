@@ -42,6 +42,7 @@ const MODULE_GROUPS = {
   Sales: [{ label: "Sales", key: "sales" }],
   Inventory: [
     { label: "Inventory", key: "inventory" },
+    { label: "Suppliers", key: "suppliers" },
     { label: "Receive Items", key: "receive_items" },
     { label: "Discharge Items", key: "discharge_items" },
     { label: "Storage", key: "storage" },
