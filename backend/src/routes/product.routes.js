@@ -13,6 +13,8 @@ import {
   deleteProduct,
   getCategories,
   getProductById,
+  getProductsByBarcode,
+  searchProducts,
 } from "../controllers/product.controller.js";
 
 // Multer config (memory storage for easier handling)
@@ -24,6 +26,8 @@ const router = express.Router();
 // Routes
 router.get("/", authenticate, getProducts);
 router.get("/categories", authenticate, getCategories);
+router.get("/search", authenticate, searchProducts);
+router.get("/barcode/:product_code", getProductsByBarcode);
 router.get("/:id", authenticate, getProductById);
 
 router.post(

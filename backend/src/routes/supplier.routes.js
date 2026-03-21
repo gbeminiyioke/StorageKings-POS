@@ -7,6 +7,7 @@ import {
   getSuppliers,
   updateSupplier,
   deleteSupplier,
+  getSupplierBalance,
 } from "../controllers/supplier.controller.js";
 
 const router = express.Router();
@@ -16,6 +17,7 @@ router.use(sessionTimeout);
 
 router.post("/", authorize("can_create"), createSupplier);
 router.get("/", authorize("can_view"), getSuppliers);
+router.get("/:id/balance", getSupplierBalance);
 router.put("/:id", authorize("can_edit"), updateSupplier);
 router.delete("/:id", authorize("can_delete"), deleteSupplier);
 

@@ -1,4 +1,31 @@
 import pool from "../config/db.js";
+/*==========================================
+  GET NEXT GRN NUMBER FOR BRANCH
+============================================*/
+export const getNextGRN = async (req, res) => {
+  const { branch_id } = req.params;
+
+  try {
+    const result = await pool.query(
+      `SELECT branch_prefix, next_grn_no FROM branches WHERE branch_id = $1`,
+      [branch_id],
+    );
+
+    if (!result.rows.length) {
+      return res.status(404).json({ message: "Branch not found" });
+    }
+
+    const { branch_prefix, next_grn_no } = result.rows[0];
+
+    const formattedNo = String(next_grn_no).padStart(6, "0");
+    const grn = `${branch_prefix}-${formattedNo}`;
+
+    res.json({ grn });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Failed to fetch GRN number " });
+  }
+};
 
 /*==========================================
   GET BRANCHES (OPTIONAL FILTER BY BUSINESS)

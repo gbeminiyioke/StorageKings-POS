@@ -16,6 +16,8 @@ import AdminDashboard from "./pages/AdminDashboard";
 import Products from "./pages/Products";
 import Suppliers from "./pages/Suppliers";
 import Customers from "./pages/Customers";
+import ReceiveItems from "./pages/ReceiveItems";
+import PurchasesReport from "./pages/PurchasesReport";
 
 export default function App() {
   return (
@@ -25,6 +27,7 @@ export default function App() {
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/unauthorized" element={<Unauthorized />} />
+      <Route path="/reports/purchases" element={<PurchasesReport />} />
 
       {/* ================ CUSTOMER ================ */}
       <Route
@@ -62,6 +65,15 @@ export default function App() {
           element={
             <ProtectedRoute permission="suppliers">
               <Suppliers />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="receive-items"
+          element={
+            <ProtectedRoute permission="receive_items">
+              <ReceiveItems />
             </ProtectedRoute>
           }
         />

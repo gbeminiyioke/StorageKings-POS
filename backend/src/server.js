@@ -14,6 +14,8 @@ import notificationRoutes from "./routes/notification.routes.js";
 import productRoutes from "./routes/product.routes.js";
 import supplierRoutes from "./routes/supplier.routes.js";
 import customerRoutes from "./routes/customer.routes.js";
+import receiveItemRoutes from "./routes/receive.routes.js";
+import purchasesReportRoutes from "./routes/purchasesReport.routes.js";
 
 //const app = express();
 
@@ -52,6 +54,8 @@ app.use("/api/products", productRoutes);
 app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 app.use("/api/suppliers", supplierRoutes);
 app.use("/api/customers", customerRoutes);
+app.use("/api/receive-items", receiveItemRoutes);
+app.use("/api/reports", purchasesReportRoutes);
 
 app.listen(PORT, () => {
   console.log(`Backend running on port ${PORT}`);

@@ -241,3 +241,18 @@ export const deleteSupplier = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
+
+export const getSupplierBalance = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const result = await pool.query(
+      `SELECT current_balance FROM suppliers WHERE id = $1`,
+      [id],
+    );
+
+    res.json({ balance: result.rows[0]?.current_balance || 0 });
+  } catch (err) {
+    res.status(500).json({ message: "Failed to fetch supplier balance" });
+  }
+};

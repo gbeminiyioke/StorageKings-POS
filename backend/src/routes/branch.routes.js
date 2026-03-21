@@ -9,12 +9,14 @@ import {
   createBranch,
   updateBranch,
   deleteBranch,
+  getNextGRN,
 } from "../controllers/branches.controller.js";
 
 const router = express.Router();
 
 router.get("/public/enabled", getEnabledBranches);
 router.get("/", authenticate, getBranches);
+router.get("/:branch_id/next-grn", authenticate, getNextGRN);
 router.post(
   "/",
   authenticate,

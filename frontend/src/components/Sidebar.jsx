@@ -176,10 +176,15 @@ const menuConfig = [
         permission: "reports_and_analytics",
       },
       {
-        label: "Audit Lgs",
+        label: "Audit Logs",
         path: "/dashboard/audit_logs",
         icon: FiSettings,
         permission: "audit_logs",
+      },
+      {
+        label: "Purchases Report",
+        path: "/dashboard/purchases",
+        icon: FiSettings,
       },
     ],
   },
