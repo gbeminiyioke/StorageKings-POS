@@ -26,6 +26,10 @@ import {
 } from "../services/receiveService";
 import api from "../api/api";
 
+const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+
+//console.log("API URL:", import.meta.env.VITE_API_URL);
+
 export default function ReceiveItems() {
   const toast = useToast();
   const barcodeRef = useRef();
@@ -50,6 +54,9 @@ export default function ReceiveItems() {
   const [pages, setPages] = useState(1);
   const [statusFilter, setStatusFilter] = useState("ALL");
 
+  const [loading, setLoading] = useState(false);
+  const [listLoading, setListLoading] = useState(false);
+
   const { permissions } = useAuth();
 
   const [staff, setStaff] = useState({
@@ -57,6 +64,22 @@ export default function ReceiveItems() {
     checked_by: "",
     storekeeper: "",
   });
+
+  const defaultHeader = {
+    invoice_no: "",
+    branch_id: "",
+    supplier_id: "",
+    date: new Date().toISOString().split("T")[0],
+    subtotal: 0,
+    discount: 0,
+    tax: 0,
+    other: 0,
+    grand_total: 0,
+    amount_paid: 0,
+    outstanding: 0,
+    supplier_balance: 0,
+    grn: "",
+  };
 
   /*=========================================
     DEBOUNCE LOGIC (300ms)
@@ -74,19 +97,25 @@ export default function ReceiveItems() {
     LOAD GRN LIST
   ===========================================*/
   const loadGRNList = async () => {
-    const res = await api.get("/receive-items/list", {
-      params: {
-        q: listSearch,
-        startDate: dateFilter.start,
-        endDate: dateFilter.end,
-        status: statusFilter,
-        page,
-        limit: 10,
-      },
-    });
+    try {
+      setListLoading(true);
 
-    setGrnList(res.data);
-    setPages(res.data.pages);
+      const res = await api.get("/receive-items/list", {
+        params: {
+          q: listSearch,
+          startDate: dateFilter.start,
+          endDate: dateFilter.end,
+          status: statusFilter,
+          page,
+          limit: 10,
+        },
+      });
+
+      setGrnList(res.data);
+      setPages(res.data.pages);
+    } finally {
+      setListLoading(false);
+    }
   };
 
   /*=========================================
@@ -309,11 +338,34 @@ export default function ReceiveItems() {
         status: "error",
       });
 
+    const validItems = items.filter((i) => i.product_id);
+
+    if (validItems.length === 0) {
+      return toast({
+        title: "Add at least one valid product",
+        status: "error",
+      });
+    }
     if (items.length === 0)
       return toast({ title: "No products added", status: "error" });
 
     return true;
   };
+
+  const normalizeItem = (item) => ({
+    product_id: item.product_id || "",
+    product_name: item.product_name || "",
+    unit: item.unit || "pcs",
+    qty: item.qty ?? 1,
+    cost_price: item.cost_price ?? 0,
+    discount: item.discount ?? 0,
+    tax: item.tax ?? 0,
+    line_total: item.line_total ?? 0,
+    stock_quantity: item.stock_quantity ?? 0,
+    minimum_quantity: item.minimum_quantity ?? 0,
+    selling_price: item.selling_price ?? 0,
+    last_supplier_price: item.last_supplier_price ?? 0,
+  });
 
   const save = async (post) => {
     if (!validateBeforeSave()) return;
@@ -337,6 +389,8 @@ export default function ReceiveItems() {
     }
 
     try {
+      setLoading(true);
+
       const res = await createGRN({
         header,
         items,
@@ -355,20 +409,34 @@ export default function ReceiveItems() {
       });
 
       /*===========================================
+        EMAIL CONFIRMATION
+      =============================================*/
+      if (post && res.data.supplier_email) {
+        const send = window.confirm("Supplier has an email, send GRN now?");
+
+        if (send) {
+          await api.post(`/receive-items/${res.data.receive_id}/send-email`);
+        }
+      }
+
+      /*===========================================
         AUTO PRINT
       =============================================*/
       if (post) {
-        const url = `http://localhost:5000/api/receive-items/${res.data.receive_id}/printpdf`;
+        const url = `${BASE_URL}/receive-items/${res.data.receive_id}/printpdf`;
         window.open(url, "_blank");
       }
 
-      setItems([]);
+      //setItems([]);
+      resetForm();
     } catch (err) {
       toast({
         title: "Error",
         description: "GRN failed",
         status: "error",
       });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -387,8 +455,19 @@ export default function ReceiveItems() {
 
       const res = await api.get(`receive-items/${id}`);
 
-      setHeader(res.data.header);
-      setItems(res.data.items);
+      setHeader({
+        ...defaultHeader,
+        ...res.data.header,
+      });
+
+      setItems(res.data.items.map(normalizeItem));
+
+      setStaff({
+        received_by: res.data.header.received_by || "",
+        checked_by: res.data.header.checked_by || "",
+        storekeeper: res.data.header.storekeeper || "",
+      });
+
       setMode("EDIT");
       setSelectedId(id);
 
@@ -404,8 +483,19 @@ export default function ReceiveItems() {
 
   const handleView = async (id) => {
     const res = await api.get(`/receive-items/${id}`);
-    setHeader(res.data.header);
-    setItems(res.data.items);
+    setHeader({
+      ...defaultHeader,
+      ...res.data.header,
+    });
+
+    setItems(res.data.items.map(normalizeItem));
+
+    setStaff({
+      received_by: res.data.header.received_by || "",
+      checked_by: res.data.header.checked_by || "",
+      storekeeper: res.data.header.storekeeper || "",
+    });
+
     setMode("VIEW");
   };
 
@@ -436,46 +526,7 @@ export default function ReceiveItems() {
   };
 
   const handlePrint = async (id) => {
-    const res = await api.get(`/receive-items/${id}`);
-
-    printWindow.document.write(`
-      <html>
-        <head>
-          <title>GRN Print</title>
-        </head>
-        <body>
-          <h2>Goods Received Note</h2>
-          <p><b>GRN:</b> ${data.header.grn_no}</p>
-          <p><b>Supplier:</b> ${data.header.supplier_id}</p>
-          <p><b>Date:</b> ${data.header.receive_date}</p>
-
-          <table border="1" cellpadding="5" cellspacing="0">
-            <tr>
-              <th>Product</th>
-              <th>Qty</th>
-              <th>Cost</th>
-            </tr>
-
-            ${data.items
-              .map(
-                (i) => `
-                <tr>
-                  <td>${i.product_id}</td>
-                  <td>${i.quantity}</td>
-                  <td>${i.cost_price}</td>
-                </tr>
-                `,
-              )
-              .join("")}
-          </table>
-
-          <h3>Total: ${data.header.grand_total}</h3>
-        </body>
-      </html>
-      `);
-
-    printWindow.document.close();
-    printWindow.print();
+    window.open(`${BASE_URL}/receive-items/${id}/printpdf`, "_blank");
   };
 
   const handleRowKey = (e, index) => {
@@ -550,8 +601,125 @@ export default function ReceiveItems() {
     }
   };
 
+  const updateGRN = async (post) => {
+    if (!selectedId) {
+      toast({
+        title: "No GRN selected",
+        status: "error",
+      });
+      return;
+    }
+
+    if (!validateBeforeSave()) return;
+
+    if (post && Number(header.amount_paid) === 0) {
+      if (
+        !window.confirm(
+          "No payment entered. This will be recorded as a credit purchase. Continue?",
+        )
+      )
+        return;
+    }
+
+    try {
+      setLoading(true);
+
+      const payload = {
+        header,
+        items: items.filter((i) => i.product_id),
+        staff,
+        post,
+      };
+
+      console.log("UPDATE PAYLOAD:", payload);
+
+      const res = await api.put(`/receive-items/${selectedId}`, payload);
+
+      toast({
+        title: post ? "GRN Posted Successfully" : "GRN Updated",
+        description: res.data.grn,
+        status: "success",
+      });
+
+      /*=======================================
+        AUTO PRINT AFTER POST
+      =========================================*/
+      if (post) {
+        const url = `${BASE_URL}/receive-items/${selectedId}/printpdf`;
+        window.open(url, "_blank");
+      }
+
+      resetForm();
+      await loadGRNList();
+    } catch (err) {
+      console.error("UPDATE ERROR:", err);
+      console.error("RESPONSE:", err?.response);
+
+      toast({
+        title: "Update failed",
+        description: err.response?.data.message || err.message,
+        status: "error",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const resetForm = () => {
+    setHeader({
+      invoice_no: "",
+      branch_id: "",
+      supplier_id: "",
+      date: new Date().toISOString().split("T")[0],
+      subtotal: 0,
+      discount: 0,
+      tax: 0,
+      other: 0,
+      grand_total: 0,
+      amount_paid: 0,
+      outstanding: 0,
+    });
+
+    setItems([
+      {
+        product_id: "",
+        product_name: "",
+        unit: "",
+        qty: 1,
+        cost_price: 0,
+        discount: 0,
+        tax: 0,
+        line_total: 0,
+      },
+    ]);
+
+    setStaff({
+      received_by: "",
+      checked_by: "",
+      storekeeper: "",
+    });
+
+    setMode("CREATE");
+    setSelectedId(null);
+    setReport(null);
+  };
+
   return (
     <Box p={6}>
+      {/*==== MODE INDICATOR ==== */}
+      {mode !== "CREATE" && (
+        <Box
+          mb={3}
+          p={2}
+          borderRadius="md"
+          bg={mode === "EDIT" ? "yellow.100" : "blue.100"}
+        >
+          <Text fontWeight="bold">
+            {mode === "EDIT" ? `EDIT MODE -GRN #${selectedId}` : "VIEW MODE"}
+          </Text>
+        </Box>
+      )}
+
       <ReceiveHeader
         header={header}
         setHeader={setHeader}
@@ -649,7 +817,7 @@ export default function ReceiveItems() {
         <FormControl>
           <FormLabel>Checked By</FormLabel>
           <Input
-            value={staff.checked_by}
+            value={staff.checked_by || ""}
             isDisabled={mode === "VIEW"}
             onChange={(e) => setStaff({ ...staff, checked_by: e.target.value })}
           />
@@ -658,7 +826,7 @@ export default function ReceiveItems() {
         <FormControl>
           <FormLabel>Storekeeper</FormLabel>
           <Input
-            value={staff.storekeeper}
+            value={staff.storekeeper || ""}
             isDisabled={mode === "VIEW"}
             onChange={(e) =>
               setStaff({ ...staff, storekeeper: e.target.value })
@@ -668,21 +836,61 @@ export default function ReceiveItems() {
       </Grid>
 
       <Box mt={4}>
-        <Button
-          colorScheme="blue"
-          isDisabled={mode === "VIEW"}
-          onClick={() => save(false)}
-        >
-          Save Draft
-        </Button>
+        {mode === "EDIT" ? (
+          <>
+            <Button
+              colorScheme="orange"
+              isLoading={loading}
+              onClick={() => updateGRN(false)}
+            >
+              Save Changes
+            </Button>
 
+            <Button
+              ml={3}
+              colorScheme="green"
+              isLoading={loading}
+              isDisabled={!selectedId}
+              onClick={() => updateGRN(true)}
+            >
+              Save Changes & Post
+            </Button>
+          </>
+        ) : (
+          <>
+            <Button
+              colorScheme="blue"
+              isDisabled={mode === "VIEW"}
+              isLoading={loading}
+              onClick={() => save(false)}
+            >
+              Save Draft
+            </Button>
+
+            <Button
+              ml={3}
+              colorScheme="green"
+              isDisabled={mode === "VIEW"}
+              isLoading={loading}
+              onClick={() => save(true)}
+            >
+              Save & Post
+            </Button>
+          </>
+        )}
+
+        {/* CANCEL */}
         <Button
           ml={3}
-          colorScheme="green"
-          isDisabled={mode === "VIEW"}
-          onClick={() => save(true)}
+          colorScheme="red"
+          variant="outline"
+          onClick={() => {
+            setLoading(false);
+            resetForm();
+            loadGRNList();
+          }}
         >
-          Save & Post
+          Cancel
         </Button>
       </Box>
 
@@ -727,7 +935,7 @@ export default function ReceiveItems() {
       )}
 
       {/* SEARCH BAR */}
-      <Grid templateColumns="repeat(4, 1fr)" gap={3} mt={6}>
+      <Grid templateColumns="repeat(6, 1fr)" gap={3} mt={6}>
         <Input
           placeholder="Search supplier/ branch / GRN"
           value={listSearch}
@@ -750,30 +958,48 @@ export default function ReceiveItems() {
           }
         />
 
+        <Select
+          value={statusFilter}
+          onChange={(e) => {
+            setStatusFilter(e.target.value);
+            setPage(1);
+          }}
+        >
+          <option value="ALL">All</option>
+          <option value="PENDING">Pending</option>
+          <option value="APPROVED">Approved</option>
+          <option value="REVERSED">Reversed</option>
+        </Select>
+
+        <Button
+          colorScheme="gray"
+          variant="outline"
+          onClick={() => {
+            setListSearch("");
+            setDateFilter({ start: "", end: "" });
+            setStatusFilter("ALL");
+            setPage(1);
+            loadGRNList();
+          }}
+        >
+          Cancel
+        </Button>
+
         <Button onClick={loadGRNList}>Search</Button>
       </Grid>
 
-      <Select
-        value={statusFilter}
-        onChange={(e) => {
-          setStatusFilter(e.target.value);
-          setPage(1);
-        }}
-      >
-        <option value="ALL">All</option>
-        <option value="PENDING">Pending</option>
-        <option value="APPROVED">Approved</option>
-        <option value="REVERSED">Reversed</option>
-      </Select>
-
-      <ExistingGRNTable
-        data={grnList}
-        permissions={permissions}
-        onEdit={(id, status) => handleEdit(id, status)}
-        onView={handleView}
-        onDelete={handleDelete}
-        onPrint={handlePrint}
-      />
+      {listLoading ? (
+        <Text mt={4}>Loading GRNs...</Text>
+      ) : (
+        <ExistingGRNTable
+          data={grnList}
+          permissions={permissions}
+          onEdit={(id, status) => handleEdit(id, status)}
+          onView={handleView}
+          onDelete={handleDelete}
+          onPrint={handlePrint}
+        />
+      )}
 
       <Box mt={4} display="flex" gap={2}>
         <Button

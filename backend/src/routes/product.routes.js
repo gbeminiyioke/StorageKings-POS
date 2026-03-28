@@ -15,6 +15,8 @@ import {
   getProductById,
   getProductsByBarcode,
   searchProducts,
+  getProductBranches,
+  checkSku,
 } from "../controllers/product.controller.js";
 
 // Multer config (memory storage for easier handling)
@@ -27,7 +29,9 @@ const router = express.Router();
 router.get("/", authenticate, getProducts);
 router.get("/categories", authenticate, getCategories);
 router.get("/search", authenticate, searchProducts);
+router.get("/check-sku", authenticate, checkSku);
 router.get("/barcode/:product_code", getProductsByBarcode);
+router.get("/:id/branches", authenticate, getProductBranches);
 router.get("/:id", authenticate, getProductById);
 
 router.post(

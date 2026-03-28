@@ -126,11 +126,18 @@ export const createReceiveItems = async (req, res) => {
 
     let report = null;
 
+    let responsePayload = {
+      success: true,
+      receive_id,
+      grn,
+      report: null,
+    };
+
     if (post) {
       try {
         report = await getPurchaseReport(receive_id);
 
-        const pdfBuffer = await generateGRNPDFBuffer(receive_id);
+        //const pdfBuffer = await generateGRNPDFBuffer(receive_id);
 
         //GET SUPPLIER EMAIL
         const supplierRes = await pool.query(
@@ -138,28 +145,14 @@ export const createReceiveItems = async (req, res) => {
           [header.supplier_id],
         );
 
-        const email = supplierRes.rows[0]?.email;
-
-        if (email) {
-          await sendEmailWithAttachment({
-            to: email,
-            subject: `GRN ${grn}`,
-            text: "Please find attached Good Received Note.",
-            buffer: pdfBuffer,
-            filename: `GRN-${grn}.pdf`,
-          });
-        }
+        responsePayload.report = report;
+        responsePayload.supplier_email = supplierRes.rows[0]?.email || null;
       } catch (err) {
         console.error("Email failed", err.message);
       }
     }
 
-    res.json({
-      success: true,
-      receive_id,
-      grn,
-      report,
-    });
+    res.json(responsePayload);
   } catch (err) {
     await client.query("ROLLBACK");
     console.error(err);
@@ -171,15 +164,15 @@ export const createReceiveItems = async (req, res) => {
 
 export const listReceiveItems = async (req, res) => {
   try {
-    const { q, startDate, endDate, status, page = 1, limit = 10 } = req.query;
+    const { q, startDate, endDate, status } = req.query;
 
-    page = Number(page);
-    limit = Number(limit);
+    const page = Number(req.query.page) || 1;
+    const limit = Number(req.query.limit) || 10;
     const offset = (page - 1) * limit;
 
     let query = `SELECT r.*, s.supplier_name, b.branch_name FROM receive_items r JOIN suppliers s ON r.supplier_id = s.id JOIN branches b ON r.branch_id = b.branch_id WHERE r.receive_date >= CURRENT_DATE - INTERVAL '30 days'`;
 
-    let countQuery = `SELECT COUNT(*) FROM receive_items r JOIN supplers s ON r.supplier_id = s.id JOIN branches b ON r.branch_id = b.branch_id WHERE r.recieve_date >= CURRENT_DATE - INTERVAL '30 days'`;
+    let countQuery = `SELECT COUNT(*) FROM receive_items r JOIN suppliers s ON r.supplier_id = s.id JOIN branches b ON r.branch_id = b.branch_id WHERE r.receive_date >= CURRENT_DATE - INTERVAL '30 days'`;
 
     const params = [];
     const conditions = [];
@@ -216,10 +209,10 @@ export const listReceiveItems = async (req, res) => {
     }
 
     query += ` ORDER BY r.created_at DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
-    params.push(limit, offset);
+    const dataParams = [...params, limit, offset];
 
-    const data = await pool.query(query, params);
-    const countRes = await pool.query(countQuery, params.slice(0, 2));
+    const data = await pool.query(query, dataParams);
+    const countRes = await pool.query(countQuery, params);
 
     res.json({
       data: data.rows,
@@ -242,13 +235,16 @@ export const getReceiveById = async (req, res) => {
   );
 
   const items = await pool.query(
-    `SELECT * FROM receive_item_details WHERE receive_id = $1`,
+    `SELECT d.*, p.product_id, p.product_name, p.product_code, p.unit, COALESCE(pbb.stock_quantity, 0) AS stock_quantity, p.minimum_quantity, pbb.selling_price, (SELECT rid.cost_price FROM receive_item_details rid JOIN receive_items ri ON ri.receive_id = rid.receive_id WHERE rid.product_id = p.product_id ORDER BY ri.receive_date DESC LIMIT 1) as last_supplier_price FROM receive_item_details d JOIN products p ON d.product_id = p.product_id LEFT JOIN products_by_branch pbb ON pbb.product_id = d.product_id AND pbb.branch_id = (SELECT branch_id FROM receive_items WHERE receive_id = $1) WHERE d.receive_id = $1`,
     [id],
   );
 
   res.json({
     header: header.rows[0],
-    items: items.rows,
+    items: items.rows.map((i) => ({
+      ...i,
+      qty: i.quantity,
+    })),
   });
 };
 
@@ -340,5 +336,203 @@ export const printReceive = async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Error generating PDF" });
+  }
+};
+
+export const sendGRNEmail = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const header = await pool.query(
+      `SELECT r.*, s.email FROM receive_items r JOIN suppliers s ON r.supplier_id = s.id WHERE r.receive_id = $1`,
+      [id],
+    );
+
+    const grn = header.rows[0];
+
+    if (!grn?.email) {
+      return res.status(400).json({ message: "Supplier has no email" });
+    }
+
+    const pdfBuffer = await generateGRNPDFBuffer(id);
+
+    await sendEmailWithAttachment({
+      to: grn.email,
+      subject: `GRN ${grn.grn_no}`,
+      text: "Please find attached Goods Received Note.",
+      buffer: pdfBuffer,
+      filename: `GRN-${grn.grn_no}.pdf`,
+    });
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Email failed" });
+  }
+};
+
+export const updateReceive = async (req, res) => {
+  const { id } = req.params;
+  const { header, items, staff, post } = req.body;
+  const user_id = req.user.id;
+
+  const client = await pool.connect();
+
+  try {
+    //CONSOLE LOG
+    //console.log("UPDATE START:", { id, post });
+
+    await client.query("BEGIN");
+    //console.log("STEP 1: BEGIN TRANSACTON");
+    /*========================================
+      GET EXISTING RECORD
+    ==========================================*/
+    const existing = await client.query(
+      `SELECT status, grn_no FROM receive_items WHERE receive_id = $1`,
+      [id],
+    );
+
+    if (!existing.rows.length) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ message: "GRN not found" });
+    }
+
+    let currentStatus = existing.rows[0]?.status;
+    let grn = existing.rows[0]?.grn_no;
+
+    //console.log("STEP 2: EXISTING RECORD", existing.rows[0]);
+
+    /*========================================
+      GENERATE GRN IF POSTING
+    ==========================================*/
+    if (post && !grn) {
+      //console.log("STEP 3: GENERATING GRN...");
+      grn = await generateGRN(header.branch_id);
+    }
+
+    /*========================================
+      UPDATE HEADER
+    ==========================================*/
+    //console.log("STEP 4: UPDATING HEADER");
+    await client.query(
+      `UPDATE receive_items SET grn_no = $1, invoice_no = $2, branch_id = $3, supplier_id = $4, receive_date = $5, subtotal = $6, discount = $7, tax = $8, other_charges = $9, grand_total = $10, amount_paid = $11, outstanding = $12, received_by = $13, checked_by = $14, storekeeper = $15, status = $16 WHERE receive_id = $17`,
+      [
+        grn,
+        header.invoice_no,
+        Number(header.branch_id),
+        Number(header.supplier_id),
+        header.date,
+        Number(header.subtotal),
+        Number(header.discount),
+        Number(header.tax),
+        Number(header.other),
+        Number(header.grand_total),
+        Number(header.amount_paid),
+        Number(header.outstanding),
+        staff.received_by,
+        staff.checked_by,
+        staff.storekeeper,
+        post ? "APPROVED" : currentStatus,
+        id,
+      ],
+    );
+
+    /*========================================
+        DELETE OLD ITEMS
+    ==========================================*/
+    //console.log("DELETE OLD ITEMS");
+    await client.query(
+      `DELETE FROM receive_item_details WHERE receive_id = $1`,
+      [id],
+    );
+
+    /*========================================
+      INSERT NEW ITEMS
+    ==========================================*/
+    //console.log("STEP 6: INSERT ITEMS");
+    for (const item of items) {
+      if (!item.product_id) continue;
+
+      //console.log("INSERTING ITEM:", item.product_id);
+      await client.query(
+        `INSERT INTO receive_item_details (receive_id, product_id, unit, quantity, cost_price, discount, tax, line_total) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+        [
+          id,
+          item.product_id,
+          item.unit,
+          item.qty,
+          item.cost_price,
+          item.discount,
+          item.tax,
+          item.line_total,
+        ],
+      );
+
+      /*========================================
+        UPDATE STOCK IF POSTING
+      ==========================================*/
+      if (post && currentStatus !== "APPROVED") {
+        //console.log("STEP 7: UPDATING STOCK FOR PRODUCT:", item.product_id);
+        await updateStock(client, {
+          product_id: item.product_id,
+          branch_id: header.branch_id,
+          quantity: item.qty,
+          reference_id: id,
+          user_id,
+        });
+
+        //console.log("STOCK UPDATED:", item.product_id);
+      }
+    }
+
+    /*========================================
+      SUPPLIER TRANSACTIONS
+    ==========================================*/
+    if (post) {
+      //console.log("STEP 8: SUPPLIER TRANSACTION");
+      await recordSupplierTransaction(client, {
+        supplier_id: header.supplier_id,
+        reference_id: id,
+        reference_no: grn,
+        grand_total: header.grand_total,
+        amount_paid: header.amount_paid,
+        user_id,
+      });
+
+      //console.log("SUPPLIER TRANSACTION DONE");
+    }
+
+    /*========================================
+      LOG ACTIVITY
+    ==========================================*/
+    //console.log("STEP 9: LOG ACTIVITY");
+
+    await logActivity({
+      userId: user_id,
+      userName: req.user.name,
+      branchId: req.user.branch_id,
+      module: "INVENTORY",
+      action: post ? "POST_UPDATE" : "UPDATE",
+      description: `Updated GRN ${grn}`,
+      ipAddress: req.ip,
+    });
+
+    //console.log("STEP 10: COMMIT");
+
+    await client.query("COMMIT");
+
+    //console.log("UPDATE SUCCESS");
+
+    res.json({
+      success: true,
+      grn,
+      receive_id: id,
+    });
+  } catch (err) {
+    await client.query("ROLLBACK");
+    console.error("UPDATE RECEIVE ERROR:", err);
+    res.status(500).json({ message: "Update failed" });
+  } finally {
+    client.release();
   }
 };

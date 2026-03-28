@@ -1,8 +1,9 @@
-import PDFDocument, { ellipse, fontSize, text } from "pdfkit";
+import PDFDocument from "pdfkit";
 import pool from "../config/db.js";
-import { width } from "pdfkit/js/page";
 import QRCode from "qrcode";
-import logo from "../../../frontend/src/assets/logo-storagekings.png";
+import path from "path";
+
+const logoPath = path.join(process.cwd(), "public", "logo.png");
 
 /*==============================================
   GENERATE GRN PDF
@@ -14,7 +15,7 @@ export const generateGRNPDF = async (receive_id, res) => {
     =============================================*/
     const reportQuery = `SELECT r.*, s.supplier_name, s.telephone AS supplier_phone, b.branch_name, branch_address, branch_telephone, bus.business_name FROM receive_items r JOIN suppliers s ON r.supplier_id = s.id JOIN branches b ON r.branch_id = b.branch_id JOIN business bus ON b.business_id = bus.business_id WHERE r.receive_id = $1`;
 
-    const itemsQuery = `SELECT d.*, p.product_name FROM receive_items_details d JOIN products p ON d.product_id = p.product_id WHERE d.receive_id = $1`;
+    const itemsQuery = `SELECT d.*, p.product_name FROM receive_item_details d JOIN products p ON d.product_id = p.product_id WHERE d.receive_id = $1`;
 
     const reportRes = await pool.query(reportQuery, [receive_id]);
     const itemsRes = await pool.query(itemsQuery, [receive_id]);
@@ -73,7 +74,7 @@ export const generateGRNPDF = async (receive_id, res) => {
 const drawHeader = (doc, header, copyLabel) => {
   //LOGO
   try {
-    doc.image(logo, 40, 40, { width: 60 });
+    doc.image(logoPath, 40, 40, { width: 60 });
   } catch {}
 
   doc
@@ -102,9 +103,10 @@ const drawHeader = (doc, header, copyLabel) => {
 ==================================================*/
 const drawQR = async (doc, header) => {
   const qrData = `GRN:${header.grn_no}`;
-  const qrImage = await QRCode.toDataURL(qrData);
+  const qrBuffer = await QRCode.toBuffer(qrData);
 
-  doc.image(qrImage, 470, 120, { width: 70 });
+  doc.moveDown(2);
+  doc.image(qrBuffer, 470, 120, { width: 70 });
 };
 
 /*================================================
@@ -162,7 +164,7 @@ const drawTable = (doc, items) => {
 };
 
 const drawRow = (doc, y, row, isHeader = false) => {
-  const x = [40, 80, 250, 300, 360, 420, 480];
+  const x = [40, 70, 260, 320, 380, 440, 500];
 
   if (isHeader) doc.font("Helvetica-Bold");
   else doc.font("Helvetica");
@@ -204,14 +206,14 @@ const drawSignatures = (doc) => {
 
   const y = doc.y;
 
-  doc.text("_________________________", 40);
-  doc.text("Received By", 40);
+  doc.text("_________________________", 40, y);
+  doc.text("Received By", 40, y + 15);
 
-  doc.text("_________________________", 220);
-  doc.text("Checked By", 220);
+  doc.text("_________________________", 220, y);
+  doc.text("Checked By", 220, y + 15);
 
-  doc.text("_________________________", 400);
-  doc.text("Storekeeper", 400);
+  doc.text("_________________________", 400, y);
+  doc.text("Storekeeper", 400, y + 15);
 };
 /*================================================
   FOOTER
@@ -222,7 +224,7 @@ const drawFooter = (doc, header) => {
     .text(
       `Printed on ${new Date().toLocaleDateString()} | GRN: ${header.grn_no}`,
       40,
-      800,
+      doc.page.height - 50,
       { align: "center" },
     );
 };

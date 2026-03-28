@@ -37,14 +37,22 @@ import {
 } from "@chakra-ui/icons";
 import { useAuth } from "../context/AuthContext";
 
-const BACKEND_URL = "http://localhost:5000";
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:5000";
 
 export default function Products() {
   const { user } = useAuth();
   const permissions = user?.permissions || {};
   const toast = useToast();
 
-  const { register, handleSubmit, reset, watch, setValue, control } = useForm({
+  const {
+    register,
+    handleSubmit,
+    reset,
+    watch,
+    setValue,
+    control,
+    formState: { errors },
+  } = useForm({
     defaultValues: {
       product_code: "",
       product_name: "",
@@ -57,6 +65,7 @@ export default function Products() {
       stock_quantity: 0,
       monitor_stock: true,
       can_be_sold: true,
+      storage: false,
       packages: [],
     },
   });
@@ -82,10 +91,109 @@ export default function Products() {
   const [previewImage, setPreviewImage] = useState(null);
   const [imageDimensions, setImageDimensions] = useState(null);
 
+  const [skuExists, setSkuExists] = useState(false);
+  const [checkingSku, setCheckingSku] = useState(false);
+
+  const [branches, setBranches] = useState([]);
+  const [branchData, setBranchData] = useState([]);
+  const storage = watch("storage");
+  const canBeSold = watch("can_be_sold");
+  const monitorStock = watch("monitor_stock");
+  const sellingPrice = watch("selling_price");
+  const costPrice = watch("cost_price");
+  const minimumQty = watch("minimum_quantity");
+
   useEffect(() => {
     loadProducts();
     loadCategories();
   }, [page, search]);
+
+  const loadBranches = async () => {
+    const res = await api.get("/branches/public/enabled");
+    setBranches(res.data);
+
+    const defaultData = res.data.map((b) => ({
+      branch_id: b.branch_id,
+      branch_name: b.branch_name,
+      selling_price: 0,
+      quantity: 0,
+      reserved_quantity: 0,
+    }));
+
+    setBranchData(defaultData);
+  };
+
+  const resetBranchData = () => {
+    const resetdata = branches.map((b) => ({
+      branch_id: b.branch_id,
+      branch_name: b.branch_name,
+      selling_price: Number(sellingPrice || 0),
+      quantity: 0,
+      reserved_quantity: 0,
+    }));
+
+    setBranchData(resetdata);
+  };
+
+  useEffect(() => {
+    loadBranches();
+  }, []);
+
+  useEffect(() => {
+    if (storage) {
+      setValue("category", "Storage");
+    } else {
+      setValue("category", "");
+    }
+  }, [storage]);
+
+  useEffect(() => {
+    const total = branchData.reduce(
+      (sum, b) => sum + Number(b.quantity || 0),
+      0,
+    );
+    setValue("stock_quantity", total);
+  }, [branchData]);
+
+  useEffect(() => {
+    setBranchData((prev) =>
+      prev.map((b) => ({
+        ...b,
+        selling_price: Number(sellingPrice || 0),
+      })),
+    );
+  }, [sellingPrice]);
+
+  useEffect(() => {
+    if (branches.length) {
+      resetBranchData();
+    }
+  }, [branches]);
+
+  useEffect(() => {
+    if (!productCode) {
+      setSkuExists(false);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      try {
+        setCheckingSku(true);
+
+        const res = await api.get("/products/check-sku", {
+          params: { product_code: productCode, editingId },
+        });
+
+        setSkuExists(res.data.exists);
+      } catch {
+        setSkuExists(false);
+      } finally {
+        setCheckingSku(false);
+      }
+    }, 500); //debounce typing
+
+    return () => clearTimeout(timer);
+  }, [productCode]);
 
   const loadProducts = async () => {
     try {
@@ -125,10 +233,11 @@ export default function Products() {
       unit: "",
       cost_price: "",
       selling_price: "",
-      minimum_quantity: "",
+      minimum_quantity: 0,
       stock_quantity: 0,
       monitor_stock: true,
       can_be_sold: true,
+      storage: false,
       packages: [],
     });
     replace([]);
@@ -136,17 +245,47 @@ export default function Products() {
     setPreviewImage(null);
     setIsEdit(false);
     setEditingId(null);
+
+    setProductImage(null);
+    setPreviewImage(null);
+    setIsEdit(false);
+    setEditingId(null);
+
+    setValue("storage", false);
+    setValue("monitor_stock", true);
+    setValue("can_be_sold", true);
+
+    resetBranchData();
   };
 
   const handleEdit = async (id) => {
     const res = await api.get(`/products/${id}`);
     const product = res.data;
 
+    const branchRes = await api.get(`/products/${id}/branches`);
+
+    const merged = branches.map((b) => {
+      const found = branchRes.data.find((x) => x.branch_id === b.branch_id);
+
+      return (
+        found || {
+          branch_id: b.branch_id,
+          branch_name: b.branch_name,
+          selling_price: Number(product.selling_price || 0),
+          quantity: 0,
+          reserved_quantity: 0,
+        }
+      );
+    });
+
+    setBranchData(merged);
+
     reset({
       ...product,
       category: product.category_name || "",
       monitor_stock: !!product.monitor_stock,
       can_be_sold: !!product.can_be_sold,
+      storage: !!product.storage,
     });
 
     replace(
@@ -174,6 +313,7 @@ export default function Products() {
       category: product.category_name || "",
       monitor_stock: !!product.monitor_stock,
       can_be_sold: !!product.can_be_sold,
+      storage: !!product.storage,
     });
 
     replace(
@@ -194,6 +334,7 @@ export default function Products() {
     const file = e.target.files[0];
     if (!file) return;
 
+    setImageDimensions(null);
     setProductImage(file);
 
     const imageUrl = URL.createObjectURL(file);
@@ -213,6 +354,14 @@ export default function Products() {
   };
 
   const onSubmit = async (data) => {
+    if (skuExists && !isEdit) {
+      toast({
+        title: "Duplicate SKU detected",
+        status: "error",
+      });
+      return;
+    }
+
     try {
       setLoading(true);
       const formData = new FormData();
@@ -224,6 +373,7 @@ export default function Products() {
       });
 
       formData.append("packages", JSON.stringify(data.packages || []));
+      formData.append("branchData", JSON.stringify(branchData));
       if (productImage) formData.append("image", productImage);
 
       if (isEdit) {
@@ -237,6 +387,7 @@ export default function Products() {
       toast({ title: "Product saved", status: "success" });
 
       clearForm();
+      resetBranchData();
       loadProducts();
     } catch (err) {
       toast({
@@ -258,10 +409,22 @@ export default function Products() {
 
       {/* ================= FORM ================= */}
       <Grid templateColumns="repeat(3,1fr)" gap={6} mb={6}>
-        <FormControl>
+        <FormControl isInvalid={skuExists}>
           <FormLabel>Product Code</FormLabel>
           <Input {...register("product_code")} isDisabled={isEdit} />
           {productCode && <Barcode value={productCode} />}
+
+          {checkingSku && (
+            <Text fontSize="xs" color="gray.500">
+              Checking SKU...
+            </Text>
+          )}
+
+          {skuExists && (
+            <Text color="red.500" fontSize="sm">
+              This SKU already exists
+            </Text>
+          )}
         </FormControl>
 
         <FormControl>
@@ -333,12 +496,30 @@ export default function Products() {
 
         <FormControl>
           <FormLabel>POS Name</FormLabel>
-          <Input {...register("pos_name")} />
+          <Input
+            maxLength={20}
+            {...register("pos_name", {
+              required: "POS Name is required",
+              maxLength: {
+                value: 20,
+                message: "POS Name cannot exceed 20 characters",
+              },
+            })}
+          />
+          {errors.pos_name && (
+            <Text color="red.500" fontSize="sm">
+              {errors.pos_name.message}
+            </Text>
+          )}
         </FormControl>
 
         <FormControl>
           <FormLabel>Category</FormLabel>
-          <Input list="category-list" {...register("category")} />
+          <Input
+            list="category-list"
+            {...register("category")}
+            isDisabled={storage}
+          />
           <datalist id="category-list">
             {categories.map((c) => (
               <option key={c.category_id} value={c.category_name} />
@@ -353,38 +534,116 @@ export default function Products() {
 
         <FormControl>
           <FormLabel>Cost Price</FormLabel>
-          <NumberInput>
-            <NumberInputField {...register("cost_price")} />
+          <NumberInput
+            value={costPrice || ""}
+            onChange={(val) => setValue("cost_price", val)}
+          >
+            <NumberInputField />
           </NumberInput>
         </FormControl>
 
         <FormControl>
           <FormLabel>Selling Price</FormLabel>
-          <NumberInput>
-            <NumberInputField {...register("selling_price")} />
+          <NumberInput
+            value={sellingPrice || ""}
+            onChange={(val) => setValue("selling_price", val)}
+          >
+            <NumberInputField />
           </NumberInput>
         </FormControl>
 
         <FormControl>
           <FormLabel>Minimum Quantity</FormLabel>
-          <Input type="number" {...register("minimum_quantity")} />
+          <NumberInput
+            min={0}
+            value={minimumQty || ""}
+            onChange={(val) => setValue("minimum_quantity", val)}
+          >
+            <NumberInputField />
+          </NumberInput>
         </FormControl>
+      </Grid>
 
+      <Grid templateColumns="repeat(4, 1fr)" gap={6} mb={6}>
         <FormControl>
           <FormLabel>Stock Quantity</FormLabel>
-          <Input type="number" {...register("stock_quantity")} />
+          <Input type="number" {...register("stock_quantity")} isDisabled />
         </FormControl>
 
         <FormControl display="flex" alignItems="center">
           <FormLabel mb="0">Monitor Stock</FormLabel>
-          <Switch {...register("monitor_stock")} />
+          <Switch
+            isChecked={!!monitorStock}
+            onChange={(e) => setValue("monitor_stock", e.target.checked)}
+          />
         </FormControl>
 
         <FormControl display="flex" alignItems="center">
           <FormLabel mb="0">Can Be Sold</FormLabel>
-          <Switch {...register("can_be_sold")} />
+          <Switch
+            isChecked={!!canBeSold}
+            onChange={(e) => setValue("can_be_sold", e.target.checked)}
+          />
+        </FormControl>
+
+        <FormControl display="flex" alignItems="center">
+          <FormLabel mb="0">Storage</FormLabel>
+          <Switch
+            isChecked={!!storage}
+            onChange={(e) => setValue("storage", e.target.checked)}
+          />
         </FormControl>
       </Grid>
+
+      {/* BRANCH PRODUCT DETAILS */}
+      <Box mt={6}>
+        <Text fontWeight="bold" mb={3}>
+          Branch Product Details
+        </Text>
+
+        {/* HEADER ROW */}
+        <Flex mb={2} gap={3} fontWeight="bold">
+          <Text w="150px">Branch</Text>
+          <Text flex="1">Selling Price</Text>
+          <Text flex="1">Quantity</Text>
+          <Text flex="1">Reserved Qty</Text>
+        </Flex>
+
+        {branches.map((branch, idx) => (
+          <Flex key={branch.branch_id} mb={2} gap={3} align="center">
+            <Text w="150px">{branch.branch_name}</Text>
+
+            <NumberInput
+              value={branchData[idx]?.selling_price ?? 0}
+              onChange={(val) => {
+                const updated = [...branchData];
+                updated[idx].selling_price = Number(val);
+                setBranchData(updated);
+              }}
+            >
+              <NumberInputField placeholder="Selling Price" />
+            </NumberInput>
+
+            <NumberInput
+              value={branchData[idx]?.quantity ?? 0}
+              onChange={(val) => {
+                const updated = [...branchData];
+                updated[idx].quantity = Number(val);
+                setBranchData(updated);
+              }}
+            >
+              <NumberInputField placeholder="Quantity" />
+            </NumberInput>
+
+            <NumberInput
+              value={branchData[idx]?.reserved_quantity ?? 0}
+              isDisabled
+            >
+              <NumberInputField />
+            </NumberInput>
+          </Flex>
+        ))}
+      </Box>
 
       {/* ================= PACKAGES ================= */}
       <Box mb={6}>
@@ -446,14 +705,21 @@ export default function Products() {
       </HStack>
 
       {/* ================= PRODUCT LIST ================= */}
-      <Input
-        placeholder="Search..."
-        mb={4}
-        onChange={(e) => {
-          setSearch(e.target.value);
-          setPage(1);
-        }}
-      />
+      <Flex mb={4} justify="space-between" align="center" wrap="wrap" gap={3}>
+        <Input
+          placeholder="Search products..."
+          w={{ base: "180px", md: "220px", lg: "240px" }}
+          size="sm"
+          onChange={(e) => {
+            setSearch(e.target.value);
+            setPage(1);
+          }}
+        />
+
+        <Text fontWeight="bold" fontSize="md">
+          Total Products: {total}
+        </Text>
+      </Flex>
 
       {tableLoading ? (
         <Flex justify="center" p={10}>
@@ -518,6 +784,25 @@ export default function Products() {
           </Tbody>
         </Table>
       )}
+      <Flex mt={6} justify="center" align="center" gap={4}>
+        <Button
+          onClick={() => setPage((p) => Math.max(p - 1, 1))}
+          isDisabled={page === 1}
+        >
+          Prev
+        </Button>
+
+        <Text>
+          Page {page} of {totalPages}
+        </Text>
+
+        <Button
+          onClick={() => setPage((p) => Math.min(p + 1, totalPages))}
+          isDisabled={page === totalPages}
+        >
+          Next
+        </Button>
+      </Flex>
     </Box>
   );
 }

@@ -32,8 +32,8 @@ export default function ReceiveItemsTable({
   const columns = ["product_name", "cost_price", "qty", "discount", "tax"];
 
   const addRow = () => {
-    setItems([
-      ...items,
+    setItems((prev) => [
+      ...prev,
       {
         product_id: "",
         product_name: "",
@@ -43,6 +43,11 @@ export default function ReceiveItemsTable({
         discount: 0,
         tax: 0,
         line_total: 0,
+
+        stock_quantity: 0,
+        minimum_quantity: 0,
+        selling_price: 0,
+        last_supplier_price: 0,
       },
     ]);
   };
@@ -51,6 +56,8 @@ export default function ReceiveItemsTable({
     const copy = [...items];
     copy.splice(i, 1);
     setItems(copy);
+
+    inputRefs.current.splice(i, 1);
   };
 
   /*====================================
@@ -85,14 +92,19 @@ export default function ReceiveItemsTable({
 
     copy[rowIndex] = {
       ...copy[rowIndex],
-      product_id: product.product_id,
-      product_name: product.product_name,
-      unit: product.unit,
-      cost_price: product.cost_price,
+      product_id: product.product_id || "",
+      product_name: product.product_name || "",
+      unit: product.unit || "pcs",
+      cost_price: product.cost_price || 0,
       qty: 1,
       discount: 0,
       tax: 0,
-      line_total: product.cost_price,
+      line_total: product.cost_price || 0,
+
+      stock_quantity: product.stock_quantity ?? 0,
+      minimum_quantity: product.minimum_quantity ?? 0,
+      selling_price: product.selling_price ?? 0,
+      last_supplier_price: product.last_supplier_price ?? 0,
     };
 
     setItems(copy);
@@ -180,7 +192,7 @@ export default function ReceiveItemsTable({
                 <Td position="relative">
                   <Input
                     ref={(el) => (inputRefs.current[i][0] = el)}
-                    value={item.product_name}
+                    value={item.product_name || ""}
                     isDisabled={isView}
                     placeholder="Search product..."
                     onKeyDown={(e) => handleKey(e, i, 0)}
@@ -230,11 +242,11 @@ export default function ReceiveItemsTable({
                   <Input
                     ref={(el) => (inputRefs.current[i][2] = el)}
                     type="number"
-                    value={item.cost_price || ""}
+                    value={item.cost_price ?? ""}
                     isDisabled={isView}
                     onKeyDown={(e) => handleKey(e, i, 2)}
                     onChange={(e) =>
-                      updateItem(i, "cost_price", e.target.value)
+                      updateItem(i, "cost_price", Number(e.target.value) || 0)
                     }
                   />
                 </Td>
@@ -244,10 +256,12 @@ export default function ReceiveItemsTable({
                   <Input
                     ref={(el) => (inputRefs.current[i][3] = el)}
                     type="number"
-                    value={item.qty || ""}
+                    value={item.qty ?? ""}
                     isDisabled={isView}
                     onKeyDown={(e) => handleKey(e, i, 3)}
-                    onChange={(e) => updateItem(i, "qty", e.target.value)}
+                    onChange={(e) =>
+                      updateItem(i, "qty", Number(e.target.value) || 0)
+                    }
                   />
                 </Td>
 
@@ -256,10 +270,12 @@ export default function ReceiveItemsTable({
                   <Input
                     ref={(el) => (inputRefs.current[i][4] = el)}
                     type="number"
-                    value={item.discount || ""}
+                    value={item.discount ?? ""}
                     isDisabled={isView}
                     onKeyDown={(e) => handleKey(e, i, 4)}
-                    onChange={(e) => updateItem(i, "discount", e.target.value)}
+                    onChange={(e) =>
+                      updateItem(i, "discount", Number(e.target.value) || 0)
+                    }
                   />
                 </Td>
 
@@ -268,17 +284,19 @@ export default function ReceiveItemsTable({
                   <Input
                     ref={(el) => (inputRefs.current[i][5] = el)}
                     type="number"
-                    value={item.tax || ""}
+                    value={item.tax ?? ""}
                     isDisabled={isView}
                     onKeyDown={(e) => handleKey(e, i, 5)}
-                    onChange={(e) => updateItem(i, "tax", e.target.value)}
+                    onChange={(e) =>
+                      updateItem(i, "tax", Number(e.target.value) || 0)
+                    }
                   />
                 </Td>
 
                 {/* CURRENT STOCK */}
                 <Td
                   color={
-                    item.stock_quantity < item.minimum_quantity
+                    (item.stock_quantity ?? 0) < (item.minimum_quantity ?? 0)
                       ? "red.500"
                       : "grey.700"
                   }

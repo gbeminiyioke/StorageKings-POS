@@ -7,6 +7,13 @@ export default function ReceiveHeader({
   suppliers,
   isView,
 }) {
+  const updateHeader = (field, value) => {
+    setHeader((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+  };
+
   return (
     <>
       <Grid templateColumns="repeat(4, 1fr)" gap={4} mb={4}>
@@ -14,9 +21,9 @@ export default function ReceiveHeader({
           <FormLabel>Date</FormLabel>
           <Input
             type="date"
-            value={header.date}
+            value={header.date || ""}
             isDisabled={isView}
-            onChange={(e) => setHeader({ ...header, date: e.target.value })}
+            onChange={(e) => updateHeader("date", e.target.value)}
           />
         </FormControl>
 
@@ -28,25 +35,23 @@ export default function ReceiveHeader({
         <FormControl>
           <FormLabel>Invoice No</FormLabel>
           <Input
-            value={header.invoice_no}
+            value={header.invoice_no || ""}
             isDisabled={isView}
-            onChange={(e) =>
-              setHeader({ ...header, invoice_no: e.target.value })
-            }
+            onChange={(e) => updateHeader("invoice_no", e.target.value)}
           />
         </FormControl>
 
         <FormControl>
           <FormLabel>Branch</FormLabel>
           <Select
-            value={header.branch_id}
+            value={header.branch_id || ""}
             isDisabled={isView}
             onChange={(e) =>
-              setHeader({ ...header, branch_id: e.target.value })
+              updateHeader("branch_id", Number(e.target.value) || "")
             }
           >
             <option value="">Select Branch</option>
-            {branches.map((b) => (
+            {(branches || []).map((b) => (
               <option key={b.branch_id} value={b.branch_id}>
                 {b.branch_name}
               </option>
@@ -59,15 +64,15 @@ export default function ReceiveHeader({
         <FormControl gridColumn="span 1">
           <FormLabel>Supplier</FormLabel>
           <Select
-            value={header.supplier_id}
+            value={header.supplier_id || ""}
             isDisabled={isView}
             onChange={(e) =>
-              setHeader({ ...header, supplier_id: e.target.value })
+              updateHeader("supplier_id", Number(e.target.value) || "")
             }
           >
             <option value="">Select Supplier</option>
 
-            {suppliers.map((s) => (
+            {(suppliers || []).map((s) => (
               <option key={s.id} value={s.id}>
                 {s.supplier_name}
               </option>
@@ -77,7 +82,7 @@ export default function ReceiveHeader({
 
         <FormControl gridColumn="span 1">
           <FormLabel>Supplier Balance</FormLabel>
-          <Input value={header.supplier_balance || ""} isDisabled />
+          <Input value={header.supplier_balance ?? ""} isDisabled />
         </FormControl>
       </Grid>
     </>
