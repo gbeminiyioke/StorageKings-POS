@@ -7,6 +7,7 @@ import {
   getCustomers,
   updateCustomer,
   deleteCustomer,
+  searchCustomers,
 } from "../controllers/customer.controller.js";
 
 const router = express.Router();
@@ -14,8 +15,9 @@ const router = express.Router();
 router.use(authenticate);
 router.use(sessionTimeout);
 
-router.post("/", authorize("can_create"), createCustomer);
+router.get("/search", searchCustomers);
 router.get("/", authorize("can_view"), getCustomers);
+router.post("/", authorize("can_create"), createCustomer);
 router.put("/:id", authorize("can_edit"), updateCustomer);
 router.delete("/:id", authorize("can_delete"), deleteCustomer);
 

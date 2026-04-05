@@ -270,3 +270,40 @@ export const deleteCustomer = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
+
+export const searchCustomers = async (req, res) => {
+  try {
+    const { q = "" } = req.query;
+
+    if (!q.trim()) {
+      return res.json({ data: [] });
+    }
+
+    const result = await pool.query(
+      `
+      SELECT
+        id,
+        fullname,
+        telephone,
+        current_balance,
+        payment_terms,
+        email
+      FROM customers
+      WHERE enable = true
+        AND (
+          fullname ILIKE $1
+          OR telephone ILIKE $1
+          OR email ILIKE $1
+        )
+      ORDER BY fullname
+      LIMIT 20
+    `,
+      [`%${q.trim()}%`],
+    );
+
+    res.json({ data: result.rows });
+  } catch (err) {
+    console.error("Customer search error:", err);
+    res.status(500).json({ message: "Failed to search customers" });
+  }
+};

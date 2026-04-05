@@ -31,6 +31,13 @@ export default function ReceiveItemsTable({
 
   const columns = ["product_name", "cost_price", "qty", "discount", "tax"];
 
+  const setCellRef = (rowIndex, colIndex, el) => {
+    if (!inputRefs.current[rowIndex]) {
+      inputRefs.current[rowIndex] = [];
+    }
+    inputRefs.current[rowIndex][colIndex] = el;
+  };
+
   const addRow = () => {
     setItems((prev) => [
       ...prev,
@@ -52,12 +59,29 @@ export default function ReceiveItemsTable({
     ]);
   };
 
-  const removeRow = (i) => {
-    const copy = [...items];
-    copy.splice(i, 1);
-    setItems(copy);
+  const removeRow = (rowIndex) => {
+    setItems((prev) => {
+      const updated = prev.filter((_, i) => i !== rowIndex);
 
-    inputRefs.current.splice(i, 1);
+      //REMOVE REFS ROW
+      //inputRefs.current.splice(rowIndex, 1);
+      inputRefs.current = inputRefs.current.filter((_, i) => i !== rowIndex);
+
+      return updated.length
+        ? updated
+        : [
+            {
+              product_id: "",
+              product_name: "",
+              unit: "",
+              qty: 1,
+              cost_price: 0,
+              discount: 0,
+              tax: 0,
+              line_total: 0,
+            },
+          ];
+    });
   };
 
   /*====================================
@@ -191,7 +215,7 @@ export default function ReceiveItemsTable({
                 {/* PRODUCT */}
                 <Td position="relative">
                   <Input
-                    ref={(el) => (inputRefs.current[i][0] = el)}
+                    ref={(el) => setCellRef(i, 0, el)}
                     value={item.product_name || ""}
                     isDisabled={isView}
                     placeholder="Search product..."
@@ -230,7 +254,7 @@ export default function ReceiveItemsTable({
                 {/* UNIT */}
                 <Td>
                   <Input
-                    ref={(el) => (inputRefs.current[i][1] = el)}
+                    ref={(el) => setCellRef(i, 1, el)}
                     value={item.unit || ""}
                     isDisabled={isView}
                     onChange={(e) => updateItem(i, "unit", e.target.value)}
@@ -240,7 +264,7 @@ export default function ReceiveItemsTable({
                 {/* COST PRICE */}
                 <Td>
                   <Input
-                    ref={(el) => (inputRefs.current[i][2] = el)}
+                    ref={(el) => setCellRef(i, 2, el)}
                     type="number"
                     value={item.cost_price ?? ""}
                     isDisabled={isView}
@@ -254,7 +278,7 @@ export default function ReceiveItemsTable({
                 {/* QTY */}
                 <Td>
                   <Input
-                    ref={(el) => (inputRefs.current[i][3] = el)}
+                    ref={(el) => setCellRef(i, 3, el)}
                     type="number"
                     value={item.qty ?? ""}
                     isDisabled={isView}
@@ -268,7 +292,7 @@ export default function ReceiveItemsTable({
                 {/* DISCOUNT */}
                 <Td>
                   <Input
-                    ref={(el) => (inputRefs.current[i][4] = el)}
+                    ref={(el) => setCellRef(i, 4, el)}
                     type="number"
                     value={item.discount ?? ""}
                     isDisabled={isView}
@@ -282,7 +306,7 @@ export default function ReceiveItemsTable({
                 {/* TAX */}
                 <Td>
                   <Input
-                    ref={(el) => (inputRefs.current[i][5] = el)}
+                    ref={(el) => setCellRef(i, 5, el)}
                     type="number"
                     value={item.tax ?? ""}
                     isDisabled={isView}

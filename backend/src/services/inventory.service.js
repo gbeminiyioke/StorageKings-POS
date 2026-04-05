@@ -32,3 +32,39 @@ export const updateStock = async (
     throw err;
   }
 };
+
+/* =====================================================
+   GET PRODUCTS FOR POS (BRANCH SPECIFIC)
+===================================================== */
+export const getPOSProductsService = async (branch_id) => {
+  const result = await pool.query(
+    `
+    SELECT
+      p.product_id,
+      p.product_name,
+      p.product_code,
+      p.pos_name,
+      p.unit,
+      p.monitor_stock,
+      p.can_be_sold,
+      p.deleted,
+      p.category_id,
+      c.category_name,
+      p.cost_price,
+      COALESCE(pbb.selling_price, p.selling_price) AS selling_price,
+      COALESCE(pbb.stock_quantity, 0) AS stock_quantity
+    FROM products p
+    JOIN products_by_branch pbb
+      ON pbb.product_id = p.product_id
+    LEFT JOIN categories c
+      ON c.category_id = p.category_id
+    WHERE p.deleted = false
+      AND p.can_be_sold = true
+      AND pbb.branch_id = $1
+    ORDER BY p.product_name ASC
+  `,
+    [branch_id],
+  );
+
+  return result.rows;
+};

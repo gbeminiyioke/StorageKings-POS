@@ -16,6 +16,10 @@ import supplierRoutes from "./routes/supplier.routes.js";
 import customerRoutes from "./routes/customer.routes.js";
 import receiveItemRoutes from "./routes/receive.routes.js";
 import purchasesReportRoutes from "./routes/purchasesReport.routes.js";
+import posRoutes from "./routes/pos.routes.js";
+import transferRoutes from "./routes/transfer.routes.js";
+import storageRoutes from "./routes/storage.routes.js";
+import dischargeRoutes from "./routes/discharge.routes.js";
 
 //const app = express();
 
@@ -56,6 +60,10 @@ app.use("/api/suppliers", supplierRoutes);
 app.use("/api/customers", customerRoutes);
 app.use("/api/receive-items", receiveItemRoutes);
 app.use("/api/reports", purchasesReportRoutes);
+app.use("/api/pos", posRoutes);
+app.use("/api/transfers", transferRoutes);
+app.use("/api/storage", storageRoutes);
+app.use("/api/discharge", dischargeRoutes);
 
 app.listen(PORT, () => {
   console.log(`Backend running on port ${PORT}`);

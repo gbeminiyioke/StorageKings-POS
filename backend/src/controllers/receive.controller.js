@@ -76,6 +76,18 @@ export const createReceiveItems = async (req, res) => {
     for (const item of items) {
       if (!item.product_id) continue;
 
+      const validateProduct = await client.query(
+        `SELECT 1 FROM products WHERE product_id = $1 AND deleted = false AND can_be_sold = true AND storage = false`,
+        [item.product_id],
+      );
+
+      if (!validateProduct.rows.length) {
+        await client.query("ROLLBACK");
+        return res.status(400).json({
+          message: "One or more products are not allowed for receiving",
+        });
+      }
+
       await client.query(
         `INSERT INTO receive_item_details (receive_id, product_id, unit, quantity, cost_price, discount, tax, line_total) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
         [
@@ -91,7 +103,7 @@ export const createReceiveItems = async (req, res) => {
       );
 
       if (post) {
-        await updateStock({
+        await updateStock(client, {
           product_id: item.product_id,
           branch_id: header.branch_id,
           quantity: item.qty,
@@ -452,6 +464,19 @@ export const updateReceive = async (req, res) => {
     //console.log("STEP 6: INSERT ITEMS");
     for (const item of items) {
       if (!item.product_id) continue;
+
+      /* VALIDATE PRODUCT IS RECEIVABLE */
+      const valdateProduct = await client.query(
+        `SELECT 1 FROM products WHERE product_id = $1 AND deleted = false AND can_be_sold = true AND storage = false`,
+        [item.product_id],
+      );
+
+      if (!validateProduct.rows.length) {
+        await client.query("ROLLBACK");
+        return res
+          .status(400)
+          .json({ message: "One or more products not allowed for receiving" });
+      }
 
       //console.log("INSERTING ITEM:", item.product_id);
       await client.query(

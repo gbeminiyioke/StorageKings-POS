@@ -3,6 +3,7 @@ import pool from "../config/db.js"; // PostgreSQL pool
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
+import { getPOSProductsService } from "../services/inventory.service.js";
 
 // Ensure uploads folder exists
 const __filename = fileURLToPath(import.meta.url);
@@ -282,38 +283,6 @@ export const updateProduct = async (req, res) => {
     /*============================================
       AUTO PRICE SYNC ACROSS BRANCHES
     ==============================================*/
-    /*
-    await client.query(
-      `UPDATE products_by_branch SET selling_price = $1 WHERE product_id = $2 AND auto_price_sync = true`,
-      [parseFloat(selling_price), product_id],
-    );
-*/
-    /*============================================
-      ENSURE PRODUCT EXISTS IN products_by_branch
-    ==============================================*/
-    /*
-    const branches = await client.query(`SELECT branch_id FROM branches`);
-
-    for (const branch of branches.rows) {
-      const exists = await client.query(
-        `SELECT 1 FROM products_by_branch WHERE product_id = $1 AND branch_id = $2`,
-        [product_id, branch.branch_id],
-      );
-
-      if (!exists.rows.length) {
-        await client.query(
-          `INSERT INTO products_by_branch (product_id, branch_id, selling_price, stock_quantity) VALUES ($1, $2, $3, $4)`,
-          [
-            product_id,
-            branch.branch_id,
-            parseFloat(selling_price),
-            parseFloat(stock_quantity) || 0,
-          ],
-        );
-      }
-    }
-*/
-
     if (branchData) {
       const parsed = JSON.parse(branchData);
 
@@ -453,7 +422,7 @@ export const getProductsByBarcode = async (req, res) => {
     const { branch_id } = req.query;
 
     const result = await pool.query(
-      `SELECT p.product_id, p.product_code, p.product_name, p.unit, p.pos_name, p.cost_price, p.selling_price, p.minimum_quantity, COALESCE(pbb.stock_quantity, 0) AS stock_quantity, (SELECT rid.cost_price FROM receive_item_details rid JOIN receive_items ri ON ri.receive_id = rid.receive_id WHERE rid.product_id = p.product_id ORDER BY ri.receive_date DESC LIMIT 1) as last_supplier_price, (SELECT ri.receive_date FROM receive_item_details rid JOIN receive_items ri ON ri.receive_id = rid.receive_id WHERE rid.product_id = p.product_id ORDER BY ri.receive_date DESC LIMIT 1) as last_purchase_date FROM products p LEFT JOIN products_by_branch pbb ON pbb.product_id = p.product_id AND pbb.branch_id = $2 WHERE product_code = $1 AND p.can_be_sold = true AND p.deleted = false`,
+      `SELECT p.product_id, p.product_code, p.product_name, p.unit, p.pos_name, p.cost_price, p.selling_price, p.minimum_quantity, COALESCE(pbb.stock_quantity, 0) AS stock_quantity, (SELECT rid.cost_price FROM receive_item_details rid JOIN receive_items ri ON ri.receive_id = rid.receive_id WHERE rid.product_id = p.product_id ORDER BY ri.receive_date DESC LIMIT 1) as last_supplier_price, (SELECT ri.receive_date FROM receive_item_details rid JOIN receive_items ri ON ri.receive_id = rid.receive_id WHERE rid.product_id = p.product_id ORDER BY ri.receive_date DESC LIMIT 1) as last_purchase_date FROM products p LEFT JOIN products_by_branch pbb ON pbb.product_id = p.product_id AND pbb.branch_id = $2 WHERE product_code = $1 AND p.can_be_sold = true AND p.deleted = false AND storage = false`,
       [product_code, branch_id],
     );
 
@@ -481,7 +450,7 @@ export const searchProducts = async (req, res) => {
     q = q.trim();
 
     const result = await pool.query(
-      `SELECT product_id, product_name, product_code, pos_name, unit, cost_price FROM products WHERE deleted = false AND product_name ILIKE $1 ORDER BY product_name LIMIT 20`,
+      `SELECT product_id, product_name, product_code, pos_name, unit, cost_price FROM products WHERE deleted = false AND can_be_sold = true AND storage = false AND product_name ILIKE $1 ORDER BY product_name LIMIT 20`,
       [`%${q}%`],
     );
 
@@ -537,5 +506,21 @@ export const checkSku = async (req, res) => {
   } catch (err) {
     console.error("Check SKU error:", err);
     res.status(500).json({ message: "Failed to check SKU" });
+  }
+};
+
+/* =====================================================
+   GET PRODUCTS FOR POS
+===================================================== */
+export const getPOSProducts = async (req, res) => {
+  try {
+    const branch_id = req.user.branchId;
+
+    const products = await getPOSProductsService(branch_id);
+
+    res.json(products);
+  } catch (err) {
+    console.error("getPOSProducts error:", err);
+    res.status(500).json({ message: "Failed to load POS products" });
   }
 };

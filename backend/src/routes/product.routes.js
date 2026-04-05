@@ -17,6 +17,7 @@ import {
   searchProducts,
   getProductBranches,
   checkSku,
+  getPOSProducts,
 } from "../controllers/product.controller.js";
 
 // Multer config (memory storage for easier handling)
@@ -32,6 +33,7 @@ router.get("/search", authenticate, searchProducts);
 router.get("/check-sku", authenticate, checkSku);
 router.get("/barcode/:product_code", getProductsByBarcode);
 router.get("/:id/branches", authenticate, getProductBranches);
+router.get("/pos", authenticate, getPOSProducts);
 router.get("/:id", authenticate, getProductById);
 
 router.post(

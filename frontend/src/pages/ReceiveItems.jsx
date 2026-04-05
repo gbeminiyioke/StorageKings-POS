@@ -166,6 +166,7 @@ export default function ReceiveItems() {
       return [
         ...prev,
         {
+          row_id: crypto.randomUUID(),
           product_id: product.product_id,
           product_code: product.product_code,
           product_name: product.product_name,
@@ -267,6 +268,7 @@ export default function ReceiveItems() {
     if (items.length === 0) {
       setItems([
         {
+          row_id: crypto.randomUUID(),
           product_id: "",
           product_name: "",
           unit: "",

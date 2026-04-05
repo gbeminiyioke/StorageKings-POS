@@ -18,6 +18,11 @@ import Suppliers from "./pages/Suppliers";
 import Customers from "./pages/Customers";
 import ReceiveItems from "./pages/ReceiveItems";
 import PurchasesReport from "./pages/PurchasesReport";
+import SalesPage from "./pages/SalesPage";
+import SalesInvoicePage from "./pages/SalesInvoicePage";
+import Transfers from "./pages/Transfers";
+import StoragePage from "./pages/StoragePage";
+import DischargePage from "./pages/DischargePage";
 
 export default function App() {
   return (
@@ -28,6 +33,8 @@ export default function App() {
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/unauthorized" element={<Unauthorized />} />
       <Route path="/reports/purchases" element={<PurchasesReport />} />
+
+      <Route path="/sales/invoice/:sale_id" element={<SalesInvoicePage />} />
 
       {/* ================ CUSTOMER ================ */}
       <Route
@@ -50,6 +57,43 @@ export default function App() {
       >
         {/* ========= DASHBOARD HOME ========= */}
         <Route index element={<StaffDashboard />} />
+
+        {/*============== SALES =============== */}
+        <Route
+          path="sales"
+          element={
+            <ProtectedRoute permission="sales">
+              <SalesPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="transfer"
+          element={
+            <ProtectedRoute permission="transfer">
+              <Transfers />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="storage"
+          element={
+            <ProtectedRoute permission="storage">
+              <StoragePage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="discharge-items"
+          element={
+            <ProtectedRoute permission="discharge_items">
+              <DischargePage />
+            </ProtectedRoute>
+          }
+        />
 
         <Route
           path="products"
