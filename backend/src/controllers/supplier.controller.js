@@ -25,14 +25,18 @@ export const createSupplier = async (req, res) => {
       whatsapp,
       ig,
       facebook,
+      next_of_kin,
+      next_of_kin_telephone,
+      image_url,
     } = req.body;
 
-    /* ======= VALIDATION ======= */
-    if (!supplier_name || !supplier_type)
+    if (!supplier_name || !supplier_type) {
       return res.status(400).json({ message: "Required fields are missing" });
+    }
 
-    if (!supplier_type === "Individual" && !sex)
+    if (supplier_type === "Individual" && !sex) {
       return res.status(400).json({ message: "Select sex" });
+    }
 
     if (!telephone) {
       return res.status(400).json({ message: "Telephone number is required" });
@@ -56,7 +60,35 @@ export const createSupplier = async (req, res) => {
     }
 
     const result = await pool.query(
-      `INSERT INTO suppliers (supplier_name, supplier_type, sex, telephone, address_1, address_2, address_3, fax, email, website, contact_name, contact_telephone, current_balance, payment_terms, enable, whatsapp, ig, facebook, created_by) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19) RETURNING *`,
+      `INSERT INTO suppliers (
+        supplier_name,
+        supplier_type,
+        sex,
+        telephone,
+        address_1,
+        address_2,
+        address_3,
+        fax,
+        email,
+        website,
+        contact_name,
+        contact_telephone,
+        current_balance,
+        payment_terms,
+        enable,
+        whatsapp,
+        ig,
+        facebook,
+        next_of_kin,
+        next_of_kin_telephone,
+        image_url,
+        created_by
+      )
+      VALUES (
+        $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,
+        $11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22
+      )
+      RETURNING *`,
       [
         supplier_name,
         supplier_type,
@@ -76,11 +108,13 @@ export const createSupplier = async (req, res) => {
         whatsapp || null,
         ig || null,
         facebook || null,
+        next_of_kin || null,
+        next_of_kin_telephone || null,
+        image_url || null,
         req.user.id,
       ],
     );
 
-    /* === ACTIVITY LOG === */
     await logActivity({
       userId: req.user.id,
       userName: req.user.name,
@@ -104,37 +138,49 @@ export const createSupplier = async (req, res) => {
 export const getSuppliers = async (req, res) => {
   try {
     const { search = "", page = 1, limit = 10 } = req.query;
-    const offset = (page - 1) * limit;
+
+    const pageNumber = Number(page);
+    const limitNumber = Number(limit);
+    const offset = (pageNumber - 1) * limitNumber;
+
     const searchTerm = `%${search}%`;
 
     const result = await pool.query(
-      `SELECT * FROM suppliers WHERE supplier_name ILIKE $1 OR supplier_type ILIKE $1 OR telephone ILIKE $1 ORDER BY id DESC
-      LIMIT $2 OFFSET $3`,
-      [searchTerm, limit, offset],
+      `SELECT *
+       FROM suppliers
+       WHERE supplier_name ILIKE $1
+          OR supplier_type ILIKE $1
+          OR telephone ILIKE $1
+       ORDER BY id DESC
+       LIMIT $2 OFFSET $3`,
+      [searchTerm, limitNumber, offset],
     );
 
     const count = await pool.query(
-      `SELECT COUNT (*) FROM suppliers WHERE supplier_name ILIKE $1 or supplier_type ILIKE $1 or telephone ILIKE $1`,
+      `SELECT COUNT(*) 
+       FROM suppliers
+       WHERE supplier_name ILIKE $1
+          OR supplier_type ILIKE $1
+          OR telephone ILIKE $1`,
       [searchTerm],
     );
 
-    /* === ACTIVITY LOG === */
     await logActivity({
       userId: req.user.id,
       userName: req.user.name,
       branchId: req.user.branch_id,
       module: "INVENTORY",
       action: "VIEW",
-      description: `Viewed suppliers list`,
+      description: "Viewed suppliers list",
       ipAddress: req.ip,
     });
 
     res.json({
       data: result.rows,
-      total: parseInt(count.rows[0].count),
+      total: Number(count.rows[0].count),
     });
   } catch (err) {
-    console.error("Get suppliers error", err);
+    console.error("Get suppliers error:", err);
     res.status(500).json({ message: "Server error" });
   }
 };
@@ -153,7 +199,32 @@ export const updateSupplier = async (req, res) => {
     }
 
     const updated = await pool.query(
-      `UPDATE suppliers SET supplier_name = $1, supplier_type = $2, sex = $3, telephone = $4, address_1 = $5, address_2 = $6,address_3 = $7, fax = $8, email = $9, website = $10, contact_name = $11, contact_telephone = $12, current_balance = $13, payment_terms = $14, enable = $15, whatsapp = $16, ig = $17, facebook = $18, updated_at = NOW(), last_edited_by = $19 WHERE id = $20 RETURNING *`,
+      `UPDATE suppliers SET
+        supplier_name = $1,
+        supplier_type = $2,
+        sex = $3,
+        telephone = $4,
+        address_1 = $5,
+        address_2 = $6,
+        address_3 = $7,
+        fax = $8,
+        email = $9,
+        website = $10,
+        contact_name = $11,
+        contact_telephone = $12,
+        current_balance = $13,
+        payment_terms = $14,
+        enable = $15,
+        whatsapp = $16,
+        ig = $17,
+        facebook = $18,
+        next_of_kin = $19,
+        next_of_kin_telephone = $20,
+        image_url = $21,
+        updated_at = NOW(),
+        last_edited_by = $22
+      WHERE id = $23
+      RETURNING *`,
       [
         req.body.supplier_name,
         req.body.supplier_type,
@@ -173,6 +244,9 @@ export const updateSupplier = async (req, res) => {
         req.body.whatsapp || null,
         req.body.ig || null,
         req.body.facebook || null,
+        req.body.next_of_kin || null,
+        req.body.next_of_kin_telephone || null,
+        req.body.image_url || null,
         req.user.id,
         id,
       ],
@@ -197,7 +271,7 @@ export const updateSupplier = async (req, res) => {
 
 /* ============================================
  DELETE SUPPLIER
- ==============================================*/
+==============================================*/
 export const deleteSupplier = async (req, res) => {
   try {
     const { id } = req.params;
@@ -211,19 +285,7 @@ export const deleteSupplier = async (req, res) => {
       return res.status(404).json({ message: "Supplier not found" });
     }
 
-    /*=== PREVENT DELETE IF SUPPLIER HAS TRANSACTIONS === */
-    //const transactions = await pool.query(
-    //  "SELECT id FROM purchases WHERE supplier_id = $1 LIMIT 1",
-    //  [id],
-    //);
-
-    //if (transactions.rows.length) {
-    //  return res.status(400).json({
-    //    message: "Cannot delete supplier with existing transactions",
-    //  });
-    //}
-
-    await pool.query(`DELETE FROM suppliers WHERE id = $1`, [id]);
+    await pool.query("DELETE FROM suppliers WHERE id = $1", [id]);
 
     await logActivity({
       userId: req.user.id,

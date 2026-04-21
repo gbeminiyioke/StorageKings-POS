@@ -27,10 +27,12 @@ import {
   AlertDialogContent,
   AlertDialogOverlay,
 } from "@chakra-ui/react";
-import { EditIcon, DeleteIcon, CopyIcon } from "@chakra-ui/icons";
+import { EditIcon, DeleteIcon, CopyIcon, AddIcon } from "@chakra-ui/icons";
+import { FaPrint } from "react-icons/fa";
 import { useForm } from "react-hook-form";
 import api from "../api/api";
 import { useAuth } from "../context/AuthContext";
+import { generateSupplierPdf } from "../services/supplierPdf.service";
 
 export default function Suppliers() {
   const { hasPermission } = useAuth();
@@ -54,6 +56,9 @@ export default function Suppliers() {
     whatsapp: "",
     ig: "",
     facebook: "",
+    next_of_kin: "",
+    next_of_kin_telephone: "",
+    image_url: "",
     enable: true,
   };
 
@@ -79,6 +84,9 @@ export default function Suppliers() {
 
   const [loading, setLoading] = useState(false);
   const [deleteId, setDeleteId] = useState(null);
+
+  const fileInputRef = useRef(null);
+  const [imagePreview, setImagePreview] = useState("");
 
   const cancelRef = useRef();
 
@@ -109,6 +117,21 @@ export default function Suppliers() {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     });
+  };
+
+  const handleImageSelect = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+
+    reader.onloadend = () => {
+      const base64 = reader.result;
+      setImagePreview(base64);
+      setValue("image_url", base64);
+    };
+
+    reader.readAsDataURL(file);
   };
 
   /*=====================================
@@ -147,6 +170,13 @@ export default function Suppliers() {
 
       reset(defaultValues);
       setEditingId(null);
+
+      setImagePreview("");
+
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+
       loadSuppliers();
     } catch (err) {
       if (err.response?.data?.message === " SUPPLIER_NAME_EXISTS") {
@@ -171,6 +201,7 @@ export default function Suppliers() {
   =====================================*/
   const handleEdit = (supplier) => {
     setEditingId(supplier.id);
+    setImagePreview(supplier.image_url || "");
     reset(supplier);
   };
 
@@ -180,6 +211,7 @@ export default function Suppliers() {
   const handleCancel = () => {
     reset(defaultValues);
     setEditingId(null);
+    setImagePreview("");
   };
 
   /*====================================
@@ -189,7 +221,10 @@ export default function Suppliers() {
     const clone = { ...supplier };
     delete clone.id;
     clone.supplier_name = `${supplier.supplier_name} (Copy)`;
+
     reset(clone);
+    setEditingId(null);
+    setImagePreview(clone.image_url || "");
   };
 
   /*====================================
@@ -363,11 +398,82 @@ export default function Suppliers() {
             </FormControl>
           </Grid>
 
-          <Grid templateColumns="1fr" gap={4} mt={4}>
-            <FormControl>
-              <FormLabel>Facebook</FormLabel>
-              <Input {...register("facebook")} />
-            </FormControl>
+          <Grid templateColumns="1fr 1fr" gap={4} mt={4} alignItems="start">
+            <Box>
+              <FormControl>
+                <FormLabel>Facebook</FormLabel>
+                <Input {...register("facebook")} />
+              </FormControl>
+
+              <FormControl mt={4}>
+                <FormLabel>Next Of Kin</FormLabel>
+                <Input {...register("next_of_kin")} />
+              </FormControl>
+
+              <FormControl mt={4}>
+                <FormLabel>Next Of Kin Telephone</FormLabel>
+                <Input {...register("next_of_kin_telephone")} />
+              </FormControl>
+            </Box>
+
+            <Flex
+              border="1px dashed"
+              borderColor="gray.300"
+              borderRadius="md"
+              minH="220px"
+              cursor="pointer"
+              bg="gray.50"
+              onClick={() => fileInputRef.current?.click()}
+              _hover={{ borderColor: "blue.400", bg: "blue.50" }}
+              align="center"
+              justify="center"
+              p={3}
+              overflow="hidden"
+            >
+              <input
+                type="file"
+                accept="image/*"
+                ref={fileInputRef}
+                style={{ display: "none" }}
+                onChange={handleImageSelect}
+              />
+
+              {imagePreview ? (
+                <Flex direction="column" align="center" w="100%" gap={3}>
+                  <Box
+                    as="img"
+                    src={imagePreview}
+                    alt="Supplier"
+                    maxW="100%"
+                    maxH="200px"
+                    objectFit="contain"
+                  />
+
+                  <Button
+                    size="sm"
+                    colorScheme="red"
+                    variant="outline"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setImagePreview("");
+                      setValue("image_url", "");
+                      if (fileInputRef.current) {
+                        fileInputRef.current.value = "";
+                      }
+                    }}
+                  >
+                    Remove Image
+                  </Button>
+                </Flex>
+              ) : (
+                <Flex direction="column" align="center" color="gray.500">
+                  <AddIcon mb={2} />
+                  <Text fontSize="sm" textAlign="center">
+                    Click to supplier ID
+                  </Text>
+                </Flex>
+              )}
+            </Flex>
           </Grid>
 
           <Flex mt={6} gap={3}>
@@ -447,6 +553,18 @@ export default function Suppliers() {
                     size="sm"
                     colorScheme="red"
                     onClick={() => handleDelete(s.id)}
+                  />
+                )}
+
+                {hasPermission("can_view") && (
+                  <IconButton
+                    icon={<FaPrint />}
+                    size="sm"
+                    ml={2}
+                    colorScheme="blue"
+                    variant="outline"
+                    aria-label="Print Supplier"
+                    onClick={() => generateSupplierPdf(s)}
                   />
                 )}
               </Td>
