@@ -27,41 +27,144 @@ import {
   getStorageNos,
   getUserBranches,
   saveDischarge,
+  scanItem,
 } from "../services/dischargeService";
 
 export default function DischargePage() {
   const toast = useToast();
-
   const today = new Date().toISOString().slice(0, 10);
 
   const [customer, setCustomer] = useState(null);
   const [branches, setBranches] = useState([]);
   const [branchId, setBranchId] = useState("");
   const [dischargeNo, setDischargeNo] = useState("");
+
   const [storageNos, setStorageNos] = useState([]);
   const [storageId, setStorageId] = useState("");
   const [storageSpace, setStorageSpace] = useState("");
+
   const [condition, setCondition] = useState("Good");
   const [items, setItems] = useState([]);
   const [recent, setRecent] = useState([]);
+
   const [notes, setNotes] = useState("");
   const [staffSignature, setStaffSignature] = useState(null);
   const [customerSignature, setCustomerSignature] = useState(null);
+
+  const [scanCode, setScanCode] = useState("");
+  const [isScanMode, setIsScanMode] = useState(false);
 
   useEffect(() => {
     loadPage();
   }, []);
 
   const loadPage = async () => {
-    const [branchRes, recentRes] = await Promise.all([
-      getUserBranches(),
-      getRecentDischarges(),
-    ]);
-
-    setBranches(branchRes.data || []);
-    setRecent(recentRes.data || []);
+    try {
+      const [branchRes, recentRes] = await Promise.all([
+        getUserBranches(),
+        getRecentDischarges(),
+      ]);
+      setBranches(branchRes.data || []);
+      setRecent(recentRes.data || []);
+    } catch {
+      toast({ title: "Failed to load page", status: "error" });
+    }
   };
 
+  // =========================
+  // SCAN HANDLER
+  // =========================
+  const handleScan = async (code) => {
+    if (!code) return;
+
+    try {
+      const res = await scanItem(code.trim());
+      const data = res.data;
+
+      // prevent mixing storage
+      if (isScanMode && storageId && data.storage_id !== storageId) {
+        toast({
+          title: "Cannot mix items from different storage",
+          status: "error",
+        });
+        return;
+      }
+
+      // prevent duplicate item
+      const exists = items.some(
+        (i) => i.storage_item_id === data.storage_item_id,
+      );
+
+      if (exists) {
+        toast({ title: "Item already scanned", status: "warning" });
+        setScanCode("");
+        return;
+      }
+
+      setIsScanMode(true);
+
+      // set customer
+      setCustomer({
+        id: data.customer_id,
+        fullname: data.fullname,
+        email: data.email,
+        telephone: data.telephone,
+      });
+
+      // branch
+      setBranchId(data.branch_id);
+      const numberRes = await getNextDischargeNo(data.branch_id);
+      setDischargeNo(numberRes.data.discharge_no);
+
+      // storage
+      setStorageId(data.storage_id);
+      setStorageSpace(data.storage_space_name || "");
+
+      // ensure storage is available (for display)
+      setStorageNos([
+        {
+          storage_id: data.storage_id,
+          storage_no: data.storage_no,
+          storage_space_name: data.storage_space_name,
+        },
+      ]);
+
+      // load full storage items (important for received_date)
+      setItems((prev) => {
+        const exists = prev.find(
+          (i) => i.storage_item_id === data.storage_item_id,
+        );
+
+        if (exists) {
+          toast({
+            title: "Item already scanned",
+            status: "warning",
+          });
+          return prev;
+        }
+
+        return [
+          ...prev,
+          {
+            ...data,
+            selected: true,
+            discharge_quantity: data.remaining_quantity,
+          },
+        ];
+      });
+
+      setScanCode("");
+    } catch (err) {
+      toast({
+        title: err?.response?.data?.message || "Scan failed",
+        status: "error",
+      });
+    }
+  };
+
+  // =========================
+  // MANUAL FLOW
+  // =========================
   const handleBranch = async (value) => {
     setBranchId(value);
     setStorageId("");
@@ -107,6 +210,9 @@ export default function DischargePage() {
     );
   };
 
+  // =========================
+  // RESET
+  // =========================
   const resetPage = () => {
     setCustomer(null);
     setBranchId("");
@@ -118,10 +224,31 @@ export default function DischargePage() {
     setNotes("");
     setStaffSignature(null);
     setCustomerSignature(null);
+    setScanCode("");
+    setIsScanMode(false);
   };
 
+  // =========================
+  // SAVE
+  // =========================
   const handleSave = async () => {
     try {
+      if (!customer || !branchId || !storageId) {
+        toast({
+          title: "Please complete required fields",
+          status: "warning",
+        });
+        return;
+      }
+
+      if (!items.some((i) => i.selected && i.discharge_quantity > 0)) {
+        toast({
+          title: "No valid items selected",
+          status: "warning",
+        });
+        return;
+      }
+
       const payload = {
         customer_id: customer.id,
         branch_id: branchId,
@@ -169,6 +296,7 @@ export default function DischargePage() {
       <Heading mb={6}>Item Discharge</Heading>
 
       <VStack spacing={6} align="stretch">
+        {/* CUSTOMER */}
         <Card>
           <CardHeader>
             <Heading size="md">Customer Details</Heading>
@@ -176,22 +304,23 @@ export default function DischargePage() {
 
           <CardBody>
             <Grid templateColumns={{ base: "1fr", lg: "1fr 1fr" }} gap={6}>
-              <CustomerSearch value={customer} onSelect={handleCustomer} />
+              <CustomerSearch
+                value={customer}
+                onSelect={handleCustomer}
+                isDisabled={isScanMode}
+              />
 
               <Box borderWidth="1px" borderRadius="lg" p={4}>
                 {customer ? (
                   <VStack align="start">
                     <Text>
-                      <b>Full Name:</b> {customer.fullname}
+                      <b>Name:</b> {customer.fullname}
                     </Text>
                     <Text>
                       <b>Email:</b> {customer.email || "-"}
                     </Text>
                     <Text>
-                      <b>Telephone:</b> {customer.telephone || "-"}
-                    </Text>
-                    <Text>
-                      <b>Branch:</b> {customer.branch_name || "-"}
+                      <b>Phone:</b> {customer.telephone || "-"}
                     </Text>
                   </VStack>
                 ) : (
@@ -202,12 +331,25 @@ export default function DischargePage() {
           </CardBody>
         </Card>
 
+        {/* STORED ITEMS */}
         <Card>
           <CardHeader>
             <Heading size="md">Stored Items</Heading>
           </CardHeader>
 
           <CardBody>
+            <Box mb={4}>
+              <Text mb={1}>Scan Stored Product Code</Text>
+              <Input
+                value={scanCode}
+                placeholder="Scan barcode and press Enter"
+                onChange={(e) => setScanCode(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleScan(scanCode);
+                }}
+              />
+            </Box>
+
             <SimpleGrid columns={{ base: 1, md: 2, lg: 6 }} spacing={4} mb={6}>
               <Box>
                 <Text mb={1}>Discharge Date</Text>
@@ -216,11 +358,7 @@ export default function DischargePage() {
 
               <Box>
                 <Text mb={1}>Branch</Text>
-                <Select
-                  value={branchId}
-                  onChange={(e) => handleBranch(e.target.value)}
-                >
-                  <option value="">Select Branch</option>
+                <Select value={branchId} isDisabled={isScanMode}>
                   {branches.map((b) => (
                     <option key={b.branch_id} value={b.branch_id}>
                       {b.branch_name}
@@ -236,17 +374,27 @@ export default function DischargePage() {
 
               <Box>
                 <Text mb={1}>Storage No</Text>
-                <Select
-                  value={storageId}
-                  onChange={(e) => handleStorage(e.target.value)}
-                >
-                  <option value="">Select Storage No</option>
-                  {storageNos.map((s) => (
-                    <option key={s.storage_id} value={s.storage_id}>
-                      {s.storage_no}
-                    </option>
-                  ))}
-                </Select>
+                {isScanMode ? (
+                  <Input
+                    value={
+                      storageNos.find((s) => s.storage_id == storageId)
+                        ?.storage_no || ""
+                    }
+                    isReadOnly
+                  />
+                ) : (
+                  <Select
+                    value={storageId}
+                    onChange={(e) => handleStorage(e.target.value)}
+                  >
+                    <option value="">Select Storage No</option>
+                    {storageNos.map((s) => (
+                      <option key={s.storage_id} value={s.storage_id}>
+                        {s.storage_no}
+                      </option>
+                    ))}
+                  </Select>
+                )}
               </Box>
 
               <Box>
@@ -260,12 +408,10 @@ export default function DischargePage() {
                   value={condition}
                   onChange={(e) => setCondition(e.target.value)}
                 >
-                  <option value="All">All</option>
-                  <option value="Broken">Broken</option>
-                  <option value="Damaged">Damaged</option>
-                  <option value="Fair">Fair</option>
                   <option value="Good">Good</option>
-                  <option value="Non Tested">Non Tested</option>
+                  <option value="Fair">Fair</option>
+                  <option value="Damaged">Damaged</option>
+                  <option value="Broken">Broken</option>
                 </Select>
               </Box>
             </SimpleGrid>
@@ -274,20 +420,19 @@ export default function DischargePage() {
           </CardBody>
         </Card>
 
+        {/* PROCESS */}
         <Card>
           <CardHeader>
             <Heading size="md">Discharge Process</Heading>
           </CardHeader>
 
           <CardBody>
-            <VStack align="stretch" spacing={5}>
-              <Box>
-                <Text mb={1}>Discharge Notes</Text>
-                <Textarea
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                />
-              </Box>
+            <VStack spacing={5}>
+              <Textarea
+                placeholder="Notes"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+              />
 
               <SimpleGrid columns={{ base: 1, md: 2 }} spacing={8}>
                 <SignatureUpload
@@ -295,7 +440,6 @@ export default function DischargePage() {
                   value={staffSignature}
                   onChange={setStaffSignature}
                 />
-
                 <SignatureUpload
                   label="Customer Signature"
                   value={customerSignature}
@@ -310,7 +454,6 @@ export default function DischargePage() {
           <Button variant="outline" onClick={resetPage}>
             Cancel
           </Button>
-
           <Button colorScheme="blue" onClick={handleSave}>
             Save
           </Button>
@@ -318,23 +461,22 @@ export default function DischargePage() {
 
         <Card>
           <CardHeader>
-            <Heading size="md">Discharges in the Last 30 Days</Heading>
+            <Heading size="md">Recent Discharges</Heading>
           </CardHeader>
 
           <CardBody>
             <RecentDischargeList
               discharges={recent}
               onPrint={async (row) => {
-                const response = await fetch(
-                  `${import.meta.env.VITE_API_URL || "http://localhost:5000/api"}/discharge/${row.discharge_id}/pdf`,
+                const res = await fetch(
+                  `${import.meta.env.VITE_API_URL}/discharge/${row.discharge_id}/pdf`,
                   {
                     headers: {
                       Authorization: `Bearer ${localStorage.getItem("token")}`,
                     },
                   },
                 );
-
-                const blob = await response.blob();
+                const blob = await res.blob();
                 window.open(URL.createObjectURL(blob), "_blank");
               }}
             />

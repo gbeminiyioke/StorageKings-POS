@@ -1,81 +1,172 @@
-export const printStorageLabels = ({ storage_no, items, business_name }) => {
-  const win = window.open("", "PRINT", "width=900,height=700");
+export const printStorageLabels = ({ items = [], business_name = "" }) => {
+  const win = window.open("", "_blank", "width=900,height=700");
 
-  let html = `
+  if (!win) {
+    alert("Unable to open print window. Please allow popups for this site.");
+    return;
+  }
+
+  const labelsHtml = items
+    .map((item, index) => {
+      return `
+        <div class="label">
+          <div class="barcode-wrapper">
+            <svg id="barcode-${index}"></svg>
+          </div>
+
+          <div class="barcode-text">
+            ${item.generated_barcode || ""}
+          </div>
+
+          <div class="product-name">
+            ${item.product_name || ""}
+          </div>
+
+          <div class="item-position">
+            Item ${
+              item.product_sequence || index + 1
+            } of ${item.total_for_product || 1}
+          </div>
+
+          <div class="company-name">
+            ${business_name}
+          </div>
+        </div>
+      `;
+    })
+    .join("");
+
+  win.document.write(`
+    <!DOCTYPE html>
     <html>
       <head>
-        <title>Storage Labels</title>
+        <title>Storage Barcode Labels</title>
+
         <style>
           @page {
             size: 50mm 25mm;
             margin: 0;
           }
 
+          html,
           body {
             margin: 0;
+            padding: 0;
             font-family: Arial, sans-serif;
+            background: #fff;
+          }
+
+          body {
+            display: flex;
+            flex-wrap: wrap;
           }
 
           .label {
             width: 50mm;
             height: 25mm;
-            padding: 2mm;
             box-sizing: border-box;
+            padding: 1.5mm 2mm;
             display: flex;
             flex-direction: column;
+            justify-content: flex-start;
+            border: 0;
+            overflow: hidden;
+            page-break-after: always;
+            position: relative;
+          }
+
+          .barcode-wrapper {
+            width: 100%;
+            height: 10mm;
+            display: flex;
             justify-content: center;
             align-items: center;
+            margin-bottom: 1mm;
+          }
+
+          .barcode-wrapper svg {
+            width: 100%;
+            height: 100%;
+          }
+
+          .barcode-text {
+            font-size: 7px;
+            line-height: 1;
             text-align: center;
-            page-break-after: always;
+            word-break: break-all;
+            margin-bottom: 1mm;
           }
 
-          .barcode {
-            font-size: 16px;
-            font-weight: bold;
-            margin-bottom: 2px;
-          }
-
-          .name {
+          .product-name {
             font-size: 9px;
-            margin-bottom: 2px;
+            line-height: 1.1;
+            font-weight: bold;
+            text-align: center;
+            margin-bottom: 0.5mm;
+            overflow: hidden;
+            white-space: nowrap;
+            text-overflow: ellipsis;
           }
 
-          .qty {
+          .item-position {
             font-size: 8px;
+            text-align: center;
+            margin-bottom: auto;
           }
 
-          .biz {
+          .company-name {
+            position: absolute;
+            right: 2mm;
+            bottom: 1mm;
             font-size: 6px;
-            margin-top: 2px;
+            color: #444;
+            text-align: right;
+            max-width: 70%;
+            overflow: hidden;
+            white-space: nowrap;
+            text-overflow: ellipsis;
           }
         </style>
       </head>
+
       <body>
-  `;
-
-  items.forEach((item) => {
-    for (let i = 1; i <= Number(item.quantity); i++) {
-      html += `
-        <div class="label">
-          <div class="barcode">*${storage_no}*</div>
-          <div class="name">${item.product_name}</div>
-          <div class="qty">Item ${i} of ${item.quantity}</div>
-          <div class="biz">${business_name}</div>
-        </div>
-      `;
-    }
-  });
-
-  html += `
+        ${labelsHtml}
       </body>
     </html>
-  `;
+  `);
 
-  win.document.write(html);
   win.document.close();
-  win.focus();
 
-  setTimeout(() => {
-    win.print();
-  }, 500);
+  const script = win.document.createElement("script");
+  script.src =
+    "https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js";
+
+  script.onload = () => {
+    items.forEach((item, index) => {
+      const el = win.document.getElementById(`barcode-${index}`);
+
+      if (!el) return;
+
+      win.JsBarcode(el, item.generated_barcode || "", {
+        format: "CODE128",
+        displayValue: false,
+        width: 1.1,
+        height: 26,
+        margin: 0,
+      });
+    });
+
+    setTimeout(() => {
+      win.focus();
+      win.print();
+    }, 500);
+  };
+
+  script.onerror = () => {
+    alert(
+      "Unable to load barcode generator library. Please check your internet connection.",
+    );
+  };
+
+  win.document.body.appendChild(script);
 };

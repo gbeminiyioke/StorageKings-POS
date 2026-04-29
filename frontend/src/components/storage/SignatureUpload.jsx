@@ -1,69 +1,93 @@
 import { Box, Button, Image, Input, Text, VStack } from "@chakra-ui/react";
 import { useRef } from "react";
 
-export default function SignatureUpload({ label, value, onChange }) {
-  const fileRef = useRef();
+const PLACEHOLDER_IMAGE = "/signature-placeholder.png";
 
-  const handleFile = (e) => {
-    const file = e.target.files?.[0];
+export default function SignatureUpload({
+  label,
+  value,
+  onChange,
+  isDisabled = false,
+}) {
+  const fileInputRef = useRef(null);
+
+  const handleSelectFile = (event) => {
+    const file = event.target.files?.[0];
+
     if (!file) return;
 
+    if (!file.type.startsWith("image/")) {
+      alert("Please select an image file.");
+      return;
+    }
+
     const reader = new FileReader();
+
     reader.onload = () => {
       onChange(reader.result);
     };
+
     reader.readAsDataURL(file);
   };
 
+  const handleRemove = () => {
+    onChange(null);
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
   return (
-    <VStack align="start" spacing={2}>
-      <Text fontWeight="semibold">{label}</Text>
+    <VStack align="stretch" spacing={3}>
+      <Text fontWeight="medium">{label}</Text>
 
       <Input
-        ref={fileRef}
+        ref={fileInputRef}
         type="file"
         accept="image/*"
         display="none"
-        onChange={handleFile}
+        onChange={handleSelectFile}
+        isDisabled={isDisabled}
       />
 
       <Box
-        w="220px"
-        h="120px"
-        border="2px dashed"
+        borderWidth="1px"
+        borderStyle="dashed"
         borderColor="gray.300"
-        borderRadius="md"
-        overflow="hidden"
-        cursor="pointer"
+        borderRadius="lg"
+        p={3}
+        minH="140px"
         display="flex"
         alignItems="center"
         justifyContent="center"
-        bg="gray.50"
-        onClick={() => fileRef.current?.click()}
+        cursor={isDisabled ? "default" : "pointer"}
+        bg={isDisabled ? "gray.50" : "white"}
+        onClick={() => {
+          if (!isDisabled) {
+            fileInputRef.current?.click();
+          }
+        }}
       >
-        {value ? (
-          <Image
-            src={value}
-            alt={label}
-            objectFit="contain"
-            w="100%"
-            h="100%"
-          />
-        ) : (
-          <Text color="gray.500" fontSize="sm">
-            Click to upload signature
-          </Text>
-        )}
+        <Image
+          src={value || PLACEHOLDER_IMAGE}
+          fallbackSrc={PLACEHOLDER_IMAGE}
+          maxH="120px"
+          maxW="100%"
+          objectFit="contain"
+          alt={`${label} signature`}
+        />
       </Box>
 
-      {value && (
+      {value && !isDisabled && (
         <Button
-          size="xs"
+          size="sm"
+          variant="ghost"
           colorScheme="red"
-          variant="link"
-          onClick={() => onChange(null)}
+          alignSelf="flex-start"
+          onClick={handleRemove}
         >
-          Remove
+          Remove Signature
         </Button>
       )}
     </VStack>

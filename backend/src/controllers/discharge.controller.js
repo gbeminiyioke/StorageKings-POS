@@ -148,6 +148,9 @@ export const getStorageItemsForDischarge = async (req, res) => {
   }
 };
 
+/*================================================
+  CREATE THE DISCHARGE RECORD
+==================================================*/
 export const createDischarge = async (req, res) => {
   const client = await pool.connect();
 
@@ -166,60 +169,60 @@ export const createDischarge = async (req, res) => {
       items,
     } = req.body;
 
-    const selectedItems = (items || []).filter((x) => x.selected);
+    const selectedItems = (items || []).filter(
+      (x) => x.selected && Number(x.discharge_quantity) > 0,
+    );
 
     if (!selectedItems.length) {
-      return res.status(400).json({
-        message: "Please select at least one item to discharge",
-      });
+      throw new Error("Select at least one valid item");
     }
 
-    const branchResult = await client.query(
-      `
-      SELECT branch_prefix, next_discharge_no
-      FROM branches
-      WHERE branch_id = $1
-      FOR UPDATE
-      `,
+    //Lock branch
+    const branchRes = await client.query(
+      `SELECT branch_prefix, next_discharge_no
+       FROM branches
+       WHERE branch_id = $1
+       FOR UPDATE`,
       [branch_id],
     );
 
-    const branch = branchResult.rows[0];
+    if (!branchRes.rows.length) throw new Error("Invalid branch");
 
-    const discharge_no = `DG${branch.branch_prefix}-${String(branch.next_discharge_no).padStart(8, "0")}`;
+    const branch = branchRes.rows[0];
 
-    const storageResult = await client.query(
-      `
-      SELECT storage_no
-      FROM storage_headers
-      WHERE storage_id = $1
-      `,
+    const discharge_no = `DG${branch.branch_prefix}-${String(
+      branch.next_discharge_no,
+    ).padStart(8, "0")}`;
+
+    //Validate storage ownership
+    const storageRes = await client.query(
+      `SELECT storage_no, customer_id
+       FROM storage_headers
+       WHERE storage_id = $1
+       FOR UPDATE`,
       [storage_id],
     );
 
-    const headerResult = await client.query(
-      `
-      INSERT INTO discharge_headers (
-        discharge_no,
-        storage_id,
-        storage_no,
-        customer_id,
-        branch_id,
-        discharge_date,
-        discharge_notes,
-        condition_filter,
-        staff_signature,
-        customer_signature,
-        total_items,
-        created_by
+    if (!storageRes.rows.length) throw new Error("Storage not found");
+
+    if (storageRes.rows[0].customer_id !== customer_id) {
+      throw new Error("Storage does not belong to customer");
+    }
+
+    //Insert header
+    const header = await client.query(
+      `INSERT INTO discharge_headers (
+        discharge_no, storage_id, storage_no, customer_id,
+        branch_id, discharge_date, discharge_notes,
+        condition_filter, staff_signature, customer_signature,
+        total_items, created_by
       )
       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
-      RETURNING *
-      `,
+      RETURNING *`,
       [
         discharge_no,
         storage_id,
-        storageResult.rows[0].storage_no,
+        storageRes.rows[0].storage_no,
         customer_id,
         branch_id,
         discharge_date,
@@ -227,115 +230,98 @@ export const createDischarge = async (req, res) => {
         condition || "Good",
         staff_signature || null,
         customer_signature || null,
-        selectedItems.reduce(
-          (sum, item) => sum + Number(item.discharge_quantity || 0),
-          0,
-        ),
+        0,
         req.user.id,
       ],
     );
 
-    const discharge = headerResult.rows[0];
+    const discharge = header.rows[0];
+
+    let totalQty = 0;
 
     for (const item of selectedItems) {
-      const current = await client.query(
-        `
-        SELECT product_id, remaining_quantity, discharged_quantity
-        FROM storage_items
-        WHERE storage_item_id = $1
-        FOR UPDATE
-        `,
+      const lockItem = await client.query(
+        `SELECT product_id, remaining_quantity
+         FROM storage_items
+         WHERE storage_item_id = $1
+         FOR UPDATE`,
         [item.storage_item_id],
       );
 
-      const row = current.rows[0];
-      const dischargeQty = Number(item.discharge_quantity || 0);
+      if (!lockItem.rows.length) continue;
 
-      if (dischargeQty <= 0) continue;
+      const row = lockItem.rows[0];
+      const qty = Number(item.discharge_quantity);
 
-      if (dischargeQty > Number(row.remaining_quantity)) {
-        throw new Error("Discharge quantity exceeds remaining quantity");
+      if (qty <= 0) continue;
+
+      if (qty > Number(row.remaining_quantity)) {
+        throw new Error("Quantity exceeds remaining");
       }
 
-      const afterQty = Number(row.remaining_quantity) - dischargeQty;
+      const after = Number(row.remaining_quantity) - qty;
 
       await client.query(
-        `
-        INSERT INTO discharge_details (
-          discharge_id,
-          storage_item_id,
-          product_id,
-          quantity_before,
-          discharged_quantity,
-          quantity_after,
+        `INSERT INTO discharge_details (
+          discharge_id, storage_item_id, product_id,
+          quantity_before, discharged_quantity, quantity_after,
           condition_on_discharge
         )
-        VALUES ($1,$2,$3,$4,$5,$6,$7)
-        `,
+        VALUES ($1,$2,$3,$4,$5,$6,$7)`,
         [
           discharge.discharge_id,
           item.storage_item_id,
           row.product_id,
           row.remaining_quantity,
-          dischargeQty,
-          afterQty,
+          qty,
+          after,
           item.condition || "Good",
         ],
       );
 
       await client.query(
-        `
-        UPDATE storage_items
-        SET
-          discharged_quantity = discharged_quantity + $1,
-          remaining_quantity = remaining_quantity - $1
-        WHERE storage_item_id = $2
-        `,
-        [dischargeQty, item.storage_item_id],
+        `UPDATE storage_items
+         SET discharged_quantity = discharged_quantity + $1,
+             retrieved_quantity = retrieved_quantity + $1
+         WHERE storage_item_id = $2`,
+        [qty, item.storage_item_id],
       );
+
+      totalQty += qty;
     }
 
+    //Update totals
+    await client.query(
+      `UPDATE discharge_headers
+       SET total_items = $1
+       WHERE discharge_id = $2`,
+      [totalQty, discharge.discharge_id],
+    );
+
+    //Update storage status
     const remaining = await client.query(
-      `
-      SELECT COUNT(*)::int AS count
-      FROM storage_items
-      WHERE storage_id = $1
-        AND remaining_quantity > 0
-      `,
+      `SELECT COUNT(*)::int AS count
+       FROM storage_items
+       WHERE storage_id = $1 AND remaining_quantity > 0`,
       [storage_id],
     );
 
-    const newStatus = remaining.rows[0].count === 0 ? "DISCHARGED" : "PARTIAL";
+    const status = remaining.rows[0].count === 0 ? "DISCHARGED" : "PARTIAL";
 
     await client.query(
-      `
-      UPDATE storage_headers
-      SET status = $1
-      WHERE storage_id = $2
-      `,
-      [newStatus, storage_id],
+      `UPDATE storage_headers SET status = $1 WHERE storage_id = $2`,
+      [status, storage_id],
     );
 
+    // Increment counter
     await client.query(
-      `
-      UPDATE branches
-      SET next_discharge_no = next_discharge_no + 1
-      WHERE branch_id = $1
-      `,
+      `UPDATE branches
+       SET next_discharge_no = next_discharge_no + 1
+       WHERE branch_id = $1`,
       [branch_id],
     );
 
     await client.query("COMMIT");
-
-    await logActivity({
-      userId: req.user.id,
-      userName: req.user.name,
-      branchId: branch_id,
-      module: "DISCHARGE",
-      action: "CREATE",
-      description: `Created discharge ${discharge_no}`,
-      ipAddress: req.ip,
-    });
 
     res.status(201).json({
       discharge_id: discharge.discharge_id,
@@ -343,15 +329,15 @@ export const createDischarge = async (req, res) => {
     });
   } catch (err) {
     await client.query("ROLLBACK");
-    console.error(err);
-    res.status(500).json({
-      message: err.message || "Failed to save discharge",
-    });
+    res.status(500).json({ message: err.message });
   } finally {
     client.release();
   }
 };
 
+/*================================================
+  GET RECENT DISCHARGES
+==================================================*/
 export const getRecentDischarges = async (req, res) => {
   try {
     const result = await pool.query(
@@ -360,6 +346,7 @@ export const getRecentDischarges = async (req, res) => {
         dh.discharge_id,
         dh.discharge_no,
         dh.discharge_date,
+        dh.reversed,
         b.branch_name,
         c.fullname AS customer_name,
         sh.status AS storage_status
@@ -426,5 +413,168 @@ export const emailDischargePdf = async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Failed to email PDF" });
+  }
+};
+
+export const scanDischargeItem = async (req, res) => {
+  try {
+    const { barcode } = req.body;
+
+    const result = await pool.query(
+      `
+      SELECT
+        si.storage_item_id,
+        si.product_id,
+        si.remaining_quantity,
+        si.received_quantity,
+        si.condition,
+
+        sh.storage_id,
+        sh.storage_no,
+        sh.customer_id,
+        sh.branch_id,
+        sh.received_date,
+
+        c.fullname,
+        c.email,
+        c.telephone,
+
+        p.product_name,
+        p.image_url,
+        cat.category_name,
+
+        sh.storage_space_product_id,
+        sp.product_name AS storage_space_name
+
+      FROM storage_items si
+      INNER JOIN storage_headers sh ON sh.storage_id = si.storage_id
+      INNER JOIN customers c ON c.id = sh.customer_id
+      INNER JOIN products p ON p.product_id = si.product_id
+      LEFT JOIN categories cat ON cat.category_id = p.category_id
+      LEFT JOIN products sp ON sp.product_id = sh.storage_space_product_id
+
+      WHERE si.generated_barcode = $1
+        AND si.remaining_quantity > 0
+      `,
+      [barcode],
+    );
+
+    if (!result.rows.length) {
+      return res
+        .status(404)
+        .json({ message: "Item not found or already discharged" });
+    }
+
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Scan failed" });
+  }
+};
+
+/*==============================================
+  DISCHARGE REVERSAL
+================================================*/
+export const reverseDischarge = async (req, res) => {
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    const { discharge_id } = req.params;
+    const { reason } = req.body;
+
+    // Lock discharge
+    const headerRes = await client.query(
+      `SELECT * FROM discharge_headers
+       WHERE discharge_id = $1
+       FOR UPDATE`,
+      [discharge_id],
+    );
+
+    if (!headerRes.rows.length) {
+      throw new Error("Discharge not found");
+    }
+
+    const discharge = headerRes.rows[0];
+
+    // Prevent double reversal
+    if (discharge.reversed) {
+      throw new Error("Discharge already reversed");
+    }
+
+    // Get details
+    const detailsRes = await client.query(
+      `SELECT * FROM discharge_details
+       WHERE discharge_id = $1`,
+      [discharge_id],
+    );
+
+    if (!detailsRes.rows.length) {
+      throw new Error("No discharge items found");
+    }
+
+    // Restore quantities
+    for (const item of detailsRes.rows) {
+      await client.query(
+        `UPDATE storage_items
+         SET
+           retrieved_quantity = retrieved_quantity - $1,
+           discharged_quantity = discharged_quantity - $1
+         WHERE storage_item_id = $2`,
+        [item.discharged_quantity, item.storage_item_id],
+      );
+    }
+
+    // Recalculate storage status
+    const remainingRes = await client.query(
+      `SELECT COUNT(*)::int AS count
+       FROM storage_items
+       WHERE storage_id = $1
+         AND remaining_quantity > 0`,
+      [discharge.storage_id],
+    );
+
+    const newStatus = remainingRes.rows[0].count > 0 ? "PARTIAL" : "ACTIVE";
+
+    await client.query(
+      `UPDATE storage_headers
+       SET status = $1
+       WHERE storage_id = $2`,
+      [newStatus, discharge.storage_id],
+    );
+
+    // Mark reversed
+    await client.query(
+      `UPDATE discharge_headers
+       SET
+         reversed = true,
+         reversed_by = $1,
+         reversed_at = NOW(),
+         reversal_reason = $2
+       WHERE discharge_id = $3`,
+      [req.user.id, reason || null, discharge_id],
+    );
+
+    // Audit log
+    await client.query(
+      `INSERT INTO discharge_reversals
+       (discharge_id, reversed_by, reversal_reason)
+       VALUES ($1,$2,$3)`,
+      [discharge_id, req.user.id, reason || null],
+    );
+
+    await client.query("COMMIT");
+
+    res.json({ message: "Discharge reversed successfully" });
+  } catch (err) {
+    await client.query("ROLLBACK");
+    console.error("REVERSAL ERROR:", err);
+
+    res.status(500).json({
+      message: err.message || "Failed to reverse discharge",
+    });
+  } finally {
+    client.release();
   }
 };

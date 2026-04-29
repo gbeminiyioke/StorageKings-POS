@@ -1,26 +1,42 @@
 import PDFDocument from "pdfkit";
 import pool from "../config/db.js";
 
+const ROWS_PER_PAGE = 22;
+
 export const generateStoragePdf = async (storage_id) => {
   const headerResult = await pool.query(
     `
     SELECT
+      sh.storage_id,
       sh.storage_no,
       sh.received_date,
+      sh.status,
       sh.received_notes,
       sh.staff_signature,
       sh.customer_signature,
-      c.fullname,
-      c.email,
-      c.telephone,
+
+      c.fullname AS customer_name,
+      c.email AS customer_email,
+      c.telephone AS customer_phone,
+      c.address_1,
+      c.address_2,
+
       b.branch_name,
+      b.branch_address,
+      b.branch_telephone,
+
       bus.business_name,
+
       sp.product_name AS storage_space
     FROM storage_headers sh
-    JOIN customers c ON c.id = sh.customer_id
-    JOIN branches b ON b.branch_id = sh.branch_id
-    JOIN business bus ON bus.business_id = b.business_id
-    LEFT JOIN products sp ON sp.product_id = sh.storage_space_product_id
+    INNER JOIN customers c
+      ON c.id = sh.customer_id
+    INNER JOIN branches b
+      ON b.branch_id = sh.branch_id
+    INNER JOIN business bus
+      ON bus.business_id = b.business_id
+    LEFT JOIN products sp
+      ON sp.product_id = sh.storage_space_product_id
     WHERE sh.storage_id = $1
     `,
     [storage_id],
@@ -29,16 +45,21 @@ export const generateStoragePdf = async (storage_id) => {
   const itemsResult = await pool.query(
     `
     SELECT
-      si.quantity,
+      p.product_name,
       si.condition,
-      p.product_name
+      si.item_notes
     FROM storage_items si
-    JOIN products p ON p.product_id = si.product_id
+    INNER JOIN products p
+      ON p.product_id = si.product_id
     WHERE si.storage_id = $1
     ORDER BY si.storage_item_id
     `,
     [storage_id],
   );
+
+  if (!headerResult.rows.length) {
+    throw new Error("Storage record not found");
+  }
 
   const header = headerResult.rows[0];
   const items = itemsResult.rows;
@@ -46,7 +67,7 @@ export const generateStoragePdf = async (storage_id) => {
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({
       size: "A4",
-      margin: 35,
+      margin: 30,
     });
 
     const buffers = [];
@@ -55,198 +76,251 @@ export const generateStoragePdf = async (storage_id) => {
     doc.on("end", () => resolve(Buffer.concat(buffers)));
     doc.on("error", reject);
 
-    // Title
-    doc.font("Helvetica-Bold").fontSize(18);
-    doc.text((header.business_name || "STORAGE KINGS").toUpperCase(), {
-      align: "center",
-    });
+    const drawHeader = () => {
+      doc
+        .fontSize(18)
+        .font("Helvetica-Bold")
+        .text(header.business_name || "", 30, 25, {
+          width: 535,
+          align: "center",
+        });
 
-    doc.moveDown(0.2);
+      doc.fontSize(14).text("STORAGE FORM", 30, 50, {
+        width: 535,
+        align: "center",
+      });
 
-    doc.fontSize(14).text("ITEMS RECEIVED NOTE", {
-      align: "center",
-    });
+      doc.moveTo(30, 75).lineTo(565, 75).stroke();
+    };
 
-    // Top details section
-    let y = 95;
+    drawHeader();
 
-    doc.font("Helvetica-Bold").fontSize(11);
-    doc.text("Name:", 40, y);
-    doc.font("Helvetica");
-    doc.text(header.fullname || "", 85, y, { underline: true, width: 220 });
+    let y = 90;
 
-    doc.font("Helvetica-Bold");
-    doc.text("Date:", 360, y);
-    doc.font("Helvetica");
-    doc.text(new Date(header.received_date).toLocaleDateString(), 405, y, {
-      underline: true,
-      width: 150,
-    });
+    doc
+      .font("Helvetica-Bold")
+      .fontSize(10)
+      .text("Storage No:", 30, y)
+      .font("Helvetica")
+      .text(header.storage_no || "", 105, y);
+
+    doc
+      .font("Helvetica-Bold")
+      .text("Received Date:", 320, y)
+      .font("Helvetica")
+      .text(
+        header.received_date
+          ? new Date(header.received_date).toISOString().slice(0, 10)
+          : "",
+        420,
+        y,
+      );
+
+    y += 18;
+
+    doc
+      .font("Helvetica-Bold")
+      .text("Customer:", 30, y)
+      .font("Helvetica")
+      .text(header.customer_name || "", 105, y, {
+        width: 180,
+      });
+
+    doc
+      .font("Helvetica-Bold")
+      .text("Telephone:", 320, y)
+      .font("Helvetica")
+      .text(header.customer_phone || "", 420, y);
+
+    y += 18;
+
+    doc
+      .font("Helvetica-Bold")
+      .text("Email:", 30, y)
+      .font("Helvetica")
+      .text(header.customer_email || "", 105, y, {
+        width: 180,
+      });
+
+    doc
+      .font("Helvetica-Bold")
+      .text("Branch:", 320, y)
+      .font("Helvetica")
+      .text(header.branch_name || "", 420, y);
+
+    y += 18;
+
+    doc
+      .font("Helvetica-Bold")
+      .text("Storage Space:", 30, y)
+      .font("Helvetica")
+      .text(header.storage_space || "", 105, y, {
+        width: 180,
+      });
+
+    doc
+      .font("Helvetica-Bold")
+      .text("Status:", 320, y)
+      .font("Helvetica")
+      .text(header.status || "", 420, y);
 
     y += 28;
 
-    doc.font("Helvetica-Bold");
-    doc.text("Storage Space:", 40, y);
-    doc.font("Helvetica");
-    doc.text(header.storage_space || "", 130, y, {
-      underline: true,
-      width: 180,
-    });
+    const drawTableHeader = () => {
+      doc.rect(30, y, 535, 20).fill("#E2E8F0");
 
-    doc.font("Helvetica-Bold");
-    doc.text("Branch:", 360, y);
-    doc.font("Helvetica");
-    doc.text(header.branch_name || "", 415, y, {
-      underline: true,
-      width: 140,
-    });
-
-    y += 35;
-
-    // Table layout
-    const tableTop = y;
-    const tableLeft = 40;
-    const snWidth = 35;
-    const descWidth = 330;
-    const qtyWidth = 70;
-    const condWidth = 110;
-    const rowHeight = 22;
-    const totalRows = Math.max(items.length, 25);
-
-    // Outer border
-    doc
-      .rect(
-        tableLeft,
-        tableTop,
-        snWidth + descWidth + qtyWidth + condWidth,
-        rowHeight * (totalRows + 1),
-      )
-      .stroke();
-
-    // Vertical lines
-    doc
-      .moveTo(tableLeft + snWidth, tableTop)
-      .lineTo(tableLeft + snWidth, tableTop + rowHeight * (totalRows + 1))
-      .stroke();
-
-    doc
-      .moveTo(tableLeft + snWidth + descWidth, tableTop)
-      .lineTo(
-        tableLeft + snWidth + descWidth,
-        tableTop + rowHeight * (totalRows + 1),
-      )
-      .stroke();
-
-    doc
-      .moveTo(tableLeft + snWidth + descWidth + qtyWidth, tableTop)
-      .lineTo(
-        tableLeft + snWidth + descWidth + qtyWidth,
-        tableTop + rowHeight * (totalRows + 1),
-      )
-      .stroke();
-
-    // Header line
-    doc
-      .moveTo(tableLeft, tableTop + rowHeight)
-      .lineTo(
-        tableLeft + snWidth + descWidth + qtyWidth + condWidth,
-        tableTop + rowHeight,
-      )
-      .stroke();
-
-    // Horizontal lines
-    for (let i = 2; i <= totalRows + 1; i++) {
-      const rowY = tableTop + i * rowHeight;
       doc
-        .moveTo(tableLeft, rowY)
-        .lineTo(tableLeft + snWidth + descWidth + qtyWidth + condWidth, rowY)
-        .stroke();
-    }
+        .fillColor("#000")
+        .font("Helvetica-Bold")
+        .fontSize(9)
+        .text("S/N", 35, y + 6, { width: 30 });
 
-    // Table headings
-    doc.font("Helvetica-Bold").fontSize(11);
-    doc.text("S/N", tableLeft + 8, tableTop + 6);
-    doc.text("ITEMS DESCRIPTION", tableLeft + snWidth + 80, tableTop + 6);
-    doc.text("QTY", tableLeft + snWidth + descWidth + 18, tableTop + 6);
-    doc.text(
-      "CONDITION",
-      tableLeft + snWidth + descWidth + qtyWidth + 10,
-      tableTop + 6,
-    );
+      doc.text("Item Name", 70, y + 6, {
+        width: 220,
+      });
 
-    // Item rows
-    doc.font("Helvetica").fontSize(10);
+      doc.text("Condition", 300, y + 6, {
+        width: 90,
+      });
+
+      doc.text("Notes", 395, y + 6, {
+        width: 165,
+      });
+
+      y += 20;
+    };
+
+    drawTableHeader();
 
     items.forEach((item, index) => {
-      const rowY = tableTop + rowHeight * (index + 1) + 6;
+      if ((index > 0 && index % ROWS_PER_PAGE === 0) || y > 690) {
+        doc.addPage();
+        drawHeader();
+        y = 90;
+        drawTableHeader();
+      }
 
-      doc.text(String(index + 1), tableLeft + 10, rowY);
-      doc.text(item.product_name || "", tableLeft + snWidth + 5, rowY, {
-        width: descWidth - 10,
+      doc.rect(30, y, 535, 24).stroke("#D1D5DB");
+
+      doc
+        .fillColor("#000")
+        .font("Helvetica")
+        .fontSize(8)
+        .text(String(index + 1), 35, y + 7, {
+          width: 30,
+        });
+
+      doc.text(item.product_name || "", 70, y + 7, {
+        width: 220,
       });
-      doc.text(
-        String(item.quantity),
-        tableLeft + snWidth + descWidth + 20,
-        rowY,
-      );
-      doc.text(
-        item.condition || "",
-        tableLeft + snWidth + descWidth + qtyWidth + 5,
-        rowY,
-        { width: condWidth - 10 },
-      );
+
+      doc.text(item.condition || "", 300, y + 7, {
+        width: 90,
+      });
+
+      doc.text(item.item_notes || "", 395, y + 7, {
+        width: 165,
+      });
+
+      y += 24;
     });
 
-    // Bottom signature area
-    const bottomY = Math.min(tableTop + rowHeight * (totalRows + 1) + 10, 670);
+    const minimumRows = Math.max(ROWS_PER_PAGE - items.length, 0);
 
-    doc.font("Helvetica-Bold").fontSize(11);
-    doc.text("Client", 160, bottomY + 90, { align: "center", width: 100 });
-    doc.text("Store", 300, bottomY + 90, { align: "center", width: 100 });
-    doc.text("Facility Manager", 420, bottomY + 90, {
-      align: "center",
-      width: 120,
-    });
+    for (let i = 0; i < minimumRows; i++) {
+      if (y > 690) {
+        doc.addPage();
+        drawHeader();
+        y = 90;
+        drawTableHeader();
+      }
 
-    // signature lines
+      doc.rect(30, y, 535, 24).stroke("#E5E7EB");
+
+      y += 24;
+    }
+
+    y += 20;
+
+    doc.font("Helvetica-Bold").fontSize(10).text("Received Notes:", 30, y);
+
+    y += 14;
+
+    doc.rect(30, y, 535, 50).stroke("#D1D5DB");
+
     doc
-      .moveTo(135, bottomY + 80)
-      .lineTo(255, bottomY + 80)
-      .stroke();
+      .font("Helvetica")
+      .fontSize(9)
+      .text(header.received_notes || "", 35, y + 5, {
+        width: 525,
+      });
+
+    y += 70;
+
+    if (y > 540) {
+      doc.addPage();
+      drawHeader();
+      y = 120;
+    }
+
+    doc.font("Helvetica-Bold").fontSize(10).text("Client", 60, y);
+
+    doc.text("Store", 250, y);
+
+    doc.text("Facility Manager", 430, y);
+
+    y += 15;
+
     doc
-      .moveTo(290, bottomY + 80)
-      .lineTo(390, bottomY + 80)
-      .stroke();
-    doc
-      .moveTo(410, bottomY + 80)
-      .lineTo(540, bottomY + 80)
+      .moveTo(40, y + 50)
+      .lineTo(150, y + 50)
       .stroke();
 
-    // optional uploaded signatures
+    doc
+      .moveTo(225, y + 50)
+      .lineTo(335, y + 50)
+      .stroke();
+
+    doc
+      .moveTo(405, y + 50)
+      .lineTo(535, y + 50)
+      .stroke();
+
     try {
-      if (header.customer_signature) {
-        const img = Buffer.from(
+      if (
+        header.customer_signature &&
+        header.customer_signature.startsWith("data:")
+      ) {
+        const image = Buffer.from(
           header.customer_signature.split(",")[1],
           "base64",
         );
-        doc.image(img, 145, bottomY + 5, {
-          fit: [100, 40],
-        });
-      }
 
-      if (header.staff_signature) {
-        const img = Buffer.from(header.staff_signature.split(",")[1], "base64");
-        doc.image(img, 430, bottomY + 5, {
-          fit: [100, 40],
+        doc.image(image, 55, y + 5, {
+          fit: [80, 40],
         });
       }
     } catch (err) {
-      console.error("Signature image error", err);
+      console.error("Customer signature image error:", err);
     }
 
-    // footer small text
-    doc.fontSize(8).fillColor("gray");
-    doc.text(`Storage No: ${header.storage_no}`, 40, 790);
+    try {
+      if (
+        header.staff_signature &&
+        header.staff_signature.startsWith("data:")
+      ) {
+        const image = Buffer.from(
+          header.staff_signature.split(",")[1],
+          "base64",
+        );
+
+        doc.image(image, 240, y + 5, {
+          fit: [80, 40],
+        });
+      }
+    } catch (err) {
+      console.error("Staff signature image error:", err);
+    }
 
     doc.end();
   });

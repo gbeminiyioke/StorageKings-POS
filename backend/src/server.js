@@ -3,6 +3,8 @@ import cors from "cors";
 import "./config/env.js";
 import app from "./app.js";
 import path from "path";
+import cron from "node-cron";
+import { runMonthlyStorageReset } from "./jobs/monthlyReset.job.js";
 import authRoutes from "./routes/auth.routes.js";
 import businessRoutes from "./routes/business.routes.js";
 import branchRoutes from "./routes/branch.routes.js";
@@ -26,27 +28,26 @@ import dischargeRoutes from "./routes/discharge.routes.js";
 const PORT = 5000;
 
 app.use(cors());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: "10mb" }));
+app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
-app.use("/api/auth", authRoutes);
+/* ======================================================
+   STATIC FILES (UPLOADS)
+====================================================== */
+app.use("/uploads", express.static(path.resolve("uploads")));
 
-// Serve /uploads as static
 /*---------------------------------
   TEMPORARY LOGGER
 -----------------------------------*/
-app.use((req, res, next) => {
-  console.log("BACKEND HIT:", req.method, req.originalUrl);
-  next();
-});
-
 app.use((req, res, next) => {
   console.log(`${req.method} ${req.originalUrl}`);
   next();
 });
 
-//-----------------------------------
-
+/*---------------------------------
+  ROUTES
+-----------------------------------*/
+app.use("/api/auth", authRoutes);
 app.use("/api/business", businessRoutes);
 app.use("/api/branches", branchRoutes);
 app.use("/api/roles", roleRoutes);
@@ -55,7 +56,7 @@ app.use("/api/security", securityRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/products", productRoutes);
-app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
+//app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 app.use("/api/suppliers", supplierRoutes);
 app.use("/api/customers", customerRoutes);
 app.use("/api/receive-items", receiveItemRoutes);
@@ -65,6 +66,12 @@ app.use("/api/transfers", transferRoutes);
 app.use("/api/storage", storageRoutes);
 app.use("/api/discharge", dischargeRoutes);
 
+//Run at midnight on 1st of every month
+cron.schedule("0 0 1 * *", runMonthlyStorageReset);
+
+/*---------------------------------
+  SERVER START
+-----------------------------------*/
 app.listen(PORT, () => {
   console.log(`Backend running on port ${PORT}`);
 });

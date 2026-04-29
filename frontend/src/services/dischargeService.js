@@ -20,4 +20,10 @@ export const saveDischarge = (payload) => api.post("/discharge", payload);
 
 export const getRecentDischarges = () => api.get("/discharge/recent");
 
+export const scanItem = (barcode) =>
+  api.post("/discharge/scan-item", { barcode });
+
 export const emailDischargePdf = (id) => api.post(`/discharge/${id}/email`);
+
+export const reverseDischarge = (id, reason) =>
+  api.post(`/discharge/${id}/reverse`, { reason });
