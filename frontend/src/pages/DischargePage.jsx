@@ -264,11 +264,14 @@ export default function DischargePage() {
       const res = await saveDischarge(payload);
 
       toast({
-        title: "Discharge saved successfully",
+        title: "Discharge saved (Pending Approval)",
         description: res.data.discharge_no,
-        status: "success",
+        status: "info",
       });
-
+      /*
+      ==================================
+      THIS SECTION AUTO PRINTS THE PDF
+      ==================================
       const response = await fetch(
         `${import.meta.env.VITE_API_URL || "http://localhost:5000/api"}/discharge/${res.data.discharge_id}/pdf`,
         {
@@ -280,7 +283,7 @@ export default function DischargePage() {
 
       const blob = await response.blob();
       window.open(URL.createObjectURL(blob), "_blank");
-
+*/
       resetPage();
       loadPage();
     } catch (err) {

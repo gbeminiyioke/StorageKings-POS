@@ -39,12 +39,17 @@ import { useAuth } from "../context/AuthContext";
 -----------------------------------------------*/
 const MODULE_GROUPS = {
   Dashboard: [{ label: "Home", key: "dashboard" }],
-  Sales: [{ label: "Sales", key: "sales" }],
+  Sales: [
+    { label: "Sales Dashboard", key: "sales_dashboard" },
+    { label: "Sales", key: "sales" },
+  ],
   Inventory: [
+    { label: "Inventory Dashboard", key: "inventory_dashboard" },
     { label: "Inventory", key: "inventory" },
     { label: "Suppliers", key: "suppliers" },
     { label: "Receive Items", key: "receive_items" },
     { label: "Discharge Items", key: "discharge_items" },
+    { label: "Discharge Approval", key: "discharge_approval" },
     { label: "Storage", key: "storage" },
     { label: "Transfer", key: "transfer" },
   ],
@@ -73,6 +78,7 @@ const RIGHTS = [
   { label: "Can Edit", key: "can_edit" },
   { label: "Can Delete", key: "can_delete" },
   { label: "Can Vew Security", key: "can_view_security" },
+  { label: "Can Approve", key: "can_approve" },
 ];
 /*---------------------------------------------
   INITIAL PERMISSION STATE

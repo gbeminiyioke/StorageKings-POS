@@ -25,5 +25,9 @@ export const scanItem = (barcode) =>
 
 export const emailDischargePdf = (id) => api.post(`/discharge/${id}/email`);
 
+export const approveDischarge = (id) => api.post(`/discharge/${id}/approve`);
+
+export const rejectDischarge = (id) => api.post(`/discharge/${id}/reject`);
+
 export const reverseDischarge = (id, reason) =>
   api.post(`/discharge/${id}/reverse`, { reason });

@@ -37,6 +37,9 @@ import {
   FiShare2,
   FiTruck,
   FiTrello,
+  FiCheckSquare,
+  FiPieChart,
+  FiEdit,
 } from "react-icons/fi";
 
 /*-----------------------------------------
@@ -60,6 +63,13 @@ const menuConfig = [
     permission: "sales",
     items: [
       {
+        label: "Sales Dashboard",
+        path: "/dashboard/sales-dashboard",
+        icon: FiPieChart,
+        permission: "sales_dashboard",
+      },
+
+      {
         label: "Sales",
         path: "/dashboard/sales",
         icon: FiShoppingCart,
@@ -72,6 +82,13 @@ const menuConfig = [
     section: "Inventory",
     permission: "inventory",
     items: [
+      {
+        label: "Inventory Dashboard",
+        path: "/dashboard/inventory-dashboard",
+        icon: FiEdit,
+        permission: "inventory_dashboard",
+      },
+
       {
         label: "Inventory",
         path: "/dashboard/products",
@@ -98,6 +115,13 @@ const menuConfig = [
         path: "/dashboard/discharge-items",
         icon: FiShare,
         permission: "discharge_items",
+      },
+
+      {
+        label: "Discharge Approval",
+        path: "/dashboard/discharge-approval",
+        icon: FiCheckSquare,
+        permission: "discharge_approval",
       },
 
       {

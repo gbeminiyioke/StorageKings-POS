@@ -23,6 +23,7 @@ import SalesInvoicePage from "./pages/SalesInvoicePage";
 import Transfers from "./pages/Transfers";
 import StoragePage from "./pages/StoragePage";
 import DischargePage from "./pages/DischargePage";
+import ApprovalDashboard from "./pages/ApprovalDashboard";
 
 export default function App() {
   return (
@@ -91,6 +92,15 @@ export default function App() {
           element={
             <ProtectedRoute permission="discharge_items">
               <DischargePage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="discharge-approval"
+          element={
+            <ProtectedRoute permission="discharge_approval">
+              <ApprovalDashboard />
             </ProtectedRoute>
           }
         />

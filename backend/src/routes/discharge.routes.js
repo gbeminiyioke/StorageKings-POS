@@ -14,6 +14,8 @@ import {
   emailDischargePdf,
   scanDischargeItem,
   reverseDischarge,
+  approveDischarge,
+  rejectDischarge,
 } from "../controllers/discharge.controller.js";
 
 const router = express.Router();
@@ -31,6 +33,14 @@ router.get("/recent", getRecentDischarges);
 router.post("/", authorize("can_create"), createDischarge);
 router.post("/scan-item", scanDischargeItem);
 router.get("/:discharge_id/pdf", authorize("can_view"), downloadDischargePdf);
+
+router.post(
+  "/:discharge_id/approve",
+  authorize("can_approve"),
+  approveDischarge,
+);
+router.post("/:discharge_id/reject", authorize("can_approve"), rejectDischarge);
+
 router.post(
   "/:discharge_id/reverse",
   authorize("can_delete"),

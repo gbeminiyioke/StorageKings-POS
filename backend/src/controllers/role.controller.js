@@ -8,10 +8,13 @@ const PERMISSION_COLUMNS = [
   "can_edit",
   "can_delete",
   "can_view_security",
+  "can_approve",
 
   //MODULES
   "dashboard",
+  "sales_dashboard",
   "sales",
+  "inventory_dashboard",
   "inventory",
   "storage",
   "transfer",
@@ -19,6 +22,7 @@ const PERMISSION_COLUMNS = [
   "suppliers",
   "receive_items",
   "discharge_items",
+  "discharge_approval",
   "pos_terminals",
   "branches",
   "roles",
@@ -48,7 +52,8 @@ const createRoleController = async (req, res) => {
       permissions.can_create ||
       permissions.can_edit ||
       permissions.can_delete ||
-      permissions.can_view_security;
+      permissions.can_view_security ||
+      permissions.can_apporve;
 
     if (!atLeastOneRight) {
       return res.status(400).json({
