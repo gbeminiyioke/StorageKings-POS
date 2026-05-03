@@ -13,6 +13,7 @@ export const generateDischargePdf = async (discharge_id) => {
       dh.customer_signature,
       dh.storage_no,
       dh.reversed,
+      dh.approval_status,
       c.fullname,
       c.email,
       c.telephone,
@@ -55,8 +56,11 @@ export const generateDischargePdf = async (discharge_id) => {
     const doc = new PDFDocument({ size: "A4", margin: 40 });
 
     // ===== WATERMARK (FIXED — NO LAYOUT SHIFT) =====
-    if (header.reversed) {
-      const originalY = doc.y; // preserve cursor
+    // ===== WATERMARK (REVERSED / REJECTED) =====
+    const status = header.approval_status;
+
+    if (status === "REVERSED" || status === "REJECTED") {
+      const originalY = doc.y;
 
       doc.save();
 
@@ -68,17 +72,22 @@ export const generateDischargePdf = async (discharge_id) => {
       doc
         .font("Helvetica-Bold")
         .fontSize(80)
-        .fillColor("red")
+        .fillColor(status === "REVERSED" ? "red" : "orange")
         .opacity(0.12)
-        .text("REVERSED", centerX - 200, centerY - 40, {
-          width: 400,
-          align: "center",
-          lineBreak: false, // 🔥 prevents layout flow
-        });
+        .text(
+          status === "REVERSED" ? "REVERSED" : "REJECTED",
+          centerX - 200,
+          centerY - 40,
+          {
+            width: 400,
+            align: "center",
+            lineBreak: false,
+          },
+        );
 
       doc.restore();
 
-      doc.y = originalY; // 🔥 restore layout position
+      doc.y = originalY;
     }
 
     const buffers = [];

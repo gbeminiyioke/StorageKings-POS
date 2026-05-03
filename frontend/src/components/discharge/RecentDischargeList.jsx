@@ -19,7 +19,7 @@ import {
   emailDischargePdf,
   approveDischarge,
   rejectDischarge,
-  reverseDischarge,
+  requestReversal,
 } from "../../services/dischargeService";
 
 import { useAuth } from "../../context/AuthContext";
@@ -82,12 +82,15 @@ export default function RecentDischargeList({ discharges, onPrint }) {
 
     try {
       setReversingId(id);
-      await reverseDischarge(id, reason);
-      toast({ title: "Discharge reversed", status: "success" });
+      await requestReversal(id, reason);
+      toast({
+        title: "Reversal request submitted",
+        status: "info",
+      });
       window.location.reload();
     } catch (err) {
       toast({
-        title: err?.response?.data?.message || "Reverse failed",
+        title: err?.response?.data?.message || "Failed to request reversal",
         status: "error",
       });
     } finally {
@@ -110,15 +113,10 @@ export default function RecentDischargeList({ discharges, onPrint }) {
       <Tbody>
         {discharges.map((row) => {
           const status = row.approval_status;
-          const isReversed = row.reversed;
 
           const canView = hasPermission("can_view");
           const canApprove = hasPermission("can_approve");
           const canDelete = hasPermission("can_delete");
-
-          // =========================
-          // STRICT STATUS LOGIC
-          // =========================
 
           let printEnabled = false;
           let emailEnabled = false;
@@ -126,35 +124,52 @@ export default function RecentDischargeList({ discharges, onPrint }) {
           let rejectEnabled = false;
           let reverseEnabled = false;
 
-          if (isReversed) {
-            // 🔴 REVERSED
-            printEnabled = canView;
-            emailEnabled = canView;
-          } else if (status === "PENDING") {
-            // 🟡 PENDING
-            printEnabled = false;
-            emailEnabled = false;
-            reverseEnabled = false;
+          // =========================
+          // STRICT STATUS SWITCH
+          // =========================
+          switch (status) {
+            case "PENDING":
+              printEnabled = false;
+              emailEnabled = false;
+              approveEnabled = canApprove;
+              rejectEnabled = canApprove;
+              reverseEnabled = false;
+              break;
 
-            approveEnabled = canApprove;
-            rejectEnabled = canApprove;
-          } else if (status === "APPROVED") {
-            // 🟢 APPROVED
-            printEnabled = canView;
-            emailEnabled = canView;
+            case "APPROVED":
+              printEnabled = canView;
+              emailEnabled = canView;
+              approveEnabled = false;
+              rejectEnabled = false;
+              reverseEnabled = canDelete;
+              break;
 
-            approveEnabled = false;
-            rejectEnabled = false;
+            case "PENDING_REVERSAL":
+              printEnabled = false;
+              emailEnabled = false;
+              approveEnabled = canApprove;
+              rejectEnabled = canApprove;
+              reverseEnabled = false;
+              break;
 
-            reverseEnabled = canDelete;
-          } else if (status === "REJECTED") {
-            // ⚫ REJECTED
-            printEnabled = false; //canView
-            emailEnabled = false;
+            case "REJECTED":
+              printEnabled = canView;
+              emailEnabled = false;
+              approveEnabled = false;
+              rejectEnabled = false;
+              reverseEnabled = false;
+              break;
 
-            approveEnabled = false;
-            rejectEnabled = false;
-            reverseEnabled = false;
+            case "REVERSED":
+              printEnabled = canView;
+              emailEnabled = canView;
+              approveEnabled = false;
+              rejectEnabled = false;
+              reverseEnabled = false;
+              break;
+
+            default:
+              break;
           }
 
           return (
@@ -164,9 +179,17 @@ export default function RecentDischargeList({ discharges, onPrint }) {
               <Td>{row.customer_name}</Td>
 
               <Td>
-                {isReversed ? (
+                {status === "REVERSED" ? (
                   <Text color="red.500" fontWeight="bold">
                     REVERSED
+                  </Text>
+                ) : status === "PENDING_REVERSAL" ? (
+                  <Text color="orange.500" fontWeight="bold">
+                    PENDING REVERSAL
+                  </Text>
+                ) : status === "REJECTED" ? (
+                  <Text color="red.500" fontWeight="bold">
+                    REJECTED
                   </Text>
                 ) : (
                   status
@@ -216,7 +239,7 @@ export default function RecentDischargeList({ discharges, onPrint }) {
                     />
                   </Tooltip>
 
-                  <Tooltip label="Reverse">
+                  <Tooltip label="Request Reversal">
                     <IconButton
                       size="sm"
                       colorScheme="red"

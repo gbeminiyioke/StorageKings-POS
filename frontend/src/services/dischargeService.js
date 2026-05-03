@@ -31,3 +31,6 @@ export const rejectDischarge = (id) => api.post(`/discharge/${id}/reject`);
 
 export const reverseDischarge = (id, reason) =>
   api.post(`/discharge/${id}/reverse`, { reason });
+
+export const requestReversal = (id, reason) =>
+  api.post(`/discharge/${id}/request-reversal`, { reason });

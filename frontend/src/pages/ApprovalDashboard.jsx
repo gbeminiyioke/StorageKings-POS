@@ -103,6 +103,7 @@ export default function ApprovalDashboard() {
           <option value="PENDING">Pending</option>
           <option value="APPROVED">Approved</option>
           <option value="REJECTED">Rejected</option>
+          <option value="PENDING_REVERSAL">Pending Reversal</option>
         </Select>
 
         {filter === "PENDING" && hasPermission("can_approve") && (

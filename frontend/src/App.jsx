@@ -24,6 +24,7 @@ import Transfers from "./pages/Transfers";
 import StoragePage from "./pages/StoragePage";
 import DischargePage from "./pages/DischargePage";
 import ApprovalDashboard from "./pages/ApprovalDashboard";
+import InventoryDashboard from "./pages/InventoryDashboard";
 
 export default function App() {
   return (
@@ -101,6 +102,15 @@ export default function App() {
           element={
             <ProtectedRoute permission="discharge_approval">
               <ApprovalDashboard />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="inventory-dashboard"
+          element={
+            <ProtectedRoute permission="inventory_dashboard">
+              <InventoryDashboard />
             </ProtectedRoute>
           }
         />

@@ -270,58 +270,117 @@ export const approveDischarge = async (req, res) => {
 
     const { discharge_id } = req.params;
 
-    const header = await client.query(
-      `SELECT * FROM discharge_headers WHERE discharge_id=$1 FOR UPDATE`,
+    const headerRes = await client.query(
+      `SELECT * FROM discharge_headers WHERE discharge_id = $1 FOR UPDATE`,
       [discharge_id],
     );
 
-    const d = header.rows[0];
+    const d = headerRes.rows[0];
 
-    if (d.approval_status === "APPROVED") throw new Error("Already approved");
+    if (!d) throw new Error("Discharge not found");
 
-    if (d.reversed) throw new Error("Cannot approve reversed discharge");
-
-    const details = await client.query(
-      `SELECT * FROM discharge_details WHERE discharge_id=$1`,
-      [discharge_id],
-    );
-
-    for (const item of details.rows) {
-      const lock = await client.query(
-        `SELECT remaining_quantity FROM storage_items WHERE storage_item_id=$1 FOR UPDATE`,
-        [item.storage_item_id],
+    // =========================
+    // NORMAL APPROVAL
+    // =========================
+    if (d.approval_status === "PENDING") {
+      const details = await client.query(
+        `SELECT * FROM discharge_details WHERE discharge_id = $1`,
+        [discharge_id],
       );
 
-      if (item.discharged_quantity > lock.rows[0].remaining_quantity)
-        throw new Error("Stock mismatch during approval");
+      for (const item of details.rows) {
+        const lock = await client.query(
+          `SELECT remaining_quantity FROM storage_items WHERE storage_item_id=$1 FOR UPDATE`,
+          [item.storage_item_id],
+        );
+
+        if (item.discharged_quantity > lock.rows[0].remaining_quantity) {
+          throw new Error("Stock mismatch");
+        }
+
+        await client.query(
+          `
+          UPDATE storage_items
+          SET
+            retrieved_quantity = retrieved_quantity + $1,
+            discharged_quantity = discharged_quantity + $1
+          WHERE storage_item_id = $2
+          `,
+          [item.discharged_quantity, item.storage_item_id],
+        );
+      }
 
       await client.query(
         `
-        UPDATE storage_items
-        SET
-          retrieved_quantity = retrieved_quantity + $1,
-          discharged_quantity = discharged_quantity + $1
-        WHERE storage_item_id = $2
+        UPDATE discharge_headers
+        SET approval_status='APPROVED',
+            approved_by=$1,
+            approved_at=NOW(),
+            status='COMPLETED'
+        WHERE discharge_id=$2
         `,
-        [item.discharged_quantity, item.storage_item_id],
+        [req.user.id, discharge_id],
       );
     }
 
-    await client.query(
-      `
-      UPDATE discharge_headers
-      SET approval_status='APPROVED',
-          approved_by=$1,
-          approved_at=NOW(),
-          status='COMPLETED'
-      WHERE discharge_id=$2
-      `,
-      [req.user.id, discharge_id],
-    );
+    // =========================
+    // REVERSAL APPROVAL
+    // =========================
+    else if (d.approval_status === "PENDING_REVERSAL") {
+      const details = await client.query(
+        `SELECT * FROM discharge_details WHERE discharge_id = $1`,
+        [discharge_id],
+      );
+
+      for (const item of details.rows) {
+        await client.query(
+          `
+          UPDATE storage_items
+          SET
+            retrieved_quantity = retrieved_quantity - $1,
+            discharged_quantity = discharged_quantity - $1
+          WHERE storage_item_id = $2
+          `,
+          [item.discharged_quantity, item.storage_item_id],
+        );
+      }
+
+      // restore storage status
+      const remaining = await client.query(
+        `
+        SELECT COUNT(*)::int AS count
+        FROM storage_items
+        WHERE storage_id = $1 AND remaining_quantity > 0
+        `,
+        [d.storage_id],
+      );
+
+      const newStatus = remaining.rows[0].count > 0 ? "ACTIVE" : "ACTIVE";
+
+      await client.query(
+        `UPDATE storage_headers SET status = $1 WHERE storage_id = $2`,
+        [newStatus, d.storage_id],
+      );
+
+      await client.query(
+        `
+        UPDATE discharge_headers
+        SET
+          approval_status = 'REVERSED',
+          reversed = true,
+          reversed_by = $1,
+          reversed_at = NOW()
+        WHERE discharge_id = $2
+        `,
+        [req.user.id, discharge_id],
+      );
+    } else {
+      throw new Error("Invalid approval state");
+    }
 
     await client.query("COMMIT");
 
-    res.json({ message: "Approved successfully" });
+    res.json({ message: "Operation successful" });
   } catch (err) {
     await client.query("ROLLBACK");
     res.status(500).json({ message: err.message });
@@ -329,23 +388,43 @@ export const approveDischarge = async (req, res) => {
     client.release();
   }
 };
-
 /* =========================
    REJECT
 ========================= */
 export const rejectDischarge = async (req, res) => {
   try {
-    await pool.query(
-      `UPDATE discharge_headers SET approval_status='REJECTED', status='REJECTED' WHERE discharge_id=$1`,
-      [req.params.discharge_id],
+    const { discharge_id } = req.params;
+
+    const result = await pool.query(
+      `SELECT * FROM discharge_headers WHERE discharge_id = $1`,
+      [discharge_id],
     );
 
-    res.json({ message: "Rejected" });
+    const d = result.rows[0];
+
+    if (d.approval_status === "PENDING") {
+      await pool.query(
+        `UPDATE discharge_headers
+         SET approval_status='REJECTED', status='REJECTED'
+         WHERE discharge_id=$1`,
+        [discharge_id],
+      );
+    } else if (d.approval_status === "PENDING_REVERSAL") {
+      await pool.query(
+        `UPDATE discharge_headers
+         SET approval_status='APPROVED'
+         WHERE discharge_id=$1`,
+        [discharge_id],
+      );
+    } else {
+      throw new Error("Cannot reject this record");
+    }
+
+    res.json({ message: "Rejected successfully" });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 };
-
 /* =========================
    RECENT
 ========================= */
@@ -459,100 +538,39 @@ export const scanDischargeItem = async (req, res) => {
   }
 };
 
-export const reverseDischarge = async (req, res) => {
-  const client = await pool.connect();
-
+export const requestReversal = async (req, res) => {
   try {
-    await client.query("BEGIN");
-
     const { discharge_id } = req.params;
     const { reason } = req.body;
 
-    // lock discharge
-    const headerRes = await client.query(
-      `
-      SELECT * FROM discharge_headers
-      WHERE discharge_id = $1
-      FOR UPDATE
-      `,
+    const result = await pool.query(
+      `SELECT * FROM discharge_headers WHERE discharge_id = $1`,
       [discharge_id],
     );
 
-    if (!headerRes.rows.length) {
+    if (!result.rows.length) {
       throw new Error("Discharge not found");
     }
 
-    const discharge = headerRes.rows[0];
+    const d = result.rows[0];
 
-    if (discharge.is_reversed) {
-      throw new Error("Discharge already reversed");
+    if (d.approval_status !== "APPROVED") {
+      throw new Error("Only approved discharges can be reversed");
     }
 
-    // get details
-    const detailsRes = await client.query(
-      `
-      SELECT *
-      FROM discharge_details
-      WHERE discharge_id = $1
-      `,
-      [discharge_id],
-    );
-
-    // restore quantities
-    for (const item of detailsRes.rows) {
-      await client.query(
-        `
-        UPDATE storage_items
-        SET
-          retrieved_quantity = retrieved_quantity - $1,
-          discharged_quantity = discharged_quantity - $1
-        WHERE storage_item_id = $2
-        `,
-        [item.discharged_quantity, item.storage_item_id],
-      );
-    }
-
-    // reset storage status
-    await client.query(
-      `
-      UPDATE storage_headers
-      SET status = 'ACTIVE'
-      WHERE storage_id = $1
-      `,
-      [discharge.storage_id],
-    );
-
-    // mark reversed
-    await client.query(
+    await pool.query(
       `
       UPDATE discharge_headers
       SET
-        is_reversed = true,
-        reversed_by = $1,
-        reversed_at = NOW(),
-        reversal_reason = $2
-      WHERE discharge_id = $3
+        approval_status = 'PENDING_REVERSAL',
+        reversal_reason = $1
+      WHERE discharge_id = $2
       `,
-      [req.user.id, reason || null, discharge_id],
+      [reason || null, discharge_id],
     );
 
-    // optional audit
-    await client.query(
-      `
-      INSERT INTO discharge_reversals (discharge_id, reversed_by, reversal_reason)
-      VALUES ($1,$2,$3)
-      `,
-      [discharge_id, req.user.id, reason || null],
-    );
-
-    await client.query("COMMIT");
-
-    res.json({ message: "Discharge reversed successfully" });
+    res.json({ message: "Reversal request submitted" });
   } catch (err) {
-    await client.query("ROLLBACK");
-    console.error(err);
     res.status(500).json({ message: err.message });
-  } finally {
-    client.release();
   }
 };
