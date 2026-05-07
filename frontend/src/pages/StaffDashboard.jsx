@@ -35,6 +35,17 @@ export default function StaffDashboard() {
     fetchStats();
   }, []);
 
+  const toNumber = (val) => {
+    if (val === null || val === undefined || val === "") return 0;
+    const n = Number(val);
+    return isNaN(n) ? 0 : n;
+  };
+
+  const format = (n) =>
+    toNumber(n).toLocaleString("en-NG", {
+      minimumFractionDigits: 2,
+    });
+
   return (
     <Box>
       {/* PAGE TITLE */}
@@ -48,7 +59,7 @@ export default function StaffDashboard() {
         {hasPermission("sales") && (
           <StatCard
             title="Today's Sales"
-            value="₦103,800.00"
+            value={format(stats.todays_sales || 0)}
             icon={FiDollarSign}
             color="green.500"
           />
@@ -75,7 +86,7 @@ export default function StaffDashboard() {
         {hasPermission("inventory") && (
           <StatCard
             title="Stock Value"
-            value={stats.total_stock_value || 0}
+            value={format(stats.total_stock_value || 0)}
             icon={FiTrello}
             color="orange.500"
           />
@@ -114,7 +125,7 @@ export default function StaffDashboard() {
         {/* ACTIVE BRANCH */}
         <StatCard
           title="Active Branch"
-          value={user?.branch?.branch_name || "N/A"}
+          value={stats.active_branches || 0}
           icon={FiMapPin}
           color="purple.500"
         />

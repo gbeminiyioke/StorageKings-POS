@@ -25,6 +25,7 @@ import StoragePage from "./pages/StoragePage";
 import DischargePage from "./pages/DischargePage";
 import ApprovalDashboard from "./pages/ApprovalDashboard";
 import InventoryDashboard from "./pages/InventoryDashboard";
+import POSDashboard from "./pages/posDashboard";
 
 export default function App() {
   return (
@@ -61,6 +62,15 @@ export default function App() {
         <Route index element={<StaffDashboard />} />
 
         {/*============== SALES =============== */}
+        <Route
+          path="sales-dashboard"
+          element={
+            <ProtectedRoute permission="sales_dashboard">
+              <POSDashboard />
+            </ProtectedRoute>
+          }
+        />
+
         <Route
           path="sales"
           element={

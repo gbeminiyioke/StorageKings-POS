@@ -11,10 +11,18 @@ export const getDashboardCounts = async (req, res) => {
     );
 
     const pendingDischarge = await pool.query(`
-      SELECT COUNT(*) FROM discharge_items WHERE status = 'pending'`);
+      SELECT COUNT(*) FROM storage_headers where deleted=false`);
 
     const stockValuation = await pool.query(
-      `SELECT SUM(stock_quantity * cost_price) as total_inventory_value FROM products`,
+      `SELECT SUM(COALESCE(p.cost_price, 0) * COALESCE(pbb.stock_quantity, 0)) AS total_inventory_value from products p JOIN products_by_branch pbb ON p.product_id = pbb.product_id where p.deleted=false and p.can_be_sold=true and p.storage=false`,
+    );
+
+    const todaySales =
+      await pool.query(`select sum(grand_total) as total_sales from pos_sales 
+        where transaction_date::date = CURRENT_DATE and transaction_type='INVOICE'`);
+
+    const activeBranches = await pool.query(
+      `select count(*) from branches where enable=true`,
     );
 
     res.json({
@@ -23,6 +31,8 @@ export const getDashboardCounts = async (req, res) => {
       pending_discharge: Number(pendingDischarge.rows[0].count),
       total_stock_value:
         Number(stockValuation.rows[0].total_inventory_value) || 0,
+      todays_sales: Number(todaySales.rows[0].total_sales) || 0,
+      active_branches: Number(activeBranches.rows[0].count),
     });
   } catch (err) {
     console.error(err);

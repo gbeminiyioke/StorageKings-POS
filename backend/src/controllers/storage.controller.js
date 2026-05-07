@@ -207,6 +207,7 @@ export const createStorage = async (req, res) => {
       preprinted,
       storage_period_months,
       max_monthly_visits,
+      discharge_date,
     } = req.body;
 
     const items = JSON.parse(req.body.items || "[]");
@@ -366,6 +367,7 @@ export const getRecentStorages = async (req, res) => {
         sh.storage_id,
         sh.storage_no,
         sh.received_date,
+        sh.discharge_date,
         sh.status,
         c.fullname AS customer_name,
         c.email,
