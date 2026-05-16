@@ -1,6 +1,8 @@
 import pool from "../config/db.js";
 import ExcelJS from "exceljs";
 import PDFDocument from "pdfkit";
+import { sendEmail } from "../utils/mailer.js";
+import logActivity from "../utils/activityLogger.js";
 
 /* ======================================================
    HELPER: BUILD FILTERS SAFELY
@@ -1251,6 +1253,958 @@ export const getStorageItemSummary = async (req, res) => {
           b.branch_name,
           p.product_name
       `);
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error(err);
+
+    res.status(500).json({
+      message: err.message,
+    });
+  }
+};
+
+/* ======================================================
+   GET PENDING STORAGE VISIT REQUESTS
+====================================================== */
+export const getPendingStorageVisitRequests = async (req, res) => {
+  try {
+    const result = await pool.query(
+      `
+        SELECT
+          svr.visit_request_id,
+          svr.request_no,
+          svr.created_at,
+          svr.visit_date,
+          svr.storage_no,
+          svr.customer_name,
+          svr.telephone,
+          svr.visitors_name,
+          svr.visitors_telephone,
+          svr.request_status,
+
+          b.branch_name,
+
+          c.email,
+
+          sh.storage_space_product_id,
+
+          p.product_name AS storage_space
+
+        FROM storage_visit_requests svr
+
+        LEFT JOIN branches b
+          ON svr.branch_id = b.branch_id
+
+        LEFT JOIN customers c
+          ON svr.customer_id = c.id
+
+        LEFT JOIN storage_headers sh
+          ON svr.storage_id = sh.storage_id
+
+        LEFT JOIN products p
+          ON sh.storage_space_product_id =
+             p.product_id
+
+        WHERE svr.request_status = 'PENDING'
+
+        ORDER BY svr.created_at DESC
+      `,
+    );
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Get visit requests error:", err);
+
+    res.status(500).json({
+      message: "Server error",
+    });
+  }
+};
+
+/* ======================================================
+   APPROVE STORAGE VISIT REQUEST
+====================================================== */
+export const approveStorageVisitRequest = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    /* =====================================
+         REQUEST DETAILS
+      ===================================== */
+    const requestResult = await pool.query(
+      `
+          SELECT
+            svr.*,
+            c.email,
+            b.branch_name
+          FROM storage_visit_requests svr
+          LEFT JOIN customers c
+            ON svr.customer_id = c.id
+          LEFT JOIN branches b
+            ON svr.branch_id = b.branch_id
+          WHERE svr.visit_request_id = $1
+        `,
+      [id],
+    );
+
+    if (!requestResult.rows.length) {
+      return res.status(404).json({
+        message: "Visit request not found",
+      });
+    }
+
+    const request = requestResult.rows[0];
+
+    /* =====================================
+         APPROVE REQUEST
+      ===================================== */
+    await pool.query(
+      `
+        UPDATE storage_visit_requests
+        SET
+          request_status = 'APPROVED',
+          approved_by = $1,
+          approved_at = NOW()
+        WHERE visit_request_id = $2
+      `,
+      [req.user.id, id],
+    );
+
+    /* =====================================
+         CREATE NOTIFICATION
+      ===================================== */
+    await pool.query(
+      `
+        INSERT INTO storage_notifications (
+          customer_id,
+          storage_id,
+          visit_request_id,
+          title,
+          message,
+          notification_type
+        )
+        VALUES (
+          $1,$2,$3,$4,$5,$6
+        )
+      `,
+      [
+        request.customer_id,
+        request.storage_id,
+        request.visit_request_id,
+
+        "Visit Request Approved",
+
+        `Your request to visit storage unit ${request.storage_no} at the ${request.branch_name} branch on ${request.visit_date} is approved.`,
+
+        "VISIT_APPROVED",
+      ],
+    );
+
+    /*======================================
+      SEND APPROVAL EMAIL
+    ========================================*/
+    if (request.email) {
+      await sendEmail({
+        to: request.email,
+
+        subject: "Storage Visit Approved",
+
+        html: `
+      <div
+        style="
+          font-family: Arial, sans-serif;
+          max-width: 700px;
+          margin: auto;
+          border: 1px solid #ddd;
+          border-radius: 10px;
+          overflow: hidden;
+        "
+      >
+
+        <div
+          style="
+            background: #1a365d;
+            color: white;
+            padding: 20px;
+          "
+        >
+          <h2>
+            Storage Visit Approved
+          </h2>
+        </div>
+
+        <div style="padding: 20px;">
+
+          <p>
+            Dear
+            <strong>
+              ${request.customer_name}
+            </strong>,
+          </p>
+
+          <p>
+            Your request to visit
+            storage unit
+            <strong>
+              ${request.storage_no}
+            </strong>
+            has been approved.
+          </p>
+
+          <table
+            width="100%"
+            cellpadding="10"
+            style="
+              border-collapse: collapse;
+              margin-top: 20px;
+            "
+          >
+
+            <tr>
+              <td>
+                <strong>
+                  Branch
+                </strong>
+              </td>
+
+              <td>
+                ${request.branch_name}
+              </td>
+            </tr>
+
+            <tr>
+              <td>
+                <strong>
+                  Visit Date
+                </strong>
+              </td>
+
+              <td>
+                ${request.visit_date}
+              </td>
+            </tr>
+
+            <tr>
+              <td>
+                <strong>
+                  Visitor
+                </strong>
+              </td>
+
+              <td>
+                ${request.visitors_name}
+              </td>
+            </tr>
+
+          </table>
+
+          <div
+            style="
+              text-align: center;
+              margin-top: 30px;
+            "
+          >
+            <img
+              src="${request.qr_pass_image}"
+              width="220"
+            />
+          </div>
+
+          <p style="margin-top: 30px;">
+            Present this QR code
+            during your visit.
+          </p>
+
+        </div>
+
+      </div>
+    `,
+      });
+    }
+
+    /* =====================================
+         ACTIVITY LOG
+      ===================================== */
+    await logActivity({
+      userId: req.user.id,
+      userName: req.user.fullname,
+      branchId: req.user.branchId,
+      module: "STORAGE_VISITS",
+      action: "APPROVE",
+      description: `Approved storage visit request ${request.request_no}`,
+      ipAddress: req.ip,
+    });
+
+    res.json({
+      message: "Visit request approved",
+    });
+  } catch (err) {
+    console.error("Approve visit error:", err);
+
+    res.status(500).json({
+      message: "Server error",
+    });
+  }
+};
+
+/* ======================================================
+   REJECT STORAGE VISIT REQUEST
+====================================================== */
+export const rejectStorageVisitRequest = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const { rejection_reason } = req.body;
+
+    if (!rejection_reason) {
+      return res.status(400).json({
+        message: "Rejection reason required",
+      });
+    }
+
+    /* =====================================
+         REQUEST DETAILS
+      ===================================== */
+    const requestResult = await pool.query(
+      `
+          SELECT
+            svr.*,
+            c.email,
+            b.branch_name
+
+          FROM storage_visit_requests svr
+
+          LEFT JOIN customers c
+            ON svr.customer_id = c.id
+
+          LEFT JOIN branches b
+            ON svr.branch_id = b.branch_id
+
+          WHERE svr.visit_request_id = $1
+        `,
+      [id],
+    );
+
+    if (!requestResult.rows.length) {
+      return res.status(404).json({
+        message: "Visit request not found",
+      });
+    }
+
+    const request = requestResult.rows[0];
+
+    /* =====================================
+         UPDATE REQUEST
+      ===================================== */
+    await pool.query(
+      `
+        UPDATE storage_visit_requests
+        SET
+          request_status = 'REJECTED',
+          rejection_reason = $1,
+          rejected_by = $2,
+          rejected_at = NOW()
+        WHERE visit_request_id = $3
+      `,
+      [rejection_reason, req.user.id, id],
+    );
+
+    /* =====================================
+         CREATE NOTIFICATION
+      ===================================== */
+    await pool.query(
+      `
+        INSERT INTO storage_notifications (
+          customer_id,
+          storage_id,
+          visit_request_id,
+          title,
+          message,
+          notification_type
+        )
+        VALUES (
+          $1,$2,$3,$4,$5,$6
+        )
+      `,
+      [
+        request.customer_id,
+        request.storage_id,
+        request.visit_request_id,
+
+        "Visit Request Rejected",
+
+        `Your request to visit storage unit ${request.storage_no} at the ${request.branch_name} branch on ${request.visit_date} is rejected.`,
+
+        "VISIT_REJECTED",
+      ],
+    );
+
+    /* =====================================
+         EMAIL
+      ===================================== */
+    if (request.email) {
+      await sendEmail({
+        to: request.email,
+
+        subject: "Storage Visit Rejected",
+
+        html: `
+            <h2>
+              Storage Visit Rejected
+            </h2>
+
+            <p>
+              Your request to visit
+              storage unit
+              <strong>
+                ${request.storage_no}
+              </strong>
+              at the
+              <strong>
+                ${request.branch_name}
+              </strong>
+              branch on
+              <strong>
+                ${request.visit_date}
+              </strong>
+              has been rejected.
+            </p>
+
+            <p>
+              <strong>
+                Reason:
+              </strong>
+              ${rejection_reason}
+            </p>
+          `,
+      });
+    }
+
+    /* =====================================
+         ACTIVITY LOG
+      ===================================== */
+    await logActivity({
+      userId: req.user.id,
+      userName: req.user.fullname,
+      branchId: req.user.branchId,
+      module: "STORAGE_VISITS",
+      action: "REJECT",
+      description: `Rejected storage visit request ${request.request_no}`,
+      ipAddress: req.ip,
+    });
+
+    res.json({
+      message: "Visit request rejected",
+    });
+  } catch (err) {
+    console.error("Reject visit error:", err);
+
+    res.status(500).json({
+      message: "Server error",
+    });
+  }
+};
+
+/* ======================================================
+   PROCESS STORAGE VISIT CHECK-IN
+====================================================== */
+export const processStorageVisitCheckin = async (req, res) => {
+  try {
+    const { qr_pass_code } = req.body;
+
+    if (!qr_pass_code) {
+      return res.status(400).json({
+        message: "QR pass required",
+      });
+    }
+
+    /* =====================================
+         FIND REQUEST
+      ===================================== */
+    const requestResult = await pool.query(
+      `
+          SELECT *
+          FROM storage_visit_requests
+          WHERE qr_pass_code = $1
+            AND request_status = 'APPROVED'
+        `,
+      [qr_pass_code],
+    );
+
+    if (!requestResult.rows.length) {
+      return res.status(404).json({
+        message: "Invalid QR pass",
+      });
+    }
+
+    const request = requestResult.rows[0];
+
+    /* =====================================
+         CREATE VISIT LOG
+      ===================================== */
+    const visitLog = await pool.query(
+      `
+          INSERT INTO storage_visit_logs (
+            visit_request_id,
+            storage_id,
+            customer_id,
+            scanned_qr_code,
+            receiving_officer
+          )
+          VALUES (
+            $1,$2,$3,$4,$5
+          )
+          RETURNING *
+        `,
+      [
+        request.visit_request_id,
+        request.storage_id,
+        request.customer_id,
+        qr_pass_code,
+        req.user.id,
+      ],
+    );
+
+    /* =====================================
+         COMPLETE REQUEST
+      ===================================== */
+    await pool.query(
+      `
+        UPDATE storage_visit_requests
+        SET
+          request_status = 'COMPLETED',
+          completed_by = $1,
+          completed_at = NOW()
+        WHERE visit_request_id = $2
+      `,
+      [req.user.id, request.visit_request_id],
+    );
+
+    /* =====================================
+         UPDATE VISITS
+      ===================================== */
+    await pool.query(
+      `
+        UPDATE storage_headers
+        SET
+          current_visits =
+            current_visits + 1
+        WHERE storage_id = $1
+      `,
+      [request.storage_id],
+    );
+
+    /* =====================================
+         COMPLETE NOTIFICATIONS
+      ===================================== */
+    await pool.query(
+      `
+        UPDATE storage_notifications
+        SET
+          is_completed = TRUE
+        WHERE visit_request_id = $1
+      `,
+      [request.visit_request_id],
+    );
+
+    res.json({
+      message: "Visit check-in successful",
+
+      visitLog: visitLog.rows[0],
+    });
+  } catch (err) {
+    console.error("Visit check-in error:", err);
+
+    res.status(500).json({
+      message: "Server error",
+    });
+  }
+};
+
+export const searchCustomers = async (req, res) => {
+  try {
+    const search = (req.query.search || "").trim();
+
+    console.log("CUSTOMER SEARCH:", search);
+
+    // =========================
+    // EMPTY SEARCH
+    // =========================
+    if (!search || search.length < 2) {
+      return res.json([]);
+    }
+
+    // =========================
+    // QUERY
+    // =========================
+    const result = await pool.query(
+      `
+      SELECT
+        c.id,
+        c.fullname,
+        c.email,
+        c.telephone,
+        b.branch_name
+
+      FROM customers c
+
+      LEFT JOIN branches b
+        ON b.branch_id = c.createdatbranchid
+
+      WHERE
+        (
+          LOWER(c.fullname) LIKE LOWER($1)
+          OR LOWER(c.email) LIKE LOWER($1)
+          OR LOWER(c.telephone) LIKE LOWER($1)
+        )
+
+      ORDER BY c.fullname ASC
+
+      LIMIT 20
+      `,
+      [`%${search}%`],
+    );
+
+    console.log("CUSTOMER RESULTS:", result.rows);
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error("CUSTOMER SEARCH ERROR:", err);
+
+    res.status(500).json({
+      message: err.message,
+    });
+  }
+};
+
+export const getExpiredStorages = async (req, res) => {
+  try {
+    const { customer_id } = req.query;
+
+    // =========================
+    // REQUIRE CUSTOMER
+    // =========================
+    if (!customer_id) {
+      return res.json([]);
+    }
+
+    const result = await pool.query(
+      `
+      SELECT
+        sh.storage_id,
+        sh.storage_no,
+        sh.received_date,
+        sh.discharge_date,
+        sh.customer_id,
+
+        c.fullname,
+        c.email,
+        c.telephone,
+
+        b.branch_name,
+
+        p.product_name AS storage_space
+
+      FROM storage_headers sh
+
+      INNER JOIN customers c
+        ON c.id = sh.customer_id
+
+      INNER JOIN branches b
+        ON b.branch_id = sh.branch_id
+
+      LEFT JOIN products p
+        ON p.product_id = sh.storage_space_product_id
+
+      WHERE sh.deleted = false
+        AND sh.customer_id = $1
+        AND sh.discharge_date < CURRENT_DATE
+
+      ORDER BY sh.discharge_date ASC
+      `,
+      [customer_id],
+    );
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error(err);
+
+    res.status(500).json({
+      message: err.message,
+    });
+  }
+};
+
+export const extendStorageContract = async (req, res) => {
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    const { storage_id, months_extension, new_discharge_date } = req.body;
+
+    // =========================================
+    // VALIDATION
+    // =========================================
+    if (!storage_id) {
+      return res.status(400).json({
+        message: "Storage ID is required",
+      });
+    }
+
+    if (!months_extension || Number(months_extension) <= 0) {
+      return res.status(400).json({
+        message: "Months extension is required",
+      });
+    }
+
+    if (!new_discharge_date) {
+      return res.status(400).json({
+        message: "New discharge date is required",
+      });
+    }
+
+    // =========================================
+    // GET STORAGE DETAILS
+    // =========================================
+    const storageResult = await client.query(
+      `
+      SELECT
+        sh.*,
+        c.fullname,
+        c.email,
+        c.telephone,
+        b.branch_name
+      FROM storage_headers sh
+      LEFT JOIN customers c
+        ON c.id = sh.customer_id
+      LEFT JOIN branches b
+        ON b.branch_id = sh.branch_id
+      WHERE sh.storage_id = $1
+        AND sh.deleted = false
+      LIMIT 1
+      `,
+      [storage_id],
+    );
+
+    if (storageResult.rows.length === 0) {
+      return res.status(404).json({
+        message: "Storage not found",
+      });
+    }
+
+    const storage = storageResult.rows[0];
+
+    // =========================================
+    // INSERT EXTENSION HISTORY
+    // =========================================
+    await client.query(
+      `
+      INSERT INTO storage_extensions (
+        storage_id,
+        customer_id,
+        old_discharge_date,
+        months_extended,
+        new_discharge_date,
+        extended_by,
+        created_at,
+        deleted
+      )
+      VALUES (
+        $1,
+        $2,
+        $3,
+        $4,
+        $5,
+        $6,
+        NOW(),
+        false
+      )
+      `,
+      [
+        storage.storage_id,
+        storage.customer_id,
+        storage.discharge_date,
+        Number(months_extension),
+        new_discharge_date,
+        req.user?.id || null,
+      ],
+    );
+
+    // =========================================
+    // UPDATE STORAGE HEADER
+    // =========================================
+    await client.query(
+      `
+      UPDATE storage_headers
+      SET
+        discharge_date = $1,
+        extension_count = COALESCE(extension_count, 0) + 1,
+        last_extended_at = NOW(),
+        last_extended_by = $2
+      WHERE storage_id = $3
+      `,
+      [new_discharge_date, req.user?.id || null, storage.storage_id],
+    );
+
+    // =========================================
+    // CUSTOMER NOTIFICATION
+    // =========================================
+    await client.query(
+      `
+      INSERT INTO storage_notifications (
+      customer_id,
+      storage_id,
+      title,
+      message,
+      notification_type
+      )
+      VALUES (
+      $1,
+      $2,
+      $3,
+      $4,
+      $5
+      )
+      `,
+      [
+        storage.customer_id,
+        storage.storage_id,
+        "Storage Extension Approved",
+        `Your storage ${storage.storage_no} has been extended successfully from ${new Date(
+          storage.discharge_date,
+        ).toLocaleDateString()} to ${new Date(
+          new_discharge_date,
+        ).toLocaleDateString()}.`,
+
+        "STORAGE_EXTENSION",
+      ],
+    );
+
+    // =========================================
+    // SEND EMAIL
+    // =========================================
+    if (storage.email) {
+      await sendEmail({
+        to: storage.email,
+
+        subject: "Storage Extension Confirmation",
+
+        html: `
+          <div style="font-family: Arial, sans-serif;">
+
+            <h2>Storage Extension Successful</h2>
+
+            <p>
+              Dear ${storage.fullname || "Customer"},
+            </p>
+
+            <p>
+              Your storage contract has been extended successfully.
+            </p>
+
+            <table
+              cellpadding="8"
+              cellspacing="0"
+              border="1"
+              style="border-collapse: collapse;"
+            >
+              <tr>
+                <td><strong>Storage No</strong></td>
+                <td>${storage.storage_no}</td>
+              </tr>
+
+              <tr>
+                <td><strong>Branch</strong></td>
+                <td>${storage.branch_name}</td>
+              </tr>
+
+              <tr>
+                <td><strong>Old Expiry Date</strong></td>
+                <td>
+                  ${new Date(storage.discharge_date).toLocaleDateString()}
+                </td>
+              </tr>
+
+              <tr>
+                <td><strong>New Expiry Date</strong></td>
+                <td>
+                  ${new Date(new_discharge_date).toLocaleDateString()}
+                </td>
+              </tr>
+
+              <tr>
+                <td><strong>Months Extended</strong></td>
+                <td>${months_extension}</td>
+              </tr>
+            </table>
+
+            <br />
+
+            <p>
+              Thank you for using our storage services.
+            </p>
+
+          </div>
+        `,
+      });
+    }
+
+    // =========================================
+    // ACTIVITY LOG
+    // =========================================
+    await logActivity({
+      userId: req.user?.id || null,
+      userName: req.user?.fullname || req.user?.name || null,
+      branchId: storage.branch_id || null,
+      module: "STORAGE EXTENSION",
+      action: "EXTEND",
+      description: `Extended storage ${storage.storage_no} by ${months_extension} month(s)`,
+      ipAddress: req.ip,
+    });
+
+    await client.query("COMMIT");
+
+    res.json({
+      message: "Storage extended successfully",
+    });
+  } catch (err) {
+    await client.query("ROLLBACK");
+
+    console.error("STORAGE EXTENSION ERROR:", err);
+
+    res.status(500).json({
+      message: err.message,
+    });
+  } finally {
+    client.release();
+  }
+};
+
+export const getCustomerNotifications = async (req, res) => {
+  try {
+    const customerId = req.user.id;
+
+    const result = await pool.query(
+      `
+      SELECT
+        notification_id,
+        title,
+        message,
+        notification_type,
+        is_read,
+        created_at
+
+      FROM customer_notifications
+
+      WHERE customer_id = $1
+        AND deleted = false
+
+      ORDER BY created_at DESC
+      `,
+      [customerId],
+    );
 
     res.json(result.rows);
   } catch (err) {

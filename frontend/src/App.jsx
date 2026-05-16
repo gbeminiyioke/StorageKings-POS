@@ -26,6 +26,7 @@ import DischargePage from "./pages/DischargePage";
 import ApprovalDashboard from "./pages/ApprovalDashboard";
 import InventoryDashboard from "./pages/InventoryDashboard";
 import POSDashboard from "./pages/posDashboard";
+import CustomerRegister from "./pages/CustomerRegister";
 
 export default function App() {
   return (
@@ -36,6 +37,7 @@ export default function App() {
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/unauthorized" element={<Unauthorized />} />
       <Route path="/reports/purchases" element={<PurchasesReport />} />
+      <Route path="/register" element={<CustomerRegister />} />
 
       <Route path="/sales/invoice/:sale_id" element={<SalesInvoicePage />} />
 

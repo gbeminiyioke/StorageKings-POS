@@ -13,6 +13,7 @@ const LOCK_TIME = 15 * 60 * 1000; // 15 minutes
 ============================================*/
 const logAuthEvent = async ({
   userId,
+  customerId,
   userName,
   branchId,
   loginType,
@@ -22,7 +23,8 @@ const logAuthEvent = async ({
 }) => {
   try {
     await logActivity({
-      userId,
+      userId: loginType === "customer" ? userId : null,
+      customerId: loginType === "customer" ? customerId : null,
       userName,
       branchId: branchId || null,
       module: "AUTH",
@@ -70,7 +72,8 @@ export const requestPasswordReset = async (req, res) => {
     await sendResetEmail(email, link);
 
     await logAuthEvent({
-      userId: userResult.rows[0].id,
+      userId: loginType === "staff" ? userResult.rows[0].id : null,
+      customerId: loginType === "customer" ? userResult.rows[0].id : null,
       userName: userResult.rows[0].fullname,
       loginType,
       email,
@@ -138,7 +141,8 @@ export const resetPassword = async (req, res) => {
     );
 
     await logAuthEvent({
-      userId,
+      userId: loginType === "staff" ? userId : null,
+      customerId: loginType === "customer" ? userId : null,
       userName,
       loginType: type,
       email: null,
@@ -248,13 +252,16 @@ export const login = async (req, res) => {
       if (attempts >= MAX_ATTEMPTS)
         lockUntil = new Date(Date.now() + LOCK_TIME);
 
-      await pool.query(
-        `UPDATE ${table} SET failed_attempts=$1, lock_until=$2 WHERE id=$3`,
-        [attempts, lockUntil, user.id],
-      );
-
+      if (loginType === "staff") {
+        await pool.query(
+          `UPDATE ${table} SET failed_attempts=$1, lock_until=$2 WHERE id=$3`,
+          [attempts, lockUntil, user.id],
+        );
+      }
+      //[loginType === "staff" ? "userId" : "customerId"]: user.id,
       await logAuthEvent({
-        userId: user.id,
+        userId: loginType === "staff" ? user.id : null,
+        customerId: loginType === "customer" ? user.id : null,
         userName: user.fullname,
         branchId: branchId || null,
         loginType,
@@ -291,7 +298,8 @@ export const login = async (req, res) => {
     );
 
     await logAuthEvent({
-      userId: user.id,
+      userId: loginType === "staff" ? user.id : null,
+      customerId: loginType === "customer" ? user.id : null,
       userName: user.fullname,
       branchId: branchId || null,
       loginType,

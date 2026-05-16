@@ -13,6 +13,10 @@ import {
   confirmStorageBarcode,
   getStoragePdf,
   emailStoragePdf,
+  processStorageVisitCheckin,
+  processStorageVisitCheckout,
+  getActiveStorageVisits,
+  getStorageVisitHistory,
 } from "../controllers/storage.controller.js";
 
 import { authenticate } from "../middleware/auth.middleware.js";
@@ -34,6 +38,14 @@ router.get("/:storage_id/pdf", getStoragePdf);
 ====================================================== */
 router.use(authenticate);
 router.use(sessionTimeout);
+
+/* =========================================
+   STORAGE VISITS
+========================================= */
+router.post("/visits/checkin", processStorageVisitCheckin);
+router.put("/visits/:id/checkout", processStorageVisitCheckout);
+router.get("/visits/active", getActiveStorageVisits);
+router.get("/visits/history", getStorageVisitHistory);
 
 /* ======================================================
    CUSTOMER / BRANCH / PRODUCT LOOKUPS

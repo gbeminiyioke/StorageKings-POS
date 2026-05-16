@@ -44,3 +44,12 @@ export const sendResetEmail = async (to, link) => {
       `,
   });
 };
+
+export const sendEmail = async ({ to, subject, html }) => {
+  await transporter.sendMail({
+    from: `"StorageKings POS" <${process.env.SMTP_USER}>`,
+    to,
+    subject,
+    html,
+  });
+};

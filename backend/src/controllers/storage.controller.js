@@ -727,3 +727,350 @@ export const emailStoragePdf = async (req, res) => {
     });
   }
 };
+
+/* ======================================================
+   PROCESS STORAGE VISIT CHECK-IN
+====================================================== */
+export const processStorageVisitCheckin = async (req, res) => {
+  try {
+    const { qr_pass_code } = req.body;
+
+    if (!qr_pass_code) {
+      return res.status(400).json({
+        message: "QR pass code is required",
+      });
+    }
+
+    /* =====================================
+         FIND APPROVED REQUEST
+      ===================================== */
+    const requestResult = await pool.query(
+      `
+          SELECT
+            svr.*,
+            c.fullname,
+            c.telephone AS customer_phone,
+            b.branch_name
+          FROM storage_visit_requests svr
+          LEFT JOIN customers c
+            ON svr.customer_id = c.id
+          LEFT JOIN branches b
+            ON svr.branch_id = b.branch_id
+          WHERE svr.qr_pass_code = $1
+            AND svr.request_status = 'APPROVED'
+        `,
+      [qr_pass_code],
+    );
+
+    if (!requestResult.rows.length) {
+      return res.status(404).json({
+        message: "Invalid or expired QR pass",
+      });
+    }
+
+    const request = requestResult.rows[0];
+
+    /* =====================================
+         CHECK IF ALREADY CHECKED IN
+      ===================================== */
+    const existingVisit = await pool.query(
+      `
+          SELECT visit_log_id
+          FROM storage_visit_logs
+          WHERE visit_request_id = $1
+            AND checked_out_at IS NULL
+        `,
+      [request.visit_request_id],
+    );
+
+    if (existingVisit.rows.length) {
+      return res.status(400).json({
+        message: "Customer already checked in",
+      });
+    }
+
+    /* =====================================
+         CREATE VISIT LOG
+      ===================================== */
+    const visitLog = await pool.query(
+      `
+          INSERT INTO storage_visit_logs (
+            visit_request_id,
+            storage_id,
+            customer_id,
+            scanned_qr_code,
+            receiving_officer
+          )
+          VALUES (
+            $1,$2,$3,$4,$5
+          )
+          RETURNING *
+        `,
+      [
+        request.visit_request_id,
+        request.storage_id,
+        request.customer_id,
+        qr_pass_code,
+        req.user.id,
+      ],
+    );
+
+    /* =====================================
+         COMPLETE REQUEST
+      ===================================== */
+    await pool.query(
+      `
+        UPDATE storage_visit_requests
+        SET
+          request_status = 'COMPLETED',
+          completed_by = $1,
+          completed_at = NOW()
+        WHERE visit_request_id = $2
+      `,
+      [req.user.id, request.visit_request_id],
+    );
+
+    /* =====================================
+         UPDATE VISITS COUNT
+      ===================================== */
+    await pool.query(
+      `
+        UPDATE storage_headers
+        SET
+          current_visits =
+            COALESCE(current_visits, 0) + 1
+        WHERE storage_id = $1
+      `,
+      [request.storage_id],
+    );
+
+    /* =====================================
+         COMPLETE NOTIFICATIONS
+      ===================================== */
+    await pool.query(
+      `
+        UPDATE storage_notifications
+        SET
+          is_completed = TRUE
+        WHERE visit_request_id = $1
+      `,
+      [request.visit_request_id],
+    );
+
+    /* =====================================
+         ACTIVITY LOG
+      ===================================== */
+    await logActivity({
+      userId: req.user.id,
+      userName: req.user.fullname || req.user.name,
+      branchId: req.user.branchId || req.user.branch_id,
+      module: "STORAGE_VISITS",
+      action: "CHECKIN",
+      description: `Processed storage visit check-in for ${request.storage_no}`,
+      ipAddress: req.ip,
+    });
+
+    res.json({
+      success: true,
+
+      message: "Visit check-in successful",
+
+      data: {
+        visit_log_id: visitLog.rows[0].visit_log_id,
+        storage_no: request.storage_no,
+        customer_name: request.customer_name,
+        visit_date: request.visit_date,
+        visitors_name: request.visitors_name,
+        branch_name: request.branch_name,
+        checked_in_at: visitLog.rows[0].checked_in_at,
+      },
+    });
+  } catch (err) {
+    console.error("Storage visit check-in error:", err);
+
+    res.status(500).json({
+      message: "Server error",
+    });
+  }
+};
+
+/* ======================================================
+   PROCESS STORAGE VISIT CHECK-OUT
+====================================================== */
+export const processStorageVisitCheckout = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const { remarks } = req.body;
+
+    /* =====================================
+         FIND VISIT
+      ===================================== */
+    const visitResult = await pool.query(
+      `
+          SELECT
+            svl.*,
+            svr.storage_no,
+            svr.customer_name
+          FROM storage_visit_logs svl
+          LEFT JOIN storage_visit_requests svr
+            ON svl.visit_request_id =
+               svr.visit_request_id
+          WHERE svl.visit_log_id = $1
+        `,
+      [id],
+    );
+
+    if (!visitResult.rows.length) {
+      return res.status(404).json({
+        message: "Visit log not found",
+      });
+    }
+
+    const visit = visitResult.rows[0];
+
+    if (visit.checked_out_at) {
+      return res.status(400).json({
+        message: "Customer already checked out",
+      });
+    }
+
+    /* =====================================
+         UPDATE CHECKOUT
+      ===================================== */
+    await pool.query(
+      `
+        UPDATE storage_visit_logs
+        SET
+          checked_out_at = NOW(),
+          remarks = $1
+        WHERE visit_log_id = $2
+      `,
+      [remarks || null, id],
+    );
+
+    /* =====================================
+         ACTIVITY LOG
+      ===================================== */
+    await logActivity({
+      userId: req.user.id,
+      userName: req.user.fullname || req.user.name,
+      branchId: req.user.branchId || req.user.branch_id,
+      module: "STORAGE_VISITS",
+      action: "CHECKOUT",
+      description: `Processed storage visit checkout for ${visit.storage_no}`,
+
+      ipAddress: req.ip,
+    });
+
+    res.json({
+      success: true,
+
+      message: "Visit check-out successful",
+    });
+  } catch (err) {
+    console.error("Storage visit checkout error:", err);
+
+    res.status(500).json({
+      message: "Server error",
+    });
+  }
+};
+
+/* ======================================================
+   GET ACTIVE STORAGE VISITS
+====================================================== */
+export const getActiveStorageVisits = async (req, res) => {
+  try {
+    const result = await pool.query(
+      `
+        SELECT
+          svl.visit_log_id,
+
+          svl.checked_in_at,
+
+          svl.checked_out_at,
+
+          svr.storage_no,
+
+          svr.customer_name,
+
+          svr.visitors_name,
+
+          svr.visit_date,
+
+          b.branch_name
+
+        FROM storage_visit_logs svl
+
+        INNER JOIN storage_visit_requests svr
+          ON svl.visit_request_id =
+             svr.visit_request_id
+
+        LEFT JOIN branches b
+          ON svr.branch_id = b.branch_id
+
+        WHERE svl.checked_out_at IS NULL
+
+        ORDER BY svl.checked_in_at DESC
+      `,
+    );
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Get active visits error:", err);
+
+    res.status(500).json({
+      message: "Server error",
+    });
+  }
+};
+
+/* ======================================================
+   GET STORAGE VISIT HISTORY
+====================================================== */
+export const getStorageVisitHistory = async (req, res) => {
+  try {
+    const result = await pool.query(
+      `
+        SELECT
+          svl.visit_log_id,
+
+          svl.checked_in_at,
+
+          svl.checked_out_at,
+
+          svl.remarks,
+
+          svr.storage_no,
+
+          svr.customer_name,
+
+          svr.visitors_name,
+
+          svr.visit_date,
+
+          b.branch_name
+
+        FROM storage_visit_logs svl
+
+        INNER JOIN storage_visit_requests svr
+          ON svl.visit_request_id =
+             svr.visit_request_id
+
+        LEFT JOIN branches b
+          ON svr.branch_id = b.branch_id
+
+        ORDER BY svl.checked_in_at DESC
+      `,
+    );
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Visit history error:", err);
+
+    res.status(500).json({
+      message: "Server error",
+    });
+  }
+};

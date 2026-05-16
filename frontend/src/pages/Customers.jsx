@@ -9,6 +9,7 @@ import {
   FormErrorMessage,
   Switch,
   Button,
+  Checkbox,
   Table,
   Thead,
   Tbody,
@@ -35,6 +36,7 @@ import {
   EditIcon,
   DeleteIcon,
   CopyIcon,
+  DownloadIcon,
 } from "@chakra-ui/icons";
 import { useForm } from "react-hook-form";
 import api from "../api/api";
@@ -65,6 +67,10 @@ export default function Customers() {
     enable: true,
     password: "",
     confirmPassword: "",
+    indemnity_agreement: null,
+    warehouse_agreement: null,
+    indemnity_agreement_locked: false,
+    warehouse_agreement_locked: false,
   };
 
   const {
@@ -95,6 +101,8 @@ export default function Customers() {
   const [deleteId, setDeleteId] = useState(null);
 
   const cancelRef = useRef();
+  const indemnityRef = useRef(null);
+  const warehouseRef = useRef(null);
 
   const loadCustomers = async () => {
     const res = await api.get(
@@ -125,6 +133,22 @@ export default function Customers() {
     });
   };
 
+  const clearAgreementFields = () => {
+    reset(defaultValues);
+    setEditingId(null);
+    setValue("indemnity_agreement_locked", false);
+    setValue("warehouse_agreement_locked", false);
+    setValue("indemnity_agreement", null);
+    setValue("warehouse_agreement", null);
+    if (indemnityRef.current) {
+      indemnityRef.current.value = "";
+    }
+
+    if (warehouseRef.current) {
+      warehouseRef.current.value = "";
+    }
+  };
+
   /*===================================
     VAIDATION
   =====================================*/
@@ -150,13 +174,28 @@ export default function Customers() {
 
     try {
       setLoading(true);
-
+      /*
       const payload = {
         ...data,
         current_balance: parseFloat(
           data.current_balance?.toString().replace(/,/g, "") || 0,
         ),
       };
+*/
+
+      const payload = new FormData();
+
+      Object.entries(data).forEach(([key, value]) => {
+        if (value !== null && value !== undefined) {
+          payload.append(key, value);
+        }
+      });
+
+      payload.set(
+        "current_balance",
+
+        parseFloat(data.current_balance?.toString().replace(/,/g, "") || 0),
+      );
 
       if (editingId) {
         delete payload.password;
@@ -180,8 +219,9 @@ export default function Customers() {
         });
       }
 
-      reset(defaultValues);
-      setEditingId(null);
+      //reset(defaultValues);
+      //setEditingId(null);
+      clearAgreementFields();
       loadCustomers();
     } catch (err) {
       if (err.response?.data?.message === " CUSTOMER_NAME_EXISTS") {
@@ -214,8 +254,14 @@ export default function Customers() {
   =====================================*/
   const handleEdit = (customer) => {
     setEditingId(customer.id);
+
     reset({
       ...customer,
+
+      indemnity_agreement: customer.indemnity_agreement,
+
+      warehouse_agreement: customer.warehouse_agreement,
+
       password: "",
       confirmPassword: "",
     });
@@ -225,8 +271,9 @@ export default function Customers() {
     CANCEL BUTTON
   =====================================*/
   const handleCancel = () => {
-    reset(defaultValues);
-    setEditingId(null);
+    //reset(defaultValues);
+    //setEditingId(null);
+    clearAgreementFields();
   };
 
   /*====================================
@@ -248,7 +295,7 @@ export default function Customers() {
     DELETE
   ======================================*/
   const handleDelete = (id) => {
-    setDeleteId(id);
+    clearAgreementFields();
   };
 
   const confirmDelete = async () => {
@@ -280,6 +327,33 @@ export default function Customers() {
     } finally {
       setLoading(false);
       setDeleteId(null);
+    }
+  };
+
+  const handleDownload = async (id, type) => {
+    try {
+      const response = await api.get(`/customers/${id}/download-${type}`, {
+        responseType: "blob",
+      });
+
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+
+      const link = document.createElement("a");
+
+      link.href = url;
+
+      link.setAttribute("download", `${type}.pdf`);
+
+      document.body.appendChild(link);
+
+      link.click();
+
+      link.remove();
+    } catch {
+      toast({
+        title: "Download failed",
+        status: "error",
+      });
     }
   };
 
@@ -472,6 +546,88 @@ export default function Customers() {
             <FormControl display="flex" alignItems="center">
               <FormLabel mb="0">Enable</FormLabel>
               <Switch {...register("enable")} />
+            </FormControl>
+          </Grid>
+
+          <Grid templateColumns="2fr 1fr" gap={4} mt={4}>
+            <FormControl>
+              <FormLabel>Indemnity Agreement (PDF)</FormLabel>
+
+              <Flex direction="column" gap={2}>
+                <Input
+                  ref={indemnityRef}
+                  type="file"
+                  accept=".pdf"
+                  onChange={(e) =>
+                    setValue("indemnity_agreement", e.target.files[0])
+                  }
+                />
+
+                {editingId &&
+                  watch("indemnity_agreement") &&
+                  typeof watch("indemnity_agreement") === "string" && (
+                    <Flex align="center" gap={2}>
+                      <Text fontSize="sm" color="gray.600">
+                        Existing file:
+                        {watch("indemnity_agreement").split("/").pop()}
+                      </Text>
+
+                      <IconButton
+                        size="sm"
+                        icon={<DownloadIcon />}
+                        colorScheme="blue"
+                        onClick={() => handleDownload(editingId, "indemnity")}
+                      />
+                    </Flex>
+                  )}
+              </Flex>
+            </FormControl>
+
+            <FormControl mt={8}>
+              <Checkbox {...register("indemnity_agreement_locked")}>
+                Lock Indemnity Agreement
+              </Checkbox>
+            </FormControl>
+          </Grid>
+
+          <Grid templateColumns="2fr 1fr" gap={4} mt={4}>
+            <FormControl>
+              <FormLabel>Warehouse Agreement (PDF)</FormLabel>
+
+              <Flex direction="column" gap={2}>
+                <Input
+                  ref={warehouseRef}
+                  type="file"
+                  accept=".pdf"
+                  onChange={(e) =>
+                    setValue("warehouse_agreement", e.target.files[0])
+                  }
+                />
+
+                {editingId &&
+                  watch("warehouse_agreement") &&
+                  typeof watch("warehouse_agreement") === "string" && (
+                    <Flex align="center" gap={2}>
+                      <Text fontSize="sm" color="gray.600">
+                        Existing file:
+                        {watch("warehouse_agreement").split("/").pop()}
+                      </Text>
+
+                      <IconButton
+                        size="sm"
+                        icon={<DownloadIcon />}
+                        colorScheme="blue"
+                        onClick={() => handleDownload(editingId, "warehouse")}
+                      />
+                    </Flex>
+                  )}
+              </Flex>
+            </FormControl>
+
+            <FormControl mt={8}>
+              <Checkbox {...register("warehouse_agreement_locked")}>
+                Lock Warehouse Agreement
+              </Checkbox>
             </FormControl>
           </Grid>
 

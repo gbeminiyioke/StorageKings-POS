@@ -257,12 +257,14 @@ export default function Login() {
           </Button>
         </form>
 
-        <Text mt={4} fontSize="sm" textAlign="center">
-          Don't have an account?{" "}
-          <Link color="blue.500" onClick={() => navigate("/register")}>
-            Create Account
-          </Link>
-        </Text>
+        {!isStaff && (
+          <Text mt={4} fontSize="sm" textAlign="center">
+            Don't have an account?{" "}
+            <Link color="blue.500" onClick={() => navigate("/register")}>
+              Create Account
+            </Link>
+          </Text>
+        )}
 
         <Text mt={4} fontSize="sm" textAlign="center" color="gray.500">
           {isStaff ? "Staff access - restricted" : "Customer access"}

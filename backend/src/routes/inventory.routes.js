@@ -22,6 +22,12 @@ import {
   getExpiringStorageContracts,
   getAllStorageItemsReport,
   getStorageItemSummary,
+  getPendingStorageVisitRequests,
+  approveStorageVisitRequest,
+  rejectStorageVisitRequest,
+  searchCustomers,
+  getExpiredStorages,
+  extendStorageContract,
 } from "../controllers/inventory.controller.js";
 
 const router = express.Router();
@@ -35,10 +41,19 @@ router.get("/audit", getAuditLogs);
 router.get("/storage-trends", getStorageTrends);
 router.get("/storage-distribution", getStorageDistribution);
 
+//router.get("/customer/notifications", getCustomerNotifications);
+router.get("/customers/search", searchCustomers);
+router.get("/storage-expired", getExpiredStorages);
+router.post("/storage-extend", extendStorageContract);
+
 router.get("/branch-performance", getBranchPerformance);
 
 router.get("/branch/:branch_id/storages", getStoragesByBranch);
 router.get("/storage/:storage_id/items", getStorageItemsDetail);
+
+router.get("/storage-visit-requests", getPendingStorageVisitRequests);
+router.put("/storage-visit-requests/:id/approve", approveStorageVisitRequest);
+router.put("/storage-visit-requests/:id/reject", rejectStorageVisitRequest);
 
 router.get("/reports/valuation", getStockValuation);
 router.get("/reports/levels", getStockLevels);

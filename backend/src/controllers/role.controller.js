@@ -53,7 +53,7 @@ const createRoleController = async (req, res) => {
       permissions.can_edit ||
       permissions.can_delete ||
       permissions.can_view_security ||
-      permissions.can_apporve;
+      permissions.can_approve;
 
     if (!atLeastOneRight) {
       return res.status(400).json({

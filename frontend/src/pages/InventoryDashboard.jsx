@@ -31,6 +31,10 @@ import {
   ModalCloseButton,
   ModalBody,
   useDisclosure,
+  FormControl,
+  FormLabel,
+  Textarea,
+  useToast,
 } from "@chakra-ui/react";
 
 import { useEffect, useState, Fragment } from "react";
@@ -91,6 +95,20 @@ export default function InventoryDashboard() {
   const [storageItems, setStorageItems] = useState([]);
   const [selectedStorage, setSelectedStorage] = useState(null);
 
+  const [customerSearch, setCustomerSearch] = useState("");
+  const [customerResults, setCustomerResults] = useState([]);
+  const [selectedCustomer, setSelectedCustomer] = useState(null);
+  const [expiredStorages, setExpiredStorages] = useState([]);
+  const [selectedExpiredStorage, setSelectedExpiredStorage] = useState(null);
+  const [selectedStorageId, setSelectedStorageId] = useState("");
+  const [monthsExtension, setMonthsExtension] = useState("");
+  const [newExpiryDate, setNewExpiryDate] = useState("");
+
+  const [extensionRemarks, setExtensionRemarks] = useState("");
+  const [savingExtension, setSavingExtension] = useState(false);
+
+  const toast = useToast();
+
   // =========================
   // LOAD DATA
   // =========================
@@ -102,6 +120,96 @@ export default function InventoryDashboard() {
   useEffect(() => {
     loadDashboard();
   }, [branch, fromDate, toDate]);
+
+  useEffect(() => {
+    if (selectedExpiredStorage && monthsExtension) {
+      const baseDate = new Date(selectedExpiredStorage.discharge_date);
+
+      baseDate.setMonth(baseDate.getMonth() + Number(monthsExtension));
+
+      setNewExpiryDate(baseDate.toISOString().split("T")[0]);
+    }
+  }, [monthsExtension, selectedExpiredStorage]);
+
+  const saveStorageExtension = async () => {
+    try {
+      if (!selectedExpiredStorage) {
+        toast({
+          title: "Storage Required",
+          description: "Please select an expired storage.",
+          status: "warning",
+          duration: 3000,
+          isClosable: true,
+        });
+
+        return;
+      }
+
+      if (!monthsExtension) {
+        toast({
+          title: "Extension Required",
+          description: "Please enter extension months.",
+          status: "warning",
+          duration: 3000,
+          isClosable: true,
+        });
+
+        return;
+      }
+
+      // =========================
+      // PROCESSING
+      // =========================
+      setSavingExtension(true);
+
+      await api.post("/inventory/storage-extend", {
+        storage_id: selectedExpiredStorage.storage_id,
+        months_extension: monthsExtension,
+        new_discharge_date: newExpiryDate,
+      });
+
+      // =========================
+      // SUCCESS TOAST
+      // =========================
+      toast({
+        title: "Storage Extended",
+        description: "Storage extension saved successfully.",
+        status: "success",
+        duration: 4000,
+        isClosable: true,
+      });
+
+      // =========================
+      // RESET FORM
+      // =========================
+      resetStorageExtension();
+      loadExpiredStorages();
+    } catch (err) {
+      console.error(err);
+
+      toast({
+        title: "Extension Failed",
+        description: err.response?.data?.message || "Failed to extend storage.",
+        status: "error",
+        duration: 5000,
+        isClosable: true,
+      });
+    } finally {
+      setSavingExtension(false);
+    }
+  };
+
+  const resetStorageExtension = () => {
+    setCustomerSearch("");
+    setCustomerResults([]);
+    setSelectedCustomer(null);
+    setExpiredStorages([]);
+    setSelectedStorageId("");
+    setSelectedExpiredStorage(null);
+    setMonthsExtension("");
+    setNewExpiryDate("");
+    setExtensionRemarks("");
+  };
 
   // =========================
   // NEW: SAFE NUMBER PARSER (FIX NaN)
@@ -137,6 +245,95 @@ export default function InventoryDashboard() {
       console.error(err);
       setProducts([]);
     }
+  };
+
+  const loadExpiredStorages = async (customerId) => {
+    try {
+      if (!customerId) {
+        setExpiredStorages([]);
+        return;
+      }
+
+      const res = await api.get("/inventory/storage-expired", {
+        params: {
+          customer_id: customerId,
+        },
+      });
+
+      setExpiredStorages(res.data || []);
+    } catch (err) {
+      console.error(err);
+
+      setExpiredStorages([]);
+    }
+  };
+
+  const searchCustomers = async (value) => {
+    try {
+      setCustomerSearch(value);
+
+      // =========================
+      // CLEAR EMPTY SEARCH
+      // =========================
+      if (!value || value.trim().length < 2) {
+        setCustomerResults([]);
+        return;
+      }
+
+      console.log("SEARCHING:", value);
+
+      const res = await api.get(`/inventory/customers/search`, {
+        params: {
+          search: value,
+        },
+      });
+
+      console.log("CUSTOMER SEARCH RESPONSE:", res.data);
+
+      // SAFE ARRAY
+      if (Array.isArray(res.data)) {
+        setCustomerResults(res.data);
+      } else {
+        setCustomerResults([]);
+      }
+    } catch (err) {
+      console.error("SEARCH ERROR:", err);
+
+      setCustomerResults([]);
+    }
+  };
+
+  const handleStorageSelect = (storageId) => {
+    console.log("RAW STORAGE ID:", storageId);
+
+    // =========================
+    // FORCE INTEGER
+    // =========================
+    const parsedId = Number(storageId);
+
+    setSelectedStorageId(parsedId);
+
+    const storage = expiredStorages.find(
+      (s) => Number(s.storage_id) === parsedId,
+    );
+
+    console.log("MATCHED STORAGE:", storage);
+
+    if (!storage) {
+      setSelectedExpiredStorage(null);
+      return;
+    }
+
+    setSelectedExpiredStorage(storage);
+
+    // OPTIONAL
+    setSelectedCustomer({
+      id: storage.customer_id,
+      fullname: storage.fullname,
+      email: storage.email,
+      telephone: storage.telephone,
+      branch_name: storage.branch_name,
+    });
   };
 
   const loadDashboard = async () => {
@@ -265,15 +462,11 @@ export default function InventoryDashboard() {
       // =====================================================
       if (type === "movements") {
         setReportData(res.data.data || []);
-
         setMovementTotalPages(res.data.totalPages || 1);
-
         setMovementPage(res.data.page || 1);
       } else if (type === "customer-storage") {
         setReportData(res.data.data || []);
-
         setStorageTotalPages(res.data.totalPages || 1);
-
         setStoragePage(res.data.page || 1);
       }
 
@@ -904,19 +1097,12 @@ export default function InventoryDashboard() {
               {data.map((row) => (
                 <Tr key={row.storage_id}>
                   <Td>{row.storage_no}</Td>
-
                   <Td>{row.branch_name}</Td>
-
                   <Td>{row.customer_name}</Td>
-
                   <Td>{row.storage_name}</Td>
-
                   <Td>{row.status}</Td>
-
                   <Td>{new Date(row.created_at).toLocaleDateString()}</Td>
-
                   <Td isNumeric>{row.total_items}</Td>
-
                   <Td>
                     <Button
                       size="xs"
@@ -1283,6 +1469,7 @@ export default function InventoryDashboard() {
             <Tab>Dashboard</Tab>
             <Tab>Reports</Tab>
             <Tab>Analytics</Tab>
+            <Tab>Storage Extension</Tab>
           </TabList>
 
           <TabPanels>
@@ -1553,6 +1740,222 @@ export default function InventoryDashboard() {
                 AI Forecasting
               </Text>
             </TabPanel>
+
+            {/* ================= STORAGE EXTENSION ================= */}
+            <TabPanel>
+              <Box
+                maxW="900px"
+                mx="auto"
+                borderWidth="1px"
+                borderRadius="md"
+                p={6}
+              >
+                <Heading size="md" mb={6}>
+                  Storage Extension
+                </Heading>
+
+                {/* CUSTOMER DETAILS */}
+                <Box mb={8}>
+                  <Heading size="sm" mb={4}>
+                    Customer Details
+                  </Heading>
+
+                  <SimpleGrid columns={[1, 2]} spacing={6}>
+                    {/* LEFT */}
+                    <Box>
+                      <Input
+                        placeholder="Search customer name"
+                        value={customerSearch}
+                        onChange={(e) => searchCustomers(e.target.value)}
+                      />
+
+                      {customerResults.length > 0 && (
+                        <Box
+                          borderWidth="1px"
+                          borderRadius="md"
+                          bg="white"
+                          mt={1}
+                          maxH="220px"
+                          overflowY="auto"
+                          boxShadow="md"
+                          zIndex={9999}
+                          position="relative"
+                        >
+                          {customerResults.map((c) => (
+                            <Box
+                              key={c.id}
+                              p={3}
+                              borderBottomWidth="1px"
+                              cursor="pointer"
+                              _hover={{
+                                bg: "blue.50",
+                              }}
+                              onClick={() => {
+                                setSelectedCustomer(c);
+                                setCustomerSearch(c.fullname);
+                                setCustomerResults([]);
+
+                                // =========================
+                                // RESET STORAGE SELECTION
+                                // =========================
+                                setSelectedStorageId("");
+                                setSelectedExpiredStorage(null);
+                                setMonthsExtension("");
+                                setNewExpiryDate("");
+
+                                // =========================
+                                // LOAD CUSTOMER STORAGES
+                                // =========================
+                                loadExpiredStorages(c.id);
+                              }}
+                            >
+                              <Text fontWeight="bold">{c.fullname}</Text>
+                              <Text fontSize="sm">{c.telephone}</Text>
+                              <Text fontSize="xs" color="gray.500">
+                                {c.email}
+                              </Text>
+                            </Box>
+                          ))}
+                        </Box>
+                      )}
+                    </Box>
+
+                    {/* RIGHT */}
+                    <Box borderWidth="1px" p={4}>
+                      <Text>
+                        <strong>Name:</strong>{" "}
+                        {selectedCustomer?.fullname || "-"}
+                      </Text>
+
+                      <Text>
+                        <strong>Email:</strong> {selectedCustomer?.email || "-"}
+                      </Text>
+
+                      <Text>
+                        <strong>Telephone:</strong>{" "}
+                        {selectedCustomer?.telephone || "-"}
+                      </Text>
+
+                      <Text>
+                        <strong>Branch:</strong>{" "}
+                        {selectedCustomer?.branch_name || "-"}
+                      </Text>
+                    </Box>
+                  </SimpleGrid>
+                </Box>
+
+                {/* STORAGE DETAILS */}
+                <Box>
+                  <Heading size="sm" mb={4}>
+                    Storage Details
+                  </Heading>
+
+                  <SimpleGrid columns={[1, 2]} spacing={4}>
+                    <FormControl>
+                      <FormLabel>Expired Storage Number</FormLabel>
+
+                      <Select
+                        placeholder="Select Expired Storage"
+                        value={selectedStorageId || ""}
+                        onChange={(e) => handleStorageSelect(e.target.value)}
+                        isDisabled={savingExtension}
+                      >
+                        {expiredStorages.map((s) => (
+                          <option key={s.storage_id} value={s.storage_id}>
+                            {s.storage_no}
+                          </option>
+                        ))}
+                      </Select>
+                    </FormControl>
+
+                    <FormControl>
+                      <FormLabel>Received Date</FormLabel>
+
+                      <Input
+                        value={
+                          selectedExpiredStorage?.received_date
+                            ? new Date(selectedExpiredStorage.received_date)
+                                .toISOString()
+                                .split("T")[0]
+                            : ""
+                        }
+                        isReadOnly
+                        type="date"
+                      />
+                    </FormControl>
+
+                    <FormControl>
+                      <FormLabel>Branch</FormLabel>
+
+                      <Input
+                        value={selectedExpiredStorage?.branch_name || ""}
+                        isReadOnly
+                        placeholder="Branch"
+                      />
+                    </FormControl>
+
+                    <FormControl>
+                      <FormLabel>Storage</FormLabel>
+
+                      <Input
+                        value={selectedExpiredStorage?.storage_space || ""}
+                        isReadOnly
+                        placeholder="Storage Space"
+                      />
+                    </FormControl>
+
+                    <FormControl>
+                      <FormLabel>Old Expiry Date</FormLabel>
+
+                      <Input
+                        value={
+                          selectedExpiredStorage?.discharge_date
+                            ? new Date(selectedExpiredStorage.discharge_date)
+                                .toISOString()
+                                .split("T")[0]
+                            : ""
+                        }
+                        isReadOnly
+                        type="date"
+                      />
+                    </FormControl>
+
+                    <FormControl>
+                      <FormLabel>Extension Period (Months)</FormLabel>
+
+                      <Input
+                        type="number"
+                        placeholder="Months Extension"
+                        value={monthsExtension}
+                        onChange={(e) => setMonthsExtension(e.target.value)}
+                        isDisabled={savingExtension}
+                      />
+                    </FormControl>
+
+                    <FormControl>
+                      <FormLabel>New Expiry Date</FormLabel>
+
+                      <Input type="date" value={newExpiryDate} isReadOnly />
+                    </FormControl>
+                  </SimpleGrid>
+
+                  <HStack mt={6} justify="center">
+                    <Button
+                      colorScheme="blue"
+                      onClick={saveStorageExtension}
+                      isLoading={savingExtension}
+                      loadingText="Processing..."
+                    >
+                      Save
+                    </Button>
+
+                    <Button variant="outline" onClick={resetStorageExtension}>
+                      Cancel
+                    </Button>
+                  </HStack>
+                </Box>
+              </Box>
+            </TabPanel>
           </TabPanels>
         </Tabs>
       )}
@@ -1586,15 +1989,10 @@ export default function InventoryDashboard() {
                     {storageItems.map((item) => (
                       <Tr key={item.item_id}>
                         <Td>{item.product_name}</Td>
-
                         <Td isNumeric>{item.quantity}</Td>
-
                         <Td isNumeric>{item.retrieved_quantity}</Td>
-
                         <Td isNumeric>{item.remaining_quantity}</Td>
-
                         <Td>{item.condition}</Td>
-
                         <Td>{item.generated_barcode}</Td>
                       </Tr>
                     ))}

@@ -12,14 +12,20 @@ const activityMiddleware = (moduleName, actionName, getDescription) => {
         await controller(req, res, next);
 
         //ONLY LOG IF REQUEST SUCCEEDS
-        if (res.statusCode < 400 && !res.locals.skipActivityLog) {
+        const success = res.statusCode >= 200 && res.statusCode < 400;
+
+        if (success && !res.locals.skipActivityLog) {
           const description =
             typeof getDescription === "function"
               ? getDescription(req)
               : `${actionName} action performed in ${moduleName}`;
 
+          //console.log("REQ USER =", req.user);
+
           await logActivity({
-            userId: req.user?.id,
+            userId: req.user?.loginType === "staff" ? req.user?.id : null,
+            customerId:
+              req.user?.loginType === "customer" ? req.user?.id : null,
             userName: req.user?.fullname,
             branchId: req.user?.branchId,
             module: moduleName,
