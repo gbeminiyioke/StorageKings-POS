@@ -40,6 +40,7 @@ import {
   FiCheckSquare,
   FiPieChart,
   FiEdit,
+  FiGift,
 } from "react-icons/fi";
 
 /*-----------------------------------------
@@ -136,6 +137,13 @@ const menuConfig = [
         path: "/dashboard/transfer",
         icon: FiTruck,
         permission: "transfer",
+      },
+
+      {
+        label: "Storage Visit",
+        path: "/dashboard/storage-visit",
+        icon: FiGift,
+        permission: "storage_visit",
       },
     ],
   },

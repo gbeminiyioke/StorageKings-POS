@@ -51,11 +51,8 @@ router.get("/visits/history", getStorageVisitHistory);
    CUSTOMER / BRANCH / PRODUCT LOOKUPS
 ====================================================== */
 router.get("/customers", authorize("can_view"), searchStorageCustomers);
-
 router.get("/branches", authorize("can_view"), getUserBranches);
-
 router.get("/spaces", authorize("can_view"), getStorageSpaces);
-
 router.get("/products/search", authorize("can_view"), searchStorageProducts);
 
 router.get(
@@ -78,9 +75,7 @@ router.post(
 );
 
 router.get("/recent", authorize("can_view"), getRecentStorages);
-
 router.get("/:storage_id", authorize("can_view"), getStorageDetails);
-
 router.get("/:storage_id/items", authorize("can_view"), getStorageItems);
 
 router.post(

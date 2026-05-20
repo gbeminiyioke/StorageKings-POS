@@ -27,6 +27,7 @@ import ApprovalDashboard from "./pages/ApprovalDashboard";
 import InventoryDashboard from "./pages/InventoryDashboard";
 import POSDashboard from "./pages/posDashboard";
 import CustomerRegister from "./pages/CustomerRegister";
+import StorageVisitPage from "./pages/StorageVisitPage";
 
 export default function App() {
   return (
@@ -150,6 +151,15 @@ export default function App() {
           element={
             <ProtectedRoute permission="receive_items">
               <ReceiveItems />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="storage-visit"
+          element={
+            <ProtectedRoute permission="storage_visit">
+              <StorageVisitPage />
             </ProtectedRoute>
           }
         />

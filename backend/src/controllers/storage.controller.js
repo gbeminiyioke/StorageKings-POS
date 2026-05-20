@@ -748,7 +748,7 @@ export const processStorageVisitCheckin = async (req, res) => {
       `
           SELECT
             svr.*,
-            c.fullname,
+            c.fullname AS customer_name,
             c.telephone AS customer_phone,
             b.branch_name
           FROM storage_visit_requests svr
@@ -986,23 +986,24 @@ export const getActiveStorageVisits = async (req, res) => {
       `
         SELECT
           svl.visit_log_id,
-
           svl.checked_in_at,
-
           svl.checked_out_at,
-
+          svl.remarks,
+          svr.visit_request_id,
           svr.storage_no,
-
           svr.customer_name,
-
           svr.visitors_name,
-
           svr.visit_date,
-
-          b.branch_name
-
+          b.branch_name,
+           EXTRACT(
+              EPOCH FROM (
+                NOW() -
+                svl.checked_in_at
+              )
+            )::INTEGER
+            AS duration_minutes
         FROM storage_visit_logs svl
-
+        
         INNER JOIN storage_visit_requests svr
           ON svl.visit_request_id =
              svr.visit_request_id

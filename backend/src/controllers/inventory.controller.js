@@ -1176,13 +1176,9 @@ export const getAllStorageItemsReport = async (req, res) => {
           b.branch_name,
           sh.storage_no,
           c.fullname AS customer_name,
-
           sp.product_name AS storage_space,
-
           p.product_name AS item_name,
-
           si.remaining_quantity
-
         FROM storage_items si
 
         INNER JOIN storage_headers sh
@@ -1224,7 +1220,6 @@ export const getStorageItemSummary = async (req, res) => {
     const result = await pool.query(`
         SELECT
           b.branch_name,
-
           p.product_name,
 
           SUM(
@@ -1282,13 +1277,9 @@ export const getPendingStorageVisitRequests = async (req, res) => {
           svr.visitors_name,
           svr.visitors_telephone,
           svr.request_status,
-
           b.branch_name,
-
           c.email,
-
           sh.storage_space_product_id,
-
           p.product_name AS storage_space
 
         FROM storage_visit_requests svr
@@ -1897,13 +1888,10 @@ export const getExpiredStorages = async (req, res) => {
         sh.received_date,
         sh.discharge_date,
         sh.customer_id,
-
         c.fullname,
         c.email,
         c.telephone,
-
         b.branch_name,
-
         p.product_name AS storage_space
 
       FROM storage_headers sh

@@ -54,6 +54,7 @@ import {
   Cell,
   Legend,
 } from "recharts";
+import StorageVisitRequestsTable from "../components/storage/StorageVisitRequestsTable";
 
 export default function InventoryDashboard() {
   const [metrics, setMetrics] = useState({});
@@ -627,9 +628,7 @@ export default function InventoryDashboard() {
 
         // FIXED FIELD MAPPING
         cost_price: toNumber(row.cost_price ?? row.unit_cost ?? row.costprice),
-
         quantity: toNumber(row.quantity ?? row.stock_quantity ?? row.qty),
-
         amount: toNumber(row.stock_value ?? row.amount ?? row.value),
       });
     });
@@ -970,21 +969,14 @@ export default function InventoryDashboard() {
               {data.map((row) => (
                 <Tr key={row.movement_id}>
                   <Td>{new Date(row.created_at).toLocaleString()}</Td>
-
                   <Td>{row.branch_name}</Td>
-
                   <Td>{row.product_name}</Td>
-
                   <Td>{row.movement_type}</Td>
-
                   <Td isNumeric>{Number(row.quantity).toLocaleString()}</Td>
-
                   <Td isNumeric>
                     {Number(row.balance_after).toLocaleString()}
                   </Td>
-
                   <Td>{row.reference_no}</Td>
-
                   <Td>{row.reference_table}</Td>
                 </Tr>
               ))}
@@ -1063,9 +1055,7 @@ export default function InventoryDashboard() {
             onChange={(e) => setStorageStatus(e.target.value)}
           >
             <option value="ACTIVE">Active</option>
-
             <option value="PARTIAL">Partial</option>
-
             <option value="CLOSED">Closed</option>
           </Select>
 
@@ -1156,19 +1146,15 @@ export default function InventoryDashboard() {
           <Thead>
             <Tr>
               <Th border="1px solid #000">Branch</Th>
-
               <Th border="1px solid #000" isNumeric>
                 Total Storages
               </Th>
-
               <Th border="1px solid #000" isNumeric>
                 Active Storages
               </Th>
-
               <Th border="1px solid #000" isNumeric>
                 Occupancy %
               </Th>
-
               <Th border="1px solid #000" isNumeric>
                 Avg Days In Storage
               </Th>
@@ -1179,19 +1165,15 @@ export default function InventoryDashboard() {
             {data.map((row, i) => (
               <Tr key={i}>
                 <Td border="1px solid #000">{row.branch_name}</Td>
-
                 <Td border="1px solid #000" isNumeric>
                   {row.total_storages}
                 </Td>
-
                 <Td border="1px solid #000" isNumeric>
                   {row.active_storages}
                 </Td>
-
                 <Td border="1px solid #000" isNumeric>
                   {row.occupancy_percent}%
                 </Td>
-
                 <Td border="1px solid #000" isNumeric>
                   {Math.round(row.avg_days_in_storage || 0)}
                 </Td>
@@ -1217,17 +1199,12 @@ export default function InventoryDashboard() {
           <Thead>
             <Tr>
               <Th border="1px solid #000">Storage No</Th>
-
               <Th border="1px solid #000">Customer</Th>
-
               <Th border="1px solid #000">Branch</Th>
-
               <Th border="1px solid #000">Received Date</Th>
-
               <Th border="1px solid #000" isNumeric>
                 Period (Months)
               </Th>
-
               <Th border="1px solid #000">Expiry Date</Th>
             </Tr>
           </Thead>
@@ -1236,19 +1213,14 @@ export default function InventoryDashboard() {
             {data.map((row, i) => (
               <Tr key={i}>
                 <Td border="1px solid #000">{row.storage_no}</Td>
-
                 <Td border="1px solid #000">{row.fullname}</Td>
-
                 <Td border="1px solid #000">{row.branch_name}</Td>
-
                 <Td border="1px solid #000">
                   {new Date(row.received_date).toLocaleDateString()}
                 </Td>
-
                 <Td border="1px solid #000" isNumeric>
                   {row.storage_period_months}
                 </Td>
-
                 <Td border="1px solid #000">
                   {new Date(row.expiry_date).toLocaleDateString()}
                 </Td>
@@ -1298,13 +1270,9 @@ export default function InventoryDashboard() {
                 <Thead>
                   <Tr>
                     <Th border="1px solid #000">STORAGE NO</Th>
-
                     <Th border="1px solid #000">CUSTOMER NAME</Th>
-
                     <Th border="1px solid #000">STORAGE SPACE</Th>
-
                     <Th border="1px solid #000">ITEM NAME</Th>
-
                     <Th border="1px solid #000" isNumeric>
                       REMAINING QUANTITY
                     </Th>
@@ -1315,13 +1283,9 @@ export default function InventoryDashboard() {
                   {rows.map((r, i) => (
                     <Tr key={i}>
                       <Td border="1px solid #000">{r.storage_no}</Td>
-
                       <Td border="1px solid #000">{r.customer_name}</Td>
-
                       <Td border="1px solid #000">{r.storage_space}</Td>
-
                       <Td border="1px solid #000">{r.item_name}</Td>
-
                       <Td border="1px solid #000" isNumeric>
                         {r.remaining_quantity}
                       </Td>
@@ -1332,7 +1296,6 @@ export default function InventoryDashboard() {
                     <Td border="1px solid #000" colSpan={4}>
                       TOTAL
                     </Td>
-
                     <Td border="1px solid #000" isNumeric>
                       {total}
                     </Td>
@@ -1384,7 +1347,6 @@ export default function InventoryDashboard() {
                 <Thead>
                   <Tr>
                     <Th border="1px solid #000">ITEM NAME</Th>
-
                     <Th border="1px solid #000" isNumeric>
                       QUANTITY
                     </Th>
@@ -1395,7 +1357,6 @@ export default function InventoryDashboard() {
                   {rows.map((r, i) => (
                     <Tr key={i}>
                       <Td border="1px solid #000">{r.product_name}</Td>
-
                       <Td border="1px solid #000" isNumeric>
                         {r.quantity}
                       </Td>
@@ -1404,7 +1365,6 @@ export default function InventoryDashboard() {
 
                   <Tr fontWeight="bold">
                     <Td border="1px solid #000">TOTAL ITEMS</Td>
-
                     <Td border="1px solid #000" isNumeric>
                       {total}
                     </Td>
@@ -1460,16 +1420,43 @@ export default function InventoryDashboard() {
       {loading ? (
         <Spinner />
       ) : (
-        <Tabs
-          index={tabIndex}
-          onChange={(index) => setTabIndex(index)}
-          variant="enclosed"
-        >
+        <Tabs index={tabIndex} onChange={setTabIndex} variant="unstyled">
           <TabList>
-            <Tab>Dashboard</Tab>
-            <Tab>Reports</Tab>
-            <Tab>Analytics</Tab>
-            <Tab>Storage Extension</Tab>
+            <Tab
+              bg={tabIndex === 0 ? "blue.500" : "gray.100"}
+              color={tabIndex === 0 ? "white" : "black"}
+              borderRadius="md"
+            >
+              Dashboard
+            </Tab>
+            <Tab
+              bg={tabIndex === 1 ? "blue.500" : "gray.100"}
+              color={tabIndex === 1 ? "white" : "black"}
+              borderRadius="md"
+            >
+              Reports
+            </Tab>
+            <Tab
+              bg={tabIndex === 2 ? "blue.500" : "gray.100"}
+              color={tabIndex === 2 ? "white" : "black"}
+              borderRadius="md"
+            >
+              Analytics
+            </Tab>
+            <Tab
+              bg={tabIndex === 3 ? "blue.500" : "gray.100"}
+              color={tabIndex === 3 ? "white" : "black"}
+              borderRadius="md"
+            >
+              Storage Extension
+            </Tab>
+            <Tab
+              bg={tabIndex === 4 ? "blue.500" : "gray.100"}
+              color={tabIndex === 4 ? "white" : "black"}
+              borderRadius="md"
+            >
+              Notifications
+            </Tab>
           </TabList>
 
           <TabPanels>
@@ -1955,6 +1942,11 @@ export default function InventoryDashboard() {
                   </HStack>
                 </Box>
               </Box>
+            </TabPanel>
+
+            {/* =========== STORAGE VISIT NOTIFICATIONS =========== */}
+            <TabPanel>
+              <StorageVisitRequestsTable />
             </TabPanel>
           </TabPanels>
         </Tabs>

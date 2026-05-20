@@ -5,11 +5,21 @@ import { JWT_SECRET } from "../config/jwt.js";
 export const authenticate = async (req, res, next) => {
   const authHeader = req.headers.authorization;
 
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    return res.status(401).json({ message: "No token provided" });
+  const token = authHeader?.startsWith("Bearer")
+    ? authHeader.split(" ")[1]
+    : req.query.token;
+
+  if (!token) {
+    return res.status(401).json({
+      message: "No token provided",
+    });
   }
 
-  const token = authHeader.split(" ")[1];
+  //if (!authHeader || !authHeader.startsWith("Bearer ")) {
+  //  return res.status(401).json({ message: "No token provided" });
+  //}
+
+  //const token = authHeader.split(" ")[1];
 
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
@@ -43,7 +53,9 @@ export const authenticate = async (req, res, next) => {
     req.user = decoded;
 
     next();
-  } catch {
-    res.status(401).json({ message: "Invaid or expired token" });
+  } catch (err) {
+    console.error("Auth middleware error:", err);
+
+    return res.status(401).json({ message: "Invaid or expired token" });
   }
 };

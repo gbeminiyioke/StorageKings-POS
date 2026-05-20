@@ -23,6 +23,7 @@ const PERMISSION_COLUMNS = [
   "receive_items",
   "discharge_items",
   "discharge_approval",
+  "storage_visit",
   "pos_terminals",
   "branches",
   "roles",

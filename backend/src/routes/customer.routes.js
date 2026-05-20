@@ -18,6 +18,7 @@ import {
   getCustomerNotifications,
   deleteNotification,
   viewStorageFormPdf,
+  markNotificationAsRead,
 } from "../controllers/customer.controller.js";
 import upload from "../middleware/customerUpload.js";
 
@@ -47,16 +48,35 @@ router.use(sessionTimeout);
 router.get("/portal/summary", getCustomerPortalSummary);
 router.get("/portal/storage/:storageId/items", getCustomerStorageItems);
 router.get("/portal/storage/:storageId/download", downloadStorageAttachment);
-router.put("/portal/profile", updateOwnProfile);
+
+router.put(
+  "/portal/profile",
+  upload.fields([
+    {
+      name: "customer_id_image",
+      maxCount: 1,
+    },
+    {
+      name: "indemnity_agreement",
+      maxCount: 1,
+    },
+    {
+      name: "warehouse_agreement",
+      maxCount: 1,
+    },
+  ]),
+  updateOwnProfile,
+);
 
 router.post("/portal/request-visit", createStorageVisitRequest);
 router.get("/portal/notifications", getCustomerNotifications);
+router.put("/portal/notifications/:id/read", markNotificationAsRead);
 router.put("/portal/notifications/:id/delete", deleteNotification);
 router.get("/portal/storage/:storageId/view-form", viewStorageFormPdf);
 
 router.get("/search", searchCustomers);
 router.get("/", authorize("can_view"), getCustomers);
-
+/*
 router.get(
   "/:id/download-indemnity",
   authorize("can_view"),
@@ -68,6 +88,10 @@ router.get(
   authorize("can_view"),
   downloadWarehouseAgreement,
 );
+*/
+
+router.get("/:id/download-indemnity", downloadIndemnityAgreement);
+router.get("/:id/download-warehouse", downloadWarehouseAgreement);
 
 //router.post("/", authorize("can_create"), createCustomer);
 //router.put("/:id", authorize("can_edit"), updateCustomer);

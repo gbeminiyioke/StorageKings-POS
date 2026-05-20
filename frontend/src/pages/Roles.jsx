@@ -52,6 +52,7 @@ const MODULE_GROUPS = {
     { label: "Discharge Approval", key: "discharge_approval" },
     { label: "Storage", key: "storage" },
     { label: "Transfer", key: "transfer" },
+    { label: "Storage Visit", key: "storage_visit" },
   ],
   Customers: [{ label: "Customers", key: "customers" }],
   Management: [

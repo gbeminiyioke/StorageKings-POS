@@ -225,3 +225,76 @@ export const getSaleInvoice = async (req, res) => {
     res.status(500).json({ message: "Failed to load invoice" });
   }
 };
+
+export const downloadSaleInvoicePdf = async (req, res) => {
+  try {
+    const { sale_id } = req.params;
+
+    const saleRes = await pool.query(
+      `
+        SELECT
+          ps.*,
+          c.fullname,
+          c.address_1,
+          c.address_2,
+          c.telephone,
+          br.branch_name,
+          br.branch_address,
+          br.branch_telephone,
+          br.branch_email,
+          bs.business_name
+        FROM pos_sales ps
+        LEFT JOIN customers c
+          ON c.id = ps.customer_id
+        LEFT JOIN branches br
+          ON br.branch_id = ps.branch_id
+        LEFT JOIN business bs
+          ON bs.business_id = br.business_id
+        WHERE ps.sale_id = $1
+      `,
+      [sale_id],
+    );
+
+    if (!saleRes.rows.length) {
+      return res.status(404).json({
+        message: "Sale not found",
+      });
+    }
+
+    const itemsRes = await pool.query(
+      `
+        SELECT
+          d.*,
+          p.product_name
+        FROM pos_sale_details d
+        JOIN products p
+          ON p.product_id = d.product_id
+        WHERE d.sale_id = $1
+        ORDER BY d.id
+      `,
+      [sale_id],
+    );
+
+    const sale = saleRes.rows[0];
+    const items = itemsRes.rows;
+
+    const invoiceNo = sale.invoice_no || sale.proforma_no || sale.refund_no;
+
+    const pdfBuffer = await generateInvoicePdf({
+      sale,
+      items,
+    });
+
+    res.setHeader("Content-Type", "application/pdf");
+
+    res.setHeader("Content-Disposition", `inline; filename="${invoiceNo}.pdf"`);
+
+    return res.send(pdfBuffer);
+  } catch (err) {
+    console.error(err);
+
+    res.status(500).json({
+      message: "Failed to generate invoice PDF",
+    });
+  }
+};

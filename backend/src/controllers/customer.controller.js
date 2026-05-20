@@ -368,19 +368,33 @@ export const searchCustomers = async (req, res) => {
 /* ==========================================
 DOWNLOAD CUSTOMER PDF
 ========================================== */
-
 export const downloadIndemnityAgreement = async (req, res) => {
   try {
+    const customerId = req.user.customer_id || req.user.id;
+
     const { id } = req.params;
+
+    console.log("REQ.USER =", req.user);
+
+    console.log("PARAM ID =", req.params.id);
+
+    /* ==========================
+         OWNERSHIP VALIDATION
+      ========================== */
+
+    if (String(customerId) !== String(id)) {
+      return res.status(403).json({
+        message: "Unauthorized",
+      });
+    }
 
     const result = await pool.query(
       `
- SELECT
- indemnity_agreement,
- fullname
- FROM customers
- WHERE id=$1
- `,
+          SELECT
+            indemnity_agreement
+          FROM customers
+          WHERE id = $1
+        `,
       [id],
     );
 
@@ -406,28 +420,42 @@ export const downloadIndemnityAgreement = async (req, res) => {
       });
     }
 
-    return res.download(filePath, `${result.rows[0].fullname}-Indemnity.pdf`);
+    return res.download(filePath);
   } catch (err) {
-    console.log(err);
+    console.error(err);
 
     res.status(500).json({
-      message: "Server error",
+      message: "Failed to download file",
     });
   }
 };
 
 export const downloadWarehouseAgreement = async (req, res) => {
   try {
+    const customerId = req.user.customer_id || req.user.id;
+
     const { id } = req.params;
+
+    console.log("REQ.USER =", req.user);
+
+    console.log("PARAM ID =", req.params.id);
+    /* ==========================
+         OWNERSHIP VALIDATION
+      ========================== */
+
+    if (String(customerId) !== String(id)) {
+      return res.status(403).json({
+        message: "Unauthorized",
+      });
+    }
 
     const result = await pool.query(
       `
- SELECT
- warehouse_agreement,
- fullname
- FROM customers
- WHERE id=$1
- `,
+          SELECT
+            warehouse_agreement
+          FROM customers
+          WHERE id = $1
+        `,
       [id],
     );
 
@@ -453,12 +481,12 @@ export const downloadWarehouseAgreement = async (req, res) => {
       });
     }
 
-    return res.download(filePath, `${result.rows[0].fullname}-Warehouse.pdf`);
+    return res.download(filePath);
   } catch (err) {
-    console.log(err);
+    console.error(err);
 
     res.status(500).json({
-      message: "Server error",
+      message: "Failed to download file",
     });
   }
 };
@@ -484,7 +512,14 @@ export const getCustomerPortalSummary = async (req, res) => {
         sh.status,
         sh.total_items,
         sh.discharge_date,
+        (sh.discharge_date - CURRENT_DATE) AS days_remaining,
         sh.current_visits,
+
+        CASE
+          WHEN sh.current_visits >= sh.max_monthly_visits
+          THEN TRUE
+          ELSE FALSE
+        END AS quota_exhausted,
         sh.max_monthly_visits,
         sh.attachment_path,
         sh.storage_form_pdf,
@@ -590,6 +625,21 @@ export const getCustomerPortalSummary = async (req, res) => {
     );
 
     /* =========================================
+    OVERDUE INVOICES
+    ========================================= */
+    const overdueInvoices = await pool.query(
+      `
+      SELECT sale_id, invoice_no, balance_due, due_date
+      FROM pos_sales
+      WHERE customer_id = $1
+      AND balance_due < 0
+      AND due_date < CURRENT_DATE
+      ORDER BY due_date ASC
+      `,
+      [customerId],
+    );
+
+    /* =========================================
        PROFILE
     ========================================= */
     const profile = await pool.query(
@@ -605,7 +655,15 @@ export const getCustomerPortalSummary = async (req, res) => {
         address_1,
         address_2,
         address_3,
-        customer_type
+        customer_type,
+        fax,
+        website,
+        sex,
+        indemnity_agreement,
+        warehouse_agreement,
+        indemnity_agreement_locked,
+        warehouse_agreement_locked,
+        customer_id_image
       FROM customers
       WHERE id = $1
     `,
@@ -631,6 +689,7 @@ export const getCustomerPortalSummary = async (req, res) => {
       storedItems: storedItems.rows,
       transactions: transactions.rows,
       notifications: notifications.rows,
+      overdueInvoices: overdueInvoices.rows,
       profile: profile.rows[0],
     });
   } catch (err) {
@@ -710,9 +769,7 @@ export const getCustomerStorageItems = async (req, res) => {
 export const downloadStorageAttachment = async (req, res) => {
   try {
     const customerId = req.user.customer_id || req.user.id;
-
     const { storageId } = req.params;
-
     const result = await pool.query(
       `
       SELECT
@@ -750,13 +807,11 @@ export const downloadStorageAttachment = async (req, res) => {
     ========================================= */
 
     const filePath = path.join(process.cwd(), normalizedPath);
-
     console.log("DOWNLOAD PATH =", filePath);
 
     /* =========================================
        CHECK FILE EXISTS
     ========================================= */
-
     if (!fs.existsSync(filePath)) {
       console.error("FILE NOT FOUND:", filePath);
 
@@ -768,7 +823,6 @@ export const downloadStorageAttachment = async (req, res) => {
     /* =========================================
        DOWNLOAD FILE
     ========================================= */
-
     return res.download(filePath);
   } catch (err) {
     console.error("Download attachment error:", err);
@@ -786,38 +840,183 @@ export const updateOwnProfile = async (req, res) => {
   try {
     const customerId = req.user.customer_id || req.user.id;
 
+    /* ==========================
+         LOAD CURRENT CUSTOMER
+      ========================== */
+
+    const existing = await pool.query(
+      `
+          SELECT *
+          FROM customers
+          WHERE id = $1
+        `,
+      [customerId],
+    );
+
+    if (!existing.rows.length) {
+      return res.status(404).json({
+        message: "Customer not found",
+      });
+    }
+
+    const current = existing.rows[0];
+
+    /* ==========================
+         CURRENT FILES
+      ========================== */
+
+    let indemnityAgreement = current.indemnity_agreement;
+    let warehouseAgreement = current.warehouse_agreement;
+    let customerImage = current.customer_id_image;
+
+    /* ==========================
+         REMOVE FILES
+      ========================== */
+    if (
+      req.body.remove_indemnity_agreement === "true" &&
+      !current.indemnity_agreement_locked
+    ) {
+      /* DELETE OLD FILE */
+      if (indemnityAgreement && fs.existsSync(indemnityAgreement)) {
+        fs.unlinkSync(indemnityAgreement);
+      }
+
+      indemnityAgreement = null;
+    }
+
+    if (
+      req.body.remove_warehouse_agreement === "true" &&
+      !current.warehouse_agreement_locked
+    ) {
+      /* DELETE OLD FILE */
+      if (warehouseAgreement && fs.existsSync(warehouseAgreement)) {
+        fs.unlinkSync(warehouseAgreement);
+      }
+
+      warehouseAgreement = null;
+    }
+
+    /* ==========================
+         FILE UPLOADS
+      ========================== */
+
+    /* --------------------------
+         INDEMNITY AGREEMENT
+      --------------------------- */
+
+    if (
+      req.files?.indemnity_agreement?.[0] &&
+      !current.indemnity_agreement_locked
+    ) {
+      /* DELETE OLD FILE */
+      if (indemnityAgreement && fs.existsSync(indemnityAgreement)) {
+        fs.unlinkSync(indemnityAgreement);
+      }
+
+      indemnityAgreement = req.files.indemnity_agreement[0].path;
+    }
+
+    /* --------------------------
+         WAREHOUSE AGREEMENT
+      --------------------------- */
+
+    if (
+      req.files?.warehouse_agreement?.[0] &&
+      !current.warehouse_agreement_locked
+    ) {
+      /* DELETE OLD FILE */
+      if (warehouseAgreement && fs.existsSync(warehouseAgreement)) {
+        fs.unlinkSync(warehouseAgreement);
+      }
+
+      warehouseAgreement = req.files.warehouse_agreement[0].path;
+    }
+
+    /* --------------------------
+         CUSTOMER ID IMAGE
+      --------------------------- */
+
+    if (req.files?.customer_id_image?.[0]) {
+      /* DELETE OLD IMAGE */
+      if (customerImage && fs.existsSync(customerImage)) {
+        fs.unlinkSync(customerImage);
+      }
+
+      customerImage = req.files.customer_id_image[0].path;
+    }
+
+    /* ==========================
+         UPDATE CUSTOMER
+      ========================== */
+
     const updated = await pool.query(
       `
-      UPDATE customers
-      SET
-        fullname = $1,
-        telephone = $2,
-        whatsapp = $3,
-        ig = $4,
-        facebook = $5,
-        address_1 = $6,
-        address_2 = $7,
-        address_3 = $8
-      WHERE id = $9
-      RETURNING *
-    `,
+          UPDATE customers
+          SET
+            customer_type = $1,
+            sex = $2,
+            telephone = $3,
+
+            address_1 = $4,
+            address_2 = $5,
+            address_3 = $6,
+
+            fax = $7,
+            website = $8,
+
+            whatsapp = $9,
+            ig = $10,
+            facebook = $11,
+
+            indemnity_agreement = $12,
+            warehouse_agreement = $13,
+
+            customer_id_image = $14,
+
+            lasteditedon = NOW()
+
+          WHERE id = $15
+
+          RETURNING *
+        `,
       [
-        req.body.fullname,
+        req.body.customer_type,
+
+        req.body.sex || null,
+
         req.body.telephone,
-        req.body.whatsapp,
-        req.body.ig,
-        req.body.facebook,
-        req.body.address_1,
-        req.body.address_2,
-        req.body.address_3,
+
+        req.body.address_1 || null,
+        req.body.address_2 || null,
+        req.body.address_3 || null,
+
+        req.body.fax || null,
+        req.body.website || null,
+
+        req.body.whatsapp || null,
+        req.body.ig || null,
+        req.body.facebook || null,
+
+        indemnityAgreement,
+        warehouseAgreement,
+
+        customerImage,
+
         customerId,
       ],
     );
 
+    /* ==========================
+         RESPONSE
+      ========================== */
+
     res.json(updated.rows[0]);
   } catch (err) {
     console.error("Update profile error:", err);
-    res.status(500).json({ message: "Server error" });
+
+    res.status(500).json({
+      message: "Failed to update profile",
+    });
   }
 };
 
@@ -856,11 +1055,7 @@ export const createStorageVisitRequest = async (req, res) => {
     const storageResult = await pool.query(
       `
         SELECT
-          sh.storage_id,
-          sh.storage_no,
-          sh.branch_id,
-          sh.current_visits,
-          sh.max_monthly_visits,
+          sh.*,
           b.branch_name,
           p.product_name AS storage_space,
           c.email
@@ -945,7 +1140,10 @@ export const createStorageVisitRequest = async (req, res) => {
             customer_id,
             branch_id,
             storage_no,
+            branch_name,
+            storage_space,
             customer_name,
+            customer_email,
             telephone,
             visit_date,
             visitors_name,
@@ -955,7 +1153,7 @@ export const createStorageVisitRequest = async (req, res) => {
           )
           VALUES (
             $1,$2,$3,$4,$5,$6,$7,
-            $8,$9,$10,$11,$12
+            $8,$9,$10,$11,$12,$13,$14,$15
           )
           RETURNING *
         `,
@@ -965,7 +1163,10 @@ export const createStorageVisitRequest = async (req, res) => {
         customerId,
         storage.branch_id,
         storage.storage_no,
+        storage.branch_name,
+        storage.storage_space,
         fullname,
+        storage.email,
         telephone,
         visit_date,
         visitors_name,
@@ -1118,9 +1319,7 @@ export const deleteNotification = async (req, res) => {
 export const viewStorageFormPdf = async (req, res) => {
   try {
     const customerId = req.user.customer_id || req.user.id;
-
     const { storageId } = req.params;
-
     const result = await pool.query(
       `
         SELECT
@@ -1142,7 +1341,7 @@ export const viewStorageFormPdf = async (req, res) => {
 
     if (!file) {
       return res.status(404).json({
-        message: "Storage form PDF missing",
+        message: "Storage form not found",
       });
     }
 
@@ -1154,9 +1353,47 @@ export const viewStorageFormPdf = async (req, res) => {
       });
     }
 
+    res.setHeader("Content-Type", "application/pdf");
+
     return res.sendFile(filePath);
   } catch (err) {
     console.error("View storage form error:", err);
+
+    res.status(500).json({
+      message: "Server error",
+    });
+  }
+};
+
+/* ======================================================
+   MARK NOTIFICATION AS READ
+====================================================== */
+export const markNotificationAsRead = async (req, res) => {
+  try {
+    const customerId = req.user.customer_id || req.user.id;
+    const { id } = req.params;
+    const updated = await pool.query(
+      `
+          UPDATE storage_notifications
+          SET is_read = TRUE
+          WHERE notification_id = $1
+            AND customer_id = $2
+          RETURNING *
+        `,
+      [id, customerId],
+    );
+
+    if (!updated.rows.length) {
+      return res.status(404).json({
+        message: "Notification not found",
+      });
+    }
+
+    res.json({
+      message: "Notification marked as read",
+    });
+  } catch (err) {
+    console.error("Mark notification read error:", err);
 
     res.status(500).json({
       message: "Server error",

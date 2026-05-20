@@ -4,10 +4,18 @@ import path from "path";
 
 const uploadDir = "uploads/customers";
 
+/* =====================================
+   CREATE DIRECTORY IF MISSING
+===================================== */
 if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
+  fs.mkdirSync(uploadDir, {
+    recursive: true,
+  });
 }
 
+/* =====================================
+   STORAGE CONFIG
+===================================== */
 const storage = multer.diskStorage({
   destination(req, file, cb) {
     cb(null, uploadDir);
@@ -20,18 +28,37 @@ const storage = multer.diskStorage({
   },
 });
 
+/* =====================================
+   FILE FILTER
+===================================== */
 const fileFilter = (req, file, cb) => {
-  if (file.mimetype !== "application/pdf") {
-    return cb(new Error("Only PDF files allowed"), false);
+  const allowedMimeTypes = [
+    /* PDFs */
+    "application/pdf",
+    "application/x-pdf",
+
+    /* Images */
+    "image/jpeg",
+    "image/jpg",
+    "image/pjpeg",
+    "image/png",
+  ];
+
+  if (!allowedMimeTypes.includes(file.mimetype)) {
+    return cb(new Error("Only PDF and image files are allowed"), false);
   }
 
   cb(null, true);
 };
 
+/* =====================================
+   EXPORT
+===================================== */
 export default multer({
   storage,
   fileFilter,
   limits: {
-    fileSize: 10 * 1024 * 1024,
+    /* 20MB */
+    fileSize: 20 * 1024 * 1024,
   },
 });
