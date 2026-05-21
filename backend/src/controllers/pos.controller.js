@@ -133,7 +133,18 @@ export const completeSale = async (req, res) => {
           [result.sale_id],
         );
 
-        const sale = invoiceRes.rows[0];
+        //const sale = invoiceRes.rows[0];
+        const sale = {
+          ...invoiceRes.rows[0],
+
+          subtotal: result.subtotal,
+          discount_type: result.discount_type,
+          discount_value: result.discount_value,
+          discount_amount: result.discount_amount,
+          vat: result.vat,
+          grand_total: result.grand_total,
+        };
+
         const items = itemsRes.rows;
 
         const invoiceNo = sale.invoice_no || sale.proforma_no || sale.refund_no;

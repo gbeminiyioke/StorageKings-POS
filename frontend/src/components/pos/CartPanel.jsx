@@ -25,6 +25,12 @@ export default function CartPanel({ onOpenPayment }) {
     tax,
     total,
 
+    discountType,
+    setDiscountType,
+    discountValue,
+    setDiscountValue,
+    discountAmount,
+
     /* NEW: shared payment state from POSContext */
     payments,
     updatePayment,
@@ -193,12 +199,45 @@ export default function CartPanel({ onOpenPayment }) {
         <Divider mb={4} />
 
         {/* =====================================
+         DISCOUNT SECTION
+        ===================================== */}
+        <Box mt={4}>
+          <Text fontWeight="bold" mb={2}>
+            Invoice Discount
+          </Text>
+
+          <Grid templateColumns="1fr 1fr" gap={2}>
+            <Select
+              value={discountType}
+              onChange={(e) => setDiscountType(e.target.value)}
+            >
+              <option value="AMOUNT">Amount</option>
+              <option value="PERCENT">Percent</option>
+            </Select>
+
+            <Input
+              type="number"
+              value={discountValue}
+              onChange={(e) => setDiscountValue(e.target.value)}
+              placeholder={
+                discountType === "PERCENT" ? "Discount %" : "Discount Amount"
+              }
+            />
+          </Grid>
+        </Box>
+
+        {/* =====================================
          TOTALS SECTION
-      ===================================== */}
+        ===================================== */}
         <VStack align="stretch" spacing={2}>
           <HStack justify="space-between">
             <Text>Subtotal</Text>
             <Text>₦ {subtotal.toFixed(2)}</Text>
+          </HStack>
+
+          <HStack justify="space-between">
+            <Text>Discount</Text>
+            <Text color="red.500">- ₦ {Number(discountAmount).toFixed(2)}</Text>
           </HStack>
 
           <HStack justify="space-between">

@@ -110,18 +110,28 @@ export const generateInvoicePdf = async ({ sale, items }) => {
           y,
         )
         .text(
+          `DISCOUNT: ₦ ${Number(sale.discount_amount || 0).toLocaleString(
+            undefined,
+            {
+              minimumFractionDigits: 2,
+            },
+          )}`,
+          350,
+          y + 20,
+        )
+        .text(
           `VAT: ₦ ${Number(sale.vat || 0).toLocaleString(undefined, {
             minimumFractionDigits: 2,
           })}`,
           350,
-          y + 20,
+          y + 40,
         )
         .text(
           `Paid: ₦ ${Number(sale.amount_paid || 0).toLocaleString(undefined, {
             minimumFractionDigits: 2,
           })}`,
           350,
-          y + 40,
+          y + 60,
         )
         .text(
           `Balance Due: ₦ ${Number(sale.balance_due || 0).toLocaleString(
@@ -131,7 +141,7 @@ export const generateInvoicePdf = async ({ sale, items }) => {
             },
           )}`,
           350,
-          y + 60,
+          y + 80,
         )
         .fontSize(13)
         .text(
@@ -142,7 +152,7 @@ export const generateInvoicePdf = async ({ sale, items }) => {
             },
           )}`,
           350,
-          y + 90,
+          y + 110,
         );
 
       doc.moveDown(4);

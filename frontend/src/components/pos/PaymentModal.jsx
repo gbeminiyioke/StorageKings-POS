@@ -34,6 +34,8 @@ export default function PaymentModal({
     total,
     subtotal,
     tax,
+    discountType,
+    discountValue,
     clearCart,
     clearPayments,
     payments,
@@ -43,11 +45,8 @@ export default function PaymentModal({
   } = usePOS();
 
   const [emailInvoice, setEmailInvoice] = useState(false);
-
   const { user } = useAuth();
-
   const totalPaid = payments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
-
   const balance = total - totalPaid;
 
   const handleCompleteSale = async () => {
@@ -69,6 +68,8 @@ export default function PaymentModal({
         proforma_no: transactionType === "PROFORMA" ? docNumber : null,
         refund_no: transactionType === "REFUND" ? docNumber : null,
         subtotal,
+        discount_type: discountType,
+        discount_value: Number(discountValue || 0),
         vat: tax,
         grand_total: total,
         payment_terms: selectedCustomer?.payment_terms || 0,

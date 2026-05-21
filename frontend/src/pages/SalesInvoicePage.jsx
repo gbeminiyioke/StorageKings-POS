@@ -139,6 +139,17 @@ export default function SalesInvoicePage() {
           </Flex>
 
           <Flex justify="space-between" mb={2}>
+            <Text>Discount</Text>
+
+            <Text color="red.500">
+              - ₦{" "}
+              {Number(sale.discount_amount || 0).toLocaleString(undefined, {
+                minimumFractionDigits: 2,
+              })}
+            </Text>
+          </Flex>
+
+          <Flex justify="space-between" mb={2}>
             <Text>Tax (7.5%)</Text>
             <Text>
               ₦{" "}
@@ -149,7 +160,7 @@ export default function SalesInvoicePage() {
           </Flex>
 
           <Flex justify="space-between" mb={2} fontWeight="bold">
-            <Text>Total</Text>
+            <Text>Grand Total</Text>
             <Text>
               ₦{" "}
               {Number(sale.grand_total).toLocaleString(undefined, {

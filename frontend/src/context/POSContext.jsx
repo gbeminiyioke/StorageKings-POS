@@ -1,4 +1,4 @@
-import { createContext, useContext, useState } from "react";
+import { createContext, useContext, useState, useMemo } from "react";
 
 const POSContext = createContext();
 
@@ -6,6 +6,9 @@ export const usePOS = () => useContext(POSContext);
 
 export const POSProvider = ({ children }) => {
   const [cart, setCart] = useState([]);
+
+  const [discountType, setDiscountType] = useState("AMOUNT");
+  const [discountValue, setDiscountValue] = useState(0);
 
   /* =====================================
   NEW: SHARED PAYMENT STATE
@@ -91,8 +94,10 @@ export const POSProvider = ({ children }) => {
   const clearCart = () => {
     setCart([]);
     clearPayments();
+    setDiscountType("AMOUNT");
+    setDiscountValue(0);
   };
-
+  /*
   const subtotal = cart.reduce(
     (acc, item) =>
       acc + Number(item.selling_price || 0) * Number(item.qty || 0),
@@ -101,6 +106,27 @@ export const POSProvider = ({ children }) => {
 
   const tax = subtotal * 0.075;
   const total = subtotal + tax;
+*/
+
+  const subtotal = useMemo(() => {
+    return cart.reduce(
+      (sum, item) => sum + Number(item.qty) * Number(item.selling_price),
+      0,
+    );
+  }, [cart]);
+
+  const discountAmount = useMemo(() => {
+    if (discountType === "PERCENT") {
+      return (subtotal * Number(discountValue || 0)) / 100;
+    }
+
+    return Number(discountValue || 0);
+  }, [subtotal, discountType, discountValue]);
+
+  //const taxableAmount = subtotal - discountAmount;
+  const taxableAmount = Math.max(subtotal - discountAmount, 0);
+  const tax = taxableAmount * 0.075;
+  const total = taxableAmount + tax;
 
   return (
     <POSContext.Provider
@@ -113,6 +139,12 @@ export const POSProvider = ({ children }) => {
         subtotal,
         tax,
         total,
+
+        discountType,
+        setDiscountType,
+        discountValue,
+        setDiscountValue,
+        discountAmount,
 
         /* NEW: payment state + helpers */
         payments,

@@ -10,6 +10,8 @@ export const completeSaleService = async (data) => {
       branch_id,
       user_id,
       customer_id,
+      discount_type = "AMOUNT",
+      discount_value = 0,
       transaction_type = "INVOICE",
       invoice_no,
       proforma_no,
@@ -31,6 +33,27 @@ export const completeSaleService = async (data) => {
       throw new Error("No payment provided");
     }
 
+    const rawSubtotal = Number(subtotal || 0);
+
+    let computedDiscountAmount = 0;
+
+    if (discount_type === "PERCENT") {
+      computedDiscountAmount =
+        (rawSubtotal * Number(discount_value || 0)) / 100;
+    } else {
+      computedDiscountAmount = Number(discount_value || 0);
+    }
+
+    if (computedDiscountAmount > rawSubtotal) {
+      throw new Error("Discount cannot exceed subtotal");
+    }
+
+    const discountedSubtotal = rawSubtotal - computedDiscountAmount;
+
+    const computedVat = discountedSubtotal * 0.075;
+
+    const computedGrandTotal = discountedSubtotal + computedVat;
+
     const nonCreditPaid = payments.reduce((sum, p) => {
       const amount = Number(p.amount || 0);
 
@@ -46,11 +69,15 @@ export const completeSaleService = async (data) => {
     const totalPaid = nonCreditPaid;
     const balanceDue = creditPayment
       ? -creditAmount
-      : Number(grand_total) - Number(nonCreditPaid);
+      : Number(computedGrandTotal) - Number(nonCreditPaid);
 
-    if (nonCreditPaid > Number(grand_total)) {
+    if (nonCreditPaid > Number(computedGrandTotal)) {
       throw new Error("Paid amount cannot exceed total");
     }
+
+    const hasCredit = payments.some(
+      (p) => p.method?.toUpperCase() === "CREDIT",
+    );
 
     if (transaction_type !== "PROFORMA" && balanceDue > 0 && !hasCredit) {
       throw new Error("Outstanding balance must be recorded as CREDIT");
@@ -121,6 +148,9 @@ export const completeSaleService = async (data) => {
         proforma_no,
         refund_no,
         subtotal,
+        discount_type,
+        discount_value,
+        discount_amount,
         vat,
         grand_total,
         amount_paid,
@@ -147,7 +177,10 @@ export const completeSaleService = async (data) => {
         $13,
         $14,
         $15,
-        $16
+        $16,
+        $17,
+        $18,
+        $19
       )
       RETURNING sale_id
     `,
@@ -160,9 +193,12 @@ export const completeSaleService = async (data) => {
         actualInvoiceNo,
         actualProformaNo,
         actualRefundNo,
-        subtotal,
-        vat,
-        grand_total,
+        rawSubtotal,
+        discount_type,
+        Number(discount_value || 0),
+        computedDiscountAmount,
+        computedVat,
+        computedGrandTotal,
         totalPaid,
         balanceDue,
         balanceDue <= 0 ? "PAID" : "PARTIAL",
@@ -310,6 +346,13 @@ export const completeSaleService = async (data) => {
       success: true,
       sale_id,
       message: "Sale completed successfully",
+
+      subtotal: rawSubtotal,
+      discount_type,
+      discount_value,
+      discount_amount: computedDiscountAmount,
+      vat: computedVat,
+      grand_total: computedGrandTotal,
     };
   } catch (err) {
     await client.query("ROLLBACK");
