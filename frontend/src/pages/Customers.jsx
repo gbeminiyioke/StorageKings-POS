@@ -29,6 +29,7 @@ import {
   AlertDialogOverlay,
   InputGroup,
   InputRightElement,
+  Tooltip,
 } from "@chakra-ui/react";
 import {
   ViewIcon,
@@ -69,8 +70,12 @@ export default function Customers() {
     confirmPassword: "",
     indemnity_agreement: null,
     warehouse_agreement: null,
-    indemnity_agreement_locked: false,
-    warehouse_agreement_locked: false,
+    indemnity_agreement_locked: true,
+    warehouse_agreement_locked: true,
+
+    customer_id_image: null,
+    alternate_id_image: null,
+    signature_image: null,
   };
 
   const {
@@ -99,6 +104,10 @@ export default function Customers() {
 
   const [loading, setLoading] = useState(false);
   const [deleteId, setDeleteId] = useState(null);
+
+  const [customerIdPreview, setCustomerIdPreview] = useState(null);
+  const [alternateIdPreview, setAlternateIdPreview] = useState(null);
+  const [signaturePreview, setSignaturePreview] = useState(null);
 
   const cancelRef = useRef();
   const indemnityRef = useRef(null);
@@ -136,10 +145,15 @@ export default function Customers() {
   const clearAgreementFields = () => {
     reset(defaultValues);
     setEditingId(null);
-    setValue("indemnity_agreement_locked", false);
-    setValue("warehouse_agreement_locked", false);
+    setValue("indemnity_agreement_locked", true);
+    setValue("warehouse_agreement_locked", true);
     setValue("indemnity_agreement", null);
     setValue("warehouse_agreement", null);
+
+    setCustomerIdPreview(null);
+    setAlternateIdPreview(null);
+    setSignaturePreview(null);
+
     if (indemnityRef.current) {
       indemnityRef.current.value = "";
     }
@@ -198,8 +212,11 @@ export default function Customers() {
       );
 
       if (editingId) {
-        delete payload.password;
-        delete payload.confirmPassword;
+        //delete payload.password;
+        //delete payload.confirmPassword;
+
+        payload.delete("password");
+        payload.delete("confirmPassword");
         await api.put(`/customers/${editingId}`, payload);
 
         toast({
@@ -224,7 +241,7 @@ export default function Customers() {
       clearAgreementFields();
       loadCustomers();
     } catch (err) {
-      if (err.response?.data?.message === " CUSTOMER_NAME_EXISTS") {
+      if (err.response?.data?.message === "CUSTOMER_NAME_EXISTS") {
         setError("fullname", {
           type: "manual",
           message: "Customer name already exists",
@@ -255,13 +272,34 @@ export default function Customers() {
   const handleEdit = (customer) => {
     setEditingId(customer.id);
 
+    //const apiBase = import.meta.env.VITE_API_URL?.replace(/\/$/, "") || "";
+    const apiBase = (
+      import.meta.env.VITE_API_URL || "http://localhost:5000"
+    ).replace(/\/api$/, "");
+
+    setCustomerIdPreview(
+      customer.customer_id_image
+        ? `${apiBase}/${customer.customer_id_image.replace(/\\/g, "/")}`
+        : null,
+    );
+
+    setAlternateIdPreview(
+      customer.alternate_id_image
+        ? `${apiBase}/${customer.alternate_id_image.replace(/\\/g, "/")}`
+        : null,
+    );
+
+    setSignaturePreview(
+      customer.signature_image
+        ? `${apiBase}/${customer.signature_image.replace(/\\/g, "/")}`
+        : null,
+    );
+
     reset({
       ...customer,
 
       indemnity_agreement: customer.indemnity_agreement,
-
       warehouse_agreement: customer.warehouse_agreement,
-
       password: "",
       confirmPassword: "",
     });
@@ -295,7 +333,8 @@ export default function Customers() {
     DELETE
   ======================================*/
   const handleDelete = (id) => {
-    clearAgreementFields();
+    //clearAgreementFields();
+    setDeleteId(id);
   };
 
   const confirmDelete = async () => {
@@ -337,17 +376,11 @@ export default function Customers() {
       });
 
       const url = window.URL.createObjectURL(new Blob([response.data]));
-
       const link = document.createElement("a");
-
       link.href = url;
-
       link.setAttribute("download", `${type}.pdf`);
-
       document.body.appendChild(link);
-
       link.click();
-
       link.remove();
     } catch {
       toast({
@@ -549,7 +582,7 @@ export default function Customers() {
             </FormControl>
           </Grid>
 
-          <Grid templateColumns="2fr 1fr" gap={4} mt={4}>
+          <Grid templateColumns="1fr 1fr" gap={4} mt={4}>
             <FormControl>
               <FormLabel>Indemnity Agreement (PDF)</FormLabel>
 
@@ -572,25 +605,19 @@ export default function Customers() {
                         {watch("indemnity_agreement").split("/").pop()}
                       </Text>
 
-                      <IconButton
-                        size="sm"
-                        icon={<DownloadIcon />}
-                        colorScheme="blue"
-                        onClick={() => handleDownload(editingId, "indemnity")}
-                      />
+                      <Tooltip label="Download file">
+                        <IconButton
+                          size="sm"
+                          icon={<DownloadIcon />}
+                          colorScheme="blue"
+                          onClick={() => handleDownload(editingId, "indemnity")}
+                        />
+                      </Tooltip>
                     </Flex>
                   )}
               </Flex>
             </FormControl>
 
-            <FormControl mt={8}>
-              <Checkbox {...register("indemnity_agreement_locked")}>
-                Lock Indemnity Agreement
-              </Checkbox>
-            </FormControl>
-          </Grid>
-
-          <Grid templateColumns="2fr 1fr" gap={4} mt={4}>
             <FormControl>
               <FormLabel>Warehouse Agreement (PDF)</FormLabel>
 
@@ -613,21 +640,230 @@ export default function Customers() {
                         {watch("warehouse_agreement").split("/").pop()}
                       </Text>
 
-                      <IconButton
-                        size="sm"
-                        icon={<DownloadIcon />}
-                        colorScheme="blue"
-                        onClick={() => handleDownload(editingId, "warehouse")}
-                      />
+                      <Tooltip label="Download file">
+                        <IconButton
+                          size="sm"
+                          icon={<DownloadIcon />}
+                          colorScheme="blue"
+                          onClick={() => handleDownload(editingId, "warehouse")}
+                        />
+                      </Tooltip>
                     </Flex>
                   )}
               </Flex>
             </FormControl>
+            {/*
+            <FormControl mt={8}>
+              <Checkbox {...register("indemnity_agreement_locked")}>
+                Lock Indemnity Agreement
+              </Checkbox>
+            </FormControl>
+*/}
+          </Grid>
+
+          {/*
+          <Grid templateColumns="2fr 1fr" gap={4} mt={4}>
 
             <FormControl mt={8}>
               <Checkbox {...register("warehouse_agreement_locked")}>
                 Lock Warehouse Agreement
               </Checkbox>
+            </FormControl>
+
+          </Grid>
+*/}
+
+          <Grid templateColumns="1fr 1fr 1fr" gap={4} mt={6}>
+            {/* CUSTOMER ID */}
+            <FormControl>
+              <FormLabel>Customer ID</FormLabel>
+
+              <Box
+                border="2px dashed #CBD5E0"
+                rounded="md"
+                h="180px"
+                cursor="pointer"
+                overflow="hidden"
+                position="relative"
+                onClick={() =>
+                  document.getElementById("customer_id_image").click()
+                }
+              >
+                {customerIdPreview ? (
+                  <img
+                    src={customerIdPreview}
+                    alt="Customer ID"
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
+                    }}
+                  />
+                ) : (
+                  <Flex h="100%" align="center" justify="center">
+                    <Text>Select Customer ID</Text>
+                  </Flex>
+                )}
+              </Box>
+
+              <Input
+                id="customer_id_image"
+                type="file"
+                accept="image/*"
+                hidden
+                onChange={(e) => {
+                  const file = e.target.files[0];
+
+                  if (file) {
+                    setValue("customer_id_image", file);
+                    setCustomerIdPreview(URL.createObjectURL(file));
+                  }
+                }}
+              />
+
+              {customerIdPreview && (
+                <Button
+                  mt={2}
+                  size="sm"
+                  colorScheme="red"
+                  onClick={() => {
+                    setCustomerIdPreview(null);
+                    setValue("customer_id_image", null);
+                  }}
+                >
+                  Remove Image
+                </Button>
+              )}
+            </FormControl>
+
+            {/* ALTERNATE ID */}
+            <FormControl>
+              <FormLabel>Alternate ID</FormLabel>
+
+              <Box
+                border="2px dashed #CBD5E0"
+                rounded="md"
+                h="180px"
+                cursor="pointer"
+                overflow="hidden"
+                onClick={() =>
+                  document.getElementById("alternate_id_image").click()
+                }
+              >
+                {alternateIdPreview ? (
+                  <img
+                    src={alternateIdPreview}
+                    alt="Alternate ID"
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
+                    }}
+                  />
+                ) : (
+                  <Flex h="100%" align="center" justify="center">
+                    <Text>Select Alternate ID</Text>
+                  </Flex>
+                )}
+              </Box>
+
+              <Input
+                id="alternate_id_image"
+                type="file"
+                accept="image/*"
+                hidden
+                onChange={(e) => {
+                  const file = e.target.files[0];
+
+                  if (file) {
+                    setValue("alternate_id_image", file);
+                    setAlternateIdPreview(URL.createObjectURL(file));
+                  }
+                }}
+              />
+
+              {alternateIdPreview && (
+                <Button
+                  mt={2}
+                  size="sm"
+                  colorScheme="red"
+                  onClick={() => {
+                    setAlternateIdPreview(null);
+                    setValue("alternate_id_image", null);
+                  }}
+                >
+                  Remove Image
+                </Button>
+              )}
+            </FormControl>
+
+            {/* SIGNATURE */}
+            <FormControl>
+              <FormLabel>Signature</FormLabel>
+
+              <Box
+                border="2px dashed #CBD5E0"
+                rounded="md"
+                h="180px"
+                cursor="pointer"
+                overflow="hidden"
+                onClick={() =>
+                  document.getElementById("signature_image").click()
+                }
+              >
+                {signaturePreview ? (
+                  <Flex
+                    w="100%"
+                    h="100%"
+                    align="center"
+                    justify="center"
+                    bg="white"
+                  >
+                    <img
+                      src={signaturePreview}
+                      alt="Signature"
+                      style={{
+                        maxWidth: "100%",
+                        maxHeight: "100%",
+                        objectFit: "contain",
+                      }}
+                    />
+                  </Flex>
+                ) : (
+                  <Flex h="100%" align="center" justify="center">
+                    <Text>Select Signature</Text>
+                  </Flex>
+                )}
+              </Box>
+
+              <Input
+                id="signature_image"
+                type="file"
+                accept="image/*"
+                hidden
+                onChange={(e) => {
+                  const file = e.target.files[0];
+
+                  if (file) {
+                    setValue("signature_image", file);
+                    setSignaturePreview(URL.createObjectURL(file));
+                  }
+                }}
+              />
+
+              {signaturePreview && (
+                <Button
+                  mt={2}
+                  size="sm"
+                  colorScheme="red"
+                  onClick={() => {
+                    setSignaturePreview(null);
+                    setValue("signature_image", null);
+                  }}
+                >
+                  Remove Image
+                </Button>
+              )}
             </FormControl>
           </Grid>
 
@@ -687,28 +923,35 @@ export default function Customers() {
               <Td>
                 {hasPermission("can_edit") && (
                   <>
-                    <IconButton
-                      icon={<EditIcon />}
-                      size="sm"
-                      mr={2}
-                      onClick={() => handleEdit(c)}
-                    />
-                    <IconButton
-                      icon={<CopyIcon />}
-                      size="sm"
-                      mr={2}
-                      onClick={() => handleClone(c)}
-                    />
+                    <Tooltip label="Edit Customer">
+                      <IconButton
+                        icon={<EditIcon />}
+                        size="sm"
+                        mr={2}
+                        onClick={() => handleEdit(c)}
+                      />
+                    </Tooltip>
+
+                    <Tooltip label="Clone Customer">
+                      <IconButton
+                        icon={<CopyIcon />}
+                        size="sm"
+                        mr={2}
+                        onClick={() => handleClone(c)}
+                      />
+                    </Tooltip>
                   </>
                 )}
 
                 {hasPermission("can_delete") && (
-                  <IconButton
-                    icon={<DeleteIcon />}
-                    size="sm"
-                    colorScheme="red"
-                    onClick={() => handleDelete(c.id)}
-                  />
+                  <Tooltip label="Delete Customer">
+                    <IconButton
+                      icon={<DeleteIcon />}
+                      size="sm"
+                      colorScheme="red"
+                      onClick={() => handleDelete(c.id)}
+                    />
+                  </Tooltip>
                 )}
               </Td>
             </Tr>

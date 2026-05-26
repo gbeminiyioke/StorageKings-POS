@@ -3,6 +3,7 @@ import jwt from "jsonwebtoken";
 import { generateStoragePdf } from "../services/storagePdf.service.js";
 import { sendEmailWithAttachment } from "../services/email.service.js";
 import logActivity from "../utils/activityLogger.js";
+import { transporter } from "../utils/mailer.js";
 
 /* ======================================================
    CUSTOMER SEARCH
@@ -742,23 +743,29 @@ export const processStorageVisitCheckin = async (req, res) => {
     }
 
     /* =====================================
-         FIND APPROVED REQUEST
-      ===================================== */
+       FIND APPROVED REQUEST
+    ===================================== */
     const requestResult = await pool.query(
       `
-          SELECT
-            svr.*,
-            c.fullname AS customer_name,
-            c.telephone AS customer_phone,
-            b.branch_name
-          FROM storage_visit_requests svr
-          LEFT JOIN customers c
-            ON svr.customer_id = c.id
-          LEFT JOIN branches b
-            ON svr.branch_id = b.branch_id
-          WHERE svr.qr_pass_code = $1
-            AND svr.request_status = 'APPROVED'
-        `,
+        SELECT
+          svr.*,
+          c.id AS customer_id,
+          c.email,
+          c.fullname AS customer_name,
+          c.telephone AS customer_phone,
+          b.branch_name
+
+        FROM storage_visit_requests svr
+
+        LEFT JOIN customers c
+          ON svr.customer_id = c.id
+
+        LEFT JOIN branches b
+          ON svr.branch_id = b.branch_id
+
+        WHERE svr.qr_pass_code = $1
+          AND svr.request_status = 'APPROVED'
+      `,
       [qr_pass_code],
     );
 
@@ -771,15 +778,15 @@ export const processStorageVisitCheckin = async (req, res) => {
     const request = requestResult.rows[0];
 
     /* =====================================
-         CHECK IF ALREADY CHECKED IN
-      ===================================== */
+       CHECK IF ALREADY CHECKED IN
+    ===================================== */
     const existingVisit = await pool.query(
       `
-          SELECT visit_log_id
-          FROM storage_visit_logs
-          WHERE visit_request_id = $1
-            AND checked_out_at IS NULL
-        `,
+        SELECT visit_log_id
+        FROM storage_visit_logs
+        WHERE visit_request_id = $1
+          AND checked_out_at IS NULL
+      `,
       [request.visit_request_id],
     );
 
@@ -790,22 +797,22 @@ export const processStorageVisitCheckin = async (req, res) => {
     }
 
     /* =====================================
-         CREATE VISIT LOG
-      ===================================== */
+       CREATE VISIT LOG
+    ===================================== */
     const visitLog = await pool.query(
       `
-          INSERT INTO storage_visit_logs (
-            visit_request_id,
-            storage_id,
-            customer_id,
-            scanned_qr_code,
-            receiving_officer
-          )
-          VALUES (
-            $1,$2,$3,$4,$5
-          )
-          RETURNING *
-        `,
+        INSERT INTO storage_visit_logs (
+          visit_request_id,
+          storage_id,
+          customer_id,
+          scanned_qr_code,
+          receiving_officer
+        )
+        VALUES (
+          $1, $2, $3, $4, $5
+        )
+        RETURNING *
+      `,
       [
         request.visit_request_id,
         request.storage_id,
@@ -816,37 +823,41 @@ export const processStorageVisitCheckin = async (req, res) => {
     );
 
     /* =====================================
-         COMPLETE REQUEST
-      ===================================== */
+       COMPLETE REQUEST
+    ===================================== */
     await pool.query(
       `
         UPDATE storage_visit_requests
+
         SET
           request_status = 'COMPLETED',
           completed_by = $1,
           completed_at = NOW()
+
         WHERE visit_request_id = $2
       `,
       [req.user.id, request.visit_request_id],
     );
 
     /* =====================================
-         UPDATE VISITS COUNT
-      ===================================== */
+       UPDATE VISITS COUNT
+    ===================================== */
     await pool.query(
       `
         UPDATE storage_headers
+
         SET
           current_visits =
             COALESCE(current_visits, 0) + 1
+
         WHERE storage_id = $1
       `,
       [request.storage_id],
     );
 
     /* =====================================
-         COMPLETE NOTIFICATIONS
-      ===================================== */
+       COMPLETE NOTIFICATIONS
+    ===================================== */
     await pool.query(
       `
         UPDATE storage_notifications
@@ -858,8 +869,84 @@ export const processStorageVisitCheckin = async (req, res) => {
     );
 
     /* =====================================
-         ACTIVITY LOG
-      ===================================== */
+       CUSTOMER NOTIFICATION
+    ===================================== */
+    await pool.query(
+      `
+        INSERT INTO customer_notifications (
+          customer_id,
+          title,
+          message,
+          notification_type,
+          created_at
+        )
+        VALUES (
+          $1,
+          $2,
+          $3,
+          $4,
+          NOW()
+        )
+      `,
+      [
+        request.customer_id,
+        "Storage Visit Started",
+        `You were checked in to visit your storage ${request.storage_no} at ${request.branch_name} on ${new Date().toLocaleString()}.`,
+
+        "STORAGE_VISIT_CHECKIN",
+      ],
+    );
+
+    /* =====================================
+       SEND CUSTOMER EMAIL
+    ===================================== */
+    if (request.email) {
+      await transporter.sendMail({
+        to: request.email,
+
+        subject: "Storage Visit Check-In",
+
+        html: `
+          <h2>
+            Storage Visit Started
+          </h2>
+
+          <p>
+            Dear ${request.customer_name},
+          </p>
+
+          <p>
+            You have successfully checked in
+            to visit your storage.
+          </p>
+
+          <ul>
+            <li>
+              Storage No:
+              ${request.storage_no}
+            </li>
+
+            <li>
+              Branch:
+              ${request.branch_name}
+            </li>
+
+            <li>
+              Check-In Time:
+              ${new Date().toLocaleString()}
+            </li>
+          </ul>
+
+          <p>
+            Thank you.
+          </p>
+        `,
+      });
+    }
+
+    /* =====================================
+       ACTIVITY LOG
+    ===================================== */
     await logActivity({
       userId: req.user.id,
       userName: req.user.fullname || req.user.name,
@@ -900,24 +987,36 @@ export const processStorageVisitCheckin = async (req, res) => {
 export const processStorageVisitCheckout = async (req, res) => {
   try {
     const { id } = req.params;
-
     const { remarks } = req.body;
 
     /* =====================================
-         FIND VISIT
-      ===================================== */
+       FIND VISIT
+    ===================================== */
     const visitResult = await pool.query(
       `
-          SELECT
-            svl.*,
-            svr.storage_no,
-            svr.customer_name
-          FROM storage_visit_logs svl
-          LEFT JOIN storage_visit_requests svr
+        SELECT
+          svl.*,
+          svr.storage_no,
+          svr.customer_name,
+          c.id AS customer_id,
+          c.email,
+          b.branch_name
+        FROM storage_visit_logs svl
+
+        LEFT JOIN
+          storage_visit_requests svr
             ON svl.visit_request_id =
                svr.visit_request_id
-          WHERE svl.visit_log_id = $1
-        `,
+
+        LEFT JOIN customers c
+          ON svr.customer_id = c.id
+
+        LEFT JOIN branches b
+          ON svr.branch_id =
+             b.branch_id
+
+        WHERE svl.visit_log_id = $1
+      `,
       [id],
     );
 
@@ -936,22 +1035,99 @@ export const processStorageVisitCheckout = async (req, res) => {
     }
 
     /* =====================================
-         UPDATE CHECKOUT
-      ===================================== */
+       UPDATE CHECKOUT
+    ===================================== */
     await pool.query(
       `
         UPDATE storage_visit_logs
+
         SET
           checked_out_at = NOW(),
           remarks = $1
+
         WHERE visit_log_id = $2
       `,
       [remarks || null, id],
     );
 
     /* =====================================
-         ACTIVITY LOG
-      ===================================== */
+       CUSTOMER NOTIFICATION
+    ===================================== */
+    await pool.query(
+      `
+        INSERT INTO customer_notifications (
+          customer_id,
+          title,
+          message,
+          notification_type,
+          created_at
+        )
+        VALUES (
+          $1,
+          $2,
+          $3,
+          $4,
+          NOW()
+        )
+      `,
+      [
+        visit.customer_id,
+        "Storage Visit Completed",
+        `Your visit to storage ${visit.storage_no} at ${visit.branch_name} was completed successfully at ${new Date().toLocaleString()}.`,
+        "STORAGE_VISIT_CHECKOUT",
+      ],
+    );
+
+    /* =====================================
+       SEND CUSTOMER EMAIL
+    ===================================== */
+    if (visit.email) {
+      await transporter.sendMail({
+        to: visit.email,
+
+        subject: "Storage Visit Completed",
+
+        html: `
+          <h2>
+            Storage Visit Completed
+          </h2>
+
+          <p>
+            Dear ${visit.customer_name},
+          </p>
+
+          <p>
+            Your visit to your storage
+            has been completed successfully.
+          </p>
+
+          <ul>
+            <li>
+              Storage No:
+              ${visit.storage_no}
+            </li>
+
+            <li>
+              Branch:
+              ${visit.branch_name}
+            </li>
+
+            <li>
+              Check-Out Time:
+              ${new Date().toLocaleString()}
+            </li>
+          </ul>
+
+          <p>
+            Thank you.
+          </p>
+        `,
+      });
+    }
+
+    /* =====================================
+       ACTIVITY LOG
+    ===================================== */
     await logActivity({
       userId: req.user.id,
       userName: req.user.fullname || req.user.name,
@@ -959,7 +1135,6 @@ export const processStorageVisitCheckout = async (req, res) => {
       module: "STORAGE_VISITS",
       action: "CHECKOUT",
       description: `Processed storage visit checkout for ${visit.storage_no}`,
-
       ipAddress: req.ip,
     });
 

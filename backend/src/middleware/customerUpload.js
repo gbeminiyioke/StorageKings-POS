@@ -2,23 +2,35 @@ import multer from "multer";
 import fs from "fs";
 import path from "path";
 
-const uploadDir = "uploads/customers";
-
 /* =====================================
-   CREATE DIRECTORY IF MISSING
+   DIRECTORIES
 ===================================== */
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, {
-    recursive: true,
-  });
-}
+
+const customerDir = "uploads/customers";
+const indemnityDir = "uploads/indemnity";
+const warehouseDir = "uploads/warehouse";
+
+[customerDir, indemnityDir, warehouseDir].forEach((dir) => {
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, {
+      recursive: true,
+    });
+  }
+});
 
 /* =====================================
    STORAGE CONFIG
 ===================================== */
+
 const storage = multer.diskStorage({
   destination(req, file, cb) {
-    cb(null, uploadDir);
+    if (file.fieldname === "indemnity_agreement") {
+      cb(null, indemnityDir);
+    } else if (file.fieldname === "warehouse_agreement") {
+      cb(null, warehouseDir);
+    } else {
+      cb(null, customerDir);
+    }
   },
 
   filename(req, file, cb) {
@@ -31,17 +43,16 @@ const storage = multer.diskStorage({
 /* =====================================
    FILE FILTER
 ===================================== */
+
 const fileFilter = (req, file, cb) => {
   const allowedMimeTypes = [
-    /* PDFs */
     "application/pdf",
     "application/x-pdf",
 
-    /* Images */
     "image/jpeg",
     "image/jpg",
-    "image/pjpeg",
     "image/png",
+    "image/webp",
   ];
 
   if (!allowedMimeTypes.includes(file.mimetype)) {
@@ -51,14 +62,10 @@ const fileFilter = (req, file, cb) => {
   cb(null, true);
 };
 
-/* =====================================
-   EXPORT
-===================================== */
 export default multer({
   storage,
   fileFilter,
   limits: {
-    /* 20MB */
     fileSize: 20 * 1024 * 1024,
   },
 });

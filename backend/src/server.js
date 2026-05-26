@@ -36,8 +36,8 @@ app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 /* ======================================================
    STATIC FILES (UPLOADS)
 ====================================================== */
-app.use("/uploads", express.static(path.resolve("uploads")));
-
+//app.use("/uploads", express.static(path.resolve("uploads")));
+app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 /*---------------------------------
   TEMPORARY LOGGER
 -----------------------------------*/

@@ -28,6 +28,18 @@ router.post(
   "/register",
   upload.fields([
     {
+      name: "customer_id_image",
+      maxCount: 1,
+    },
+    {
+      name: "alternate_id_image",
+      maxCount: 1,
+    },
+    {
+      name: "signature_image",
+      maxCount: 1,
+    },
+    {
       name: "indemnity_agreement",
       maxCount: 1,
     },
@@ -54,6 +66,14 @@ router.put(
   upload.fields([
     {
       name: "customer_id_image",
+      maxCount: 1,
+    },
+    {
+      name: "alternate_id_image",
+      maxCount: 1,
+    },
+    {
+      name: "signature_image",
       maxCount: 1,
     },
     {
@@ -101,6 +121,18 @@ router.post(
   authorize("can_create"),
   upload.fields([
     {
+      name: "customer_id_image",
+      maxCount: 1,
+    },
+    {
+      name: "alternate_id_image",
+      maxCount: 1,
+    },
+    {
+      name: "signature_image",
+      maxCount: 1,
+    },
+    {
       name: "indemnity_agreement",
       maxCount: 1,
     },
@@ -116,6 +148,18 @@ router.put(
   "/:id",
   authorize("can_edit"),
   upload.fields([
+    {
+      name: "customer_id_image",
+      maxCount: 1,
+    },
+    {
+      name: "alternate_id_image",
+      maxCount: 1,
+    },
+    {
+      name: "signature_image",
+      maxCount: 1,
+    },
     {
       name: "indemnity_agreement",
       maxCount: 1,

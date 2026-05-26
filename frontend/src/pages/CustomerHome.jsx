@@ -42,6 +42,7 @@ import {
   GridItem,
   Select,
   Image,
+  AspectRatio,
 } from "@chakra-ui/react";
 import {
   FiAlignJustify,
@@ -50,6 +51,7 @@ import {
   FiTrash2,
   FiLogOut,
   FiCheckCircle,
+  FiEye,
 } from "react-icons/fi";
 import { DownloadIcon, ChevronDownIcon, ChevronUpIcon } from "@chakra-ui/icons";
 import api from "../api/api";
@@ -70,6 +72,7 @@ export default function CustomerHome() {
   const [storageDetails, setStorageDetails] = useState({});
 
   const [saving, setSaving] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
   const [visitSubmitting, setVisitSubmitting] = useState(false);
 
   const [downloadProgress, setDownloadProgress] = useState(0);
@@ -85,7 +88,7 @@ export default function CustomerHome() {
   } = useDisclosure();
 
   const [selectedInvoice, setSelectedInvoice] = useState(null);
-
+  const [invoiceModalOpen, setInvoiceModalOpen] = useState(false);
   const [visitModalOpen, setVisitModalOpen] = useState(false);
   const [selectedStorage, setSelectedStorage] = useState(null);
   const [visitForm, setVisitForm] = useState({
@@ -101,7 +104,19 @@ export default function CustomerHome() {
   const [indemnityFileName, setIndemnityFileName] = useState("");
   const [warehouseFileName, setWarehouseFileName] = useState("");
 
+  const [activePdf, setActivePdf] = useState(null);
+  const [activePdfTitle, setActivePdfTitle] = useState("");
+  const [customerIdPreview, setCustomerIdPreview] = useState("");
+  const [alternateIdPreview, setAlternateIdPreview] = useState("");
+  const [signaturePreview, setSignaturePreview] = useState("");
+
+  const [customerIdFile, setCustomerIdFile] = useState(null);
+  const [alternateIdFile, setAlternateIdFile] = useState(null);
+  const [signatureFile, setSignatureFile] = useState(null);
+
   const [tabIndex, setTabIndex] = useState(0);
+
+  const FILE_BASE_URL = import.meta.env.VITE_API_URL.replace("/api", "");
 
   useEffect(() => {
     loadData();
@@ -336,6 +351,47 @@ export default function CustomerHome() {
       month: "short",
       year: "numeric",
     });
+  };
+
+  const openInvoice = async (txn) => {
+    try {
+      if (txn.transaction_type !== "PURCHASE") {
+        toast({
+          title: "Invoice unavailable",
+          description: "Only purchase invoices can be viewed.",
+          status: "warning",
+        });
+
+        return;
+      }
+      /*
+      console.log(txn);
+      console.log("SALE ID =", txn.sale_id);
+      console.log("INVOICE NO =", txn.invoice_no);
+      console.log(`/sales/invoice/${txn.sale_id}`);
+*/
+      if (!txn.invoice_no) {
+        toast({
+          title: "Invoice number missing",
+          status: "error",
+        });
+
+        return;
+      }
+
+      const res = await api.get(`/pos/invoice/${txn.sale_id}`);
+      setSelectedInvoice(res.data);
+      //setInvoiceModalOpen(true);
+      onInvoiceOpen();
+    } catch (err) {
+      console.error(err);
+
+      toast({
+        title: "Failed to load invoice",
+        description: err.response?.data?.message || "Invoice not found.",
+        status: "error",
+      });
+    }
   };
 
   const submitVisitRequest = async () => {
@@ -731,58 +787,117 @@ export default function CustomerHome() {
                 Notifications
               </Text>
 
-              {notifications.map((n) => (
-                <Flex
-                  key={n.notification_id}
-                  p={4}
-                  borderWidth="1px"
-                  borderRadius="md"
-                  bg={n.is_read ? "gray.50" : "blue.50"}
-                  opacity={n.is_read ? 0.8 : 1}
-                  mb={3}
-                  justify="space-between"
-                  align="center"
-                >
-                  <Box>
-                    <Text fontWeight="medium">{n.message}</Text>
-                    <Text fontSize="sm" color="gray.500">
-                      {formatDate(n.created_at)}
-                    </Text>
-                  </Box>
-
-                  <HStack spacing={2}>
-                    {/* =========================
-                    MARK AS READ
-                    ========================== */}
-                    {!n.is_read && (
-                      <Tooltip label="Mark as Read">
-                        <IconButton
-                          icon={<FiCheckCircle />}
-                          colorScheme="green"
-                          size="sm"
-                          onClick={() =>
-                            markNotificationAsRead(n.notification_id)
-                          }
-                        />
-                      </Tooltip>
-                    )}
-
-                    {/* =========================
-                    DELETE REJECTED
-                    ========================== */}
-                    {n.notification_type === "VISIT_REJECTED" && (
-                      <Tooltip label="Delete notification">
-                        <IconButton
-                          icon={<FiTrash2 />}
-                          colorScheme="red"
-                          size="sm"
-                          onClick={() => deleteNotification(n.notification_id)}
-                        />
-                      </Tooltip>
-                    )}
-                  </HStack>
+              {notifications.length === 0 && (
+                <Flex justify="center" py={6} color="gray.500">
+                  No notifications available
                 </Flex>
-              ))}
+              )}
+
+              {notifications.map((n) => {
+                /* =========================
+                  NOTIFICATION COLOR
+                ========================== */
+
+                const notificationColor =
+                  n.notification_type === "STORAGE_VISIT_CHECKIN"
+                    ? "green"
+                    : n.notification_type === "STORAGE_VISIT_CHECKOUT"
+                      ? "blue"
+                      : n.notification_type === "VISIT_REJECTED"
+                        ? "red"
+                        : "purple";
+
+                /* =========================
+                  NOTIFICATION LABEL
+                ========================== */
+
+                const notificationLabel =
+                  n.notification_type === "STORAGE_VISIT_CHECKIN"
+                    ? "Visit Started"
+                    : n.notification_type === "STORAGE_VISIT_CHECKOUT"
+                      ? "Visit Completed"
+                      : n.notification_type === "VISIT_REJECTED"
+                        ? "Visit Rejected"
+                        : "Notification";
+
+                return (
+                  <Flex
+                    key={n.notification_id}
+                    p={4}
+                    borderWidth="1px"
+                    borderRadius="md"
+                    bg={n.is_read ? "gray.50" : "blue.50"}
+                    opacity={n.is_read ? 0.85 : 1}
+                    mb={3}
+                    justify="space-between"
+                    align="center"
+                  >
+                    {/* =====================
+                      MESSAGE
+                    ====================== */}
+
+                    <Box>
+                      <HStack mb={1}>
+                        <Badge colorScheme={notificationColor}>
+                          {notificationLabel}
+                        </Badge>
+
+                        {!n.is_read && <Badge colorScheme="orange">NEW</Badge>}
+                      </HStack>
+
+                      <Text fontWeight="medium">{n.message}</Text>
+
+                      <Text fontSize="sm" color="gray.500" mt={1}>
+                        {formatDate(n.created_at)}
+                      </Text>
+                    </Box>
+
+                    {/* =====================
+                      ACTIONS
+                    ====================== */}
+
+                    <HStack spacing={2}>
+                      {/* ===================
+                        MARK AS READ
+                      ==================== */}
+
+                      {!n.is_read && (
+                        <Tooltip label="Mark as Read">
+                          <IconButton
+                            icon={<FiCheckCircle />}
+                            colorScheme="green"
+                            size="sm"
+                            onClick={() =>
+                              markNotificationAsRead(n.notification_id)
+                            }
+                          />
+                        </Tooltip>
+                      )}
+
+                      {/* ===================
+                        DELETE
+                      ==================== */}
+
+                      {[
+                        "VISIT_REJECTED",
+                        "STORAGE_VISIT_CHECKIN",
+                        "STORAGE_VISIT_CHECKOUT",
+                      ].includes(n.notification_type) && (
+                        <Tooltip label="Delete notification">
+                          <IconButton
+                            icon={<FiTrash2 />}
+                            colorScheme="red"
+                            size="sm"
+                            onClick={() =>
+                              deleteNotification(n.notification_id)
+                            }
+                          />
+                        </Tooltip>
+                      )}
+                    </HStack>
+                  </Flex>
+                );
+              })}
             </Box>
           </TabPanel>
 
@@ -799,6 +914,7 @@ export default function CustomerHome() {
                   <Th>Branch</Th>
                   <Th>Amount</Th>
                   <Th>Status</Th>
+                  <Th>Actions</Th>
                 </Tr>
               </Thead>
 
@@ -813,6 +929,18 @@ export default function CustomerHome() {
                     <Td>{txn.branch_name}</Td>
                     <Td>₦{Number(txn.amount).toLocaleString()}</Td>
                     <Td>{txn.status}</Td>
+
+                    <Td>
+                      {txn.transaction_type === "PURCHASE" && (
+                        <Button
+                          size="sm"
+                          colorScheme="blue"
+                          onClick={() => openInvoice(txn)}
+                        >
+                          View Invoice
+                        </Button>
+                      )}
+                    </Td>
                   </Tr>
                 ))}
               </Tbody>
@@ -859,7 +987,8 @@ export default function CustomerHome() {
                             View Invoice
                           </Button>
 
-                          {/* ===================                    DOWNLOAD
+                          {/* ===================
+                            DOWNLOAD
                           ==================== */}
                           <IconButton
                             size="sm"
@@ -907,99 +1036,117 @@ export default function CustomerHome() {
           </TabPanel>
 
           {/* =====================================
-              PROFILE
+            PROFILE
           ===================================== */}
           <TabPanel>
-            <Box maxW="1200px" mx="auto">
-              <Grid
-                templateColumns="
-        repeat(2, 1fr)
-      "
-                gap={6}
-              >
-                {/* =========================
-                CUSTOMER NAME
-                ========================== */}
-
-                <GridItem>
+            <Grid
+              templateColumns={{
+                base: "1fr",
+                xl: "1.2fr 420px",
+              }}
+              gap={8}
+              alignItems="start"
+              px={{
+                base: 2,
+                md: 10,
+              }}
+            >
+              {/* =====================================
+                LEFT SIDE FORM
+              ===================================== */}
+              <Box>
+                <Grid
+                  templateColumns={{
+                    base: "1fr",
+                    md: "1fr 1fr",
+                  }}
+                  gap={4}
+                >
+                  {/* =========================
+                    CUSTOMER NAME
+                  ========================= */}
                   <FormControl isRequired>
                     <FormLabel>Customer Name</FormLabel>
 
-                    <Input value={profile.fullname || ""} isReadOnly />
+                    <Input
+                      value={profile.fullname || ""}
+                      isReadOnly={!isEditing}
+                      onChange={(e) =>
+                        setProfile({
+                          ...profile,
+                          fullname: e.target.value,
+                        })
+                      }
+                    />
                   </FormControl>
-                </GridItem>
 
-                {/* =========================
-                EMAIL
-                ========================== */}
-
-                <GridItem>
+                  {/* =========================
+                    EMAIL
+                  ========================= */}
                   <FormControl isRequired>
                     <FormLabel>Email</FormLabel>
 
                     <Input value={profile.email || ""} isReadOnly />
                   </FormControl>
-                </GridItem>
 
-                {/* =========================
-                CUSTOMER TYPE
-                ========================== */}
-
-                <GridItem>
+                  {/* =========================
+                    CUSTOMER TYPE + SEX
+                  ========================= */}
                   <FormControl isRequired>
                     <FormLabel>Customer Type</FormLabel>
 
                     <HStack>
                       <Select
                         value={profile.customer_type || ""}
-                        isDisabled={!editMode}
+                        isDisabled={!isEditing}
                         onChange={(e) =>
                           setProfile({
                             ...profile,
                             customer_type: e.target.value,
                           })
                         }
+                        w={
+                          profile.customer_type === "Individual"
+                            ? "50%"
+                            : "100%"
+                        }
                       >
                         <option value="">Select</option>
-
                         <option value="Individual">Individual</option>
-
                         <option value="Coporate">Coporate</option>
                       </Select>
 
                       {profile.customer_type === "Individual" && (
                         <Select
                           value={profile.sex || ""}
-                          isDisabled={!editMode}
+                          isDisabled={!isEditing}
                           onChange={(e) =>
                             setProfile({
                               ...profile,
                               sex: e.target.value,
                             })
                           }
+                          w="50%"
                         >
                           <option value="">Sex</option>
-
                           <option value="Male">Male</option>
-
                           <option value="Female">Female</option>
                         </Select>
                       )}
                     </HStack>
                   </FormControl>
-                </GridItem>
 
-                {/* =========================
-                TELEPHONE
-                ========================== */}
+                  <Box />
 
-                <GridItem>
+                  {/* =========================
+                    TELEPHONE
+                  ========================= */}
                   <FormControl isRequired>
                     <FormLabel>Telephone</FormLabel>
 
                     <Input
                       value={profile.telephone || ""}
-                      isReadOnly={!editMode}
+                      isReadOnly={!isEditing}
                       onChange={(e) =>
                         setProfile({
                           ...profile,
@@ -1008,19 +1155,16 @@ export default function CustomerHome() {
                       }
                     />
                   </FormControl>
-                </GridItem>
 
-                {/* =========================
-                ADDRESS 1
-                ========================== */}
-
-                <GridItem>
+                  {/* =========================
+                    ADDRESS 1
+                  ========================= */}
                   <FormControl>
                     <FormLabel>Address 1</FormLabel>
 
                     <Input
                       value={profile.address_1 || ""}
-                      isReadOnly={!editMode}
+                      isReadOnly={!isEditing}
                       onChange={(e) =>
                         setProfile({
                           ...profile,
@@ -1029,18 +1173,16 @@ export default function CustomerHome() {
                       }
                     />
                   </FormControl>
-                </GridItem>
 
-                {/* =========================
-                ADDRESS 2
-                ========================== */}
-                <GridItem>
+                  {/* =========================
+                    ADDRESS 2
+                  ========================= */}
                   <FormControl>
                     <FormLabel>Address 2</FormLabel>
 
                     <Input
                       value={profile.address_2 || ""}
-                      isReadOnly={!editMode}
+                      isReadOnly={!isEditing}
                       onChange={(e) =>
                         setProfile({
                           ...profile,
@@ -1049,18 +1191,16 @@ export default function CustomerHome() {
                       }
                     />
                   </FormControl>
-                </GridItem>
 
-                {/* =========================
-                ADDRESS 3
-                ========================== */}
-                <GridItem>
+                  {/* =========================
+                    ADDRESS 3
+                  ========================= */}
                   <FormControl>
                     <FormLabel>Address 3</FormLabel>
 
                     <Input
                       value={profile.address_3 || ""}
-                      isReadOnly={!editMode}
+                      isReadOnly={!isEditing}
                       onChange={(e) =>
                         setProfile({
                           ...profile,
@@ -1069,27 +1209,16 @@ export default function CustomerHome() {
                       }
                     />
                   </FormControl>
-                </GridItem>
 
-                {/* CURRENT BALANCE */}
-                <GridItem>
-                  <FormControl>
-                    <FormLabel>Current Balance</FormLabel>
-
-                    <Input value={profile.current_balance || 0} isReadOnly />
-                  </FormControl>
-                </GridItem>
-
-                {/* =========================
-                FAX
-                ========================== */}
-                <GridItem>
+                  {/* =========================
+                    FAX
+                  ========================= */}
                   <FormControl>
                     <FormLabel>Fax</FormLabel>
 
                     <Input
                       value={profile.fax || ""}
-                      isReadOnly={!editMode}
+                      isReadOnly={!isEditing}
                       onChange={(e) =>
                         setProfile({
                           ...profile,
@@ -1098,18 +1227,16 @@ export default function CustomerHome() {
                       }
                     />
                   </FormControl>
-                </GridItem>
 
-                {/* =========================
-                WEBSITE
-                ========================== */}
-                <GridItem>
+                  {/* =========================
+                    WEBSITE
+                  ========================= */}
                   <FormControl>
                     <FormLabel>Website</FormLabel>
 
                     <Input
                       value={profile.website || ""}
-                      isReadOnly={!editMode}
+                      isReadOnly={!isEditing}
                       onChange={(e) =>
                         setProfile({
                           ...profile,
@@ -1118,18 +1245,30 @@ export default function CustomerHome() {
                       }
                     />
                   </FormControl>
-                </GridItem>
 
-                {/* =========================
-                WHATSAPP
-                ========================== */}
-                <GridItem>
+                  {/* =========================
+                    CURRENT BALANCE
+                  ========================= */}
+                  <FormControl>
+                    <FormLabel>Current Balance</FormLabel>
+
+                    <Input
+                      value={`₦${Number(
+                        profile.current_balance || 0,
+                      ).toLocaleString()}`}
+                      isReadOnly
+                    />
+                  </FormControl>
+
+                  {/* =========================
+                    WHATSAPP
+                  ========================= */}
                   <FormControl>
                     <FormLabel>Whatsapp</FormLabel>
 
                     <Input
                       value={profile.whatsapp || ""}
-                      isReadOnly={!editMode}
+                      isReadOnly={!isEditing}
                       onChange={(e) =>
                         setProfile({
                           ...profile,
@@ -1138,18 +1277,16 @@ export default function CustomerHome() {
                       }
                     />
                   </FormControl>
-                </GridItem>
 
-                {/* =========================
-                INSTAGRAM
-                ========================== */}
-                <GridItem>
+                  {/* =========================
+                    INSTAGRAM
+                  ========================= */}
                   <FormControl>
                     <FormLabel>Instagram</FormLabel>
 
                     <Input
                       value={profile.ig || ""}
-                      isReadOnly={!editMode}
+                      isReadOnly={!isEditing}
                       onChange={(e) =>
                         setProfile({
                           ...profile,
@@ -1158,18 +1295,16 @@ export default function CustomerHome() {
                       }
                     />
                   </FormControl>
-                </GridItem>
 
-                {/* =========================
-                FACEBOOK
-                ========================== */}
-                <GridItem>
+                  {/* =========================
+                    FACEBOOK
+                  ========================= */}
                   <FormControl>
                     <FormLabel>Facebook</FormLabel>
 
                     <Input
                       value={profile.facebook || ""}
-                      isReadOnly={!editMode}
+                      isReadOnly={!isEditing}
                       onChange={(e) =>
                         setProfile({
                           ...profile,
@@ -1178,325 +1313,319 @@ export default function CustomerHome() {
                       }
                     />
                   </FormControl>
-                </GridItem>
-              </Grid>
 
-              {/* =========================
-              CURRENT BALANCE
-              ========================== */}
-              {/*
-              <Box mt={6}>
-                <FormControl>
-                  <FormLabel>Current Balance</FormLabel>
-
-                  <Input value={profile.current_balance || 0} isReadOnly />
-                </FormControl>
-              </Box>
-*/}
-              {/* =========================
-              AGREEMENTS
-              ========================== */}
-
-              <Grid
-                mt={8}
-                templateColumns="
-        repeat(2, 1fr)
-      "
-                gap={6}
-              >
-                {/* =====================
-                INDEMNITY
-                ====================== */}
-
-                <GridItem>
+                  {/* =========================
+                    INDEMNITY AGREEMENT
+                  ========================= */}
                   <FormControl>
                     <FormLabel>Indemnity Agreement</FormLabel>
 
                     <HStack>
                       <Input
-                        value={
-                          indemnityFileName ||
-                          profile.indemnity_agreement?.split("/").pop() ||
-                          ""
-                        }
+                        value={profile.indemnity_agreement || ""}
                         isReadOnly
                       />
 
-                      <Button
-                        as="label"
-                        htmlFor="indemnity"
-                        isDisabled={
-                          !editMode || profile.indemnity_agreement_locked
-                        }
-                      >
-                        Select
-                      </Button>
-
-                      {profile.indemnity_agreement && (
-                        <IconButton
-                          size="sm"
-                          isDisabled={!editMode}
-                          colorScheme="blue"
-                          icon={<FiDownload />}
-                          onClick={() => {
-                            window.open(
-                              `${import.meta.env.VITE_API_URL}/customers/${profile.id}/download-indemnity?token=${localStorage.getItem("token")}`,
-                              "_blank",
-                            );
-                          }}
-                        />
-                      )}
-
-                      {profile.indemnity_agreement &&
-                        editMode &&
-                        !profile.indemnity_agreement_locked && (
-                          <IconButton
-                            size="sm"
-                            colorScheme="red"
-                            icon={<FiTrash2 />}
-                            onClick={() => {
-                              setProfile({
-                                ...profile,
-
-                                indemnity_agreement: null,
-
-                                remove_indemnity_agreement: true,
-                              });
-
-                              setIndemnityFileName("");
-                            }}
-                          />
-                        )}
-
-                      <Input
-                        id="indemnity"
-                        type="file"
-                        hidden
-                        accept=".pdf"
-                        onChange={(e) => {
-                          const file = e.target.files[0];
-
-                          if (file) {
-                            setIndemnityFileName(file.name);
-
-                            setProfile({
-                              ...profile,
-                              indemnity_agreement_file: file,
-                            });
-                          }
+                      <IconButton
+                        icon={<FiEye />}
+                        aria-label="View indemnity agreement"
+                        isDisabled={!profile.indemnity_agreement}
+                        onClick={() => {
+                          setActivePdfTitle("Indemnity Agreement");
+                          setActivePdf(
+                            `${FILE_BASE_URL}/${profile.indemnity_agreement}`,
+                          );
                         }}
                       />
                     </HStack>
                   </FormControl>
-                </GridItem>
 
-                {/* Repeat same pattern for warehouse agreement */}
-                {/*========================================
-                  WAREHOUSE
-                ===========================================*/}
-                <GridItem>
+                  {/* =========================
+                    WAREHOUSE AGREEMENT
+                  ========================= */}
                   <FormControl>
                     <FormLabel>Warehouse Agreement</FormLabel>
 
                     <HStack>
                       <Input
-                        value={
-                          indemnityFileName ||
-                          profile.warehouse_agreement?.split("/").pop() ||
-                          ""
-                        }
+                        value={profile.warehouse_agreement || ""}
                         isReadOnly
                       />
 
-                      <Button
-                        as="label"
-                        htmlFor="warehouse"
-                        isDisabled={
-                          !editMode || profile.warehouse_agreement_locked
-                        }
-                      >
-                        Select
-                      </Button>
-
-                      {profile.warehouse_agreement && (
-                        <IconButton
-                          size="sm"
-                          isDisabled={!editMode}
-                          colorScheme="blue"
-                          icon={<FiDownload />}
-                          onClick={() => {
-                            window.open(
-                              `${import.meta.env.VITE_API_URL}/customers/${profile.id}/download-warehouse?token=${localStorage.getItem("token")}`,
-                              "_blank",
-                            );
-                          }}
-                        />
-                      )}
-
-                      {profile.warehouse_agreement &&
-                        editMode &&
-                        !profile.warehouse_agreement_locked && (
-                          <IconButton
-                            size="sm"
-                            colorScheme="red"
-                            icon={<FiTrash2 />}
-                            onClick={() => {
-                              setProfile({
-                                ...profile,
-
-                                warehouse_agreement: null,
-
-                                remove_warehouse_agreement: true,
-                              });
-
-                              setWarehouseFileName("");
-                            }}
-                          />
-                        )}
-
-                      <Input
-                        id="warehouse"
-                        type="file"
-                        hidden
-                        accept=".pdf"
-                        onChange={(e) => {
-                          const file = e.target.files[0];
-
-                          if (file) {
-                            setWarehouseFileName(file.name);
-
-                            setProfile({
-                              ...profile,
-                              warehouse_agreement_file: file,
-                            });
-                          }
+                      <IconButton
+                        icon={<FiEye />}
+                        aria-label="View warehouse agreement"
+                        isDisabled={!profile.warehouse_agreement}
+                        onClick={() => {
+                          setActivePdfTitle("Warehouse Agreement");
+                          setActivePdf(
+                            `${FILE_BASE_URL}/${profile.warehouse_agreement}`,
+                          );
                         }}
                       />
                     </HStack>
                   </FormControl>
-                </GridItem>
-              </Grid>
+                </Grid>
 
-              {/* =========================
-              CUSTOMER ID IMAGE
-              ========================== */}
-              <Box mt={8}>
-                <FormLabel>Customer ID</FormLabel>
+                {/* =====================================
+                  IMAGE PLACEHOLDERS
+                ===================================== */}
+                <HStack spacing={6} mt={8} flexWrap="wrap">
+                  {/* CUSTOMER ID */}
+                  <VStack align="start">
+                    <Text fontWeight="bold">Customer ID</Text>
 
-                <Input
-                  id="customer-id-upload"
-                  type="file"
-                  accept="image/*"
-                  hidden
-                  disabled={!editMode}
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (!file) return;
-                    setCustomerImagePreview(URL.createObjectURL(file));
-                    setProfile({
-                      ...profile,
-                      customer_id_image: file,
-                    });
-                  }}
-                />
+                    <input
+                      type="file"
+                      accept="image/*"
+                      hidden
+                      id="customer-id-upload"
+                      disabled={!isEditing}
+                      onChange={(e) => {
+                        const file = e.target.files[0];
 
-                <Box
-                  w="300px"
-                  h="220px"
-                  borderWidth="2px"
-                  borderStyle="dashed"
-                  borderColor="gray.300"
-                  borderRadius="lg"
-                  overflow="hidden"
-                  cursor={editMode ? "pointer" : "default"}
-                  position="relative"
-                  onClick={() => {
-                    if (!editMode) return;
-
-                    document.getElementById("customer-id-upload")?.click();
-                  }}
-                  _hover={
-                    editMode
-                      ? {
-                          borderColor: "blue.400",
-                        }
-                      : {}
-                  }
-                >
-                  {customerImagePreview || profile.customer_id_image ? (
-                    <Image
-                      src={
-                        customerImagePreview ||
-                        `${import.meta.env.VITE_API_URL}/${profile.customer_id_image}`
-                      }
-                      w="100%"
-                      h="100%"
-                      objectFit="contain"
-                      bg="gray.100"
+                        if (!file) return;
+                        setCustomerIdFile(file);
+                        setCustomerIdPreview(URL.createObjectURL(file));
+                      }}
                     />
-                  ) : (
-                    <Flex
-                      h="100%"
-                      align="center"
-                      justify="center"
-                      direction="column"
-                      color="gray.500"
-                    >
-                      <Text fontSize="lg">Click to Upload ID</Text>
 
-                      <Text fontSize="sm">JPG / PNG</Text>
-                    </Flex>
-                  )}
-
-                  {editMode && (
                     <Box
-                      position="absolute"
-                      bottom="0"
-                      w="100%"
-                      bg="rgba(0,0,0,0.5)"
-                      color="white"
-                      py={2}
-                      textAlign="center"
-                      fontSize="sm"
-                    >
-                      Click to Change Image
-                    </Box>
-                  )}
-                </Box>
-              </Box>
-
-              {/* =========================
-              BUTTONS
-              ========================== */}
-
-              <HStack mt={10}>
-                {!editMode ? (
-                  <Button colorScheme="blue" onClick={() => setEditMode(true)}>
-                    Edit Details
-                  </Button>
-                ) : (
-                  <>
-                    <Button
-                      colorScheme="green"
-                      isLoading={saving}
-                      onClick={updateProfile}
-                    >
-                      Update Details
-                    </Button>
-
-                    <Button
-                      onClick={async () => {
-                        setEditMode(false);
-                        await loadData();
-                        setTabIndex(3);
+                      borderWidth="1px"
+                      borderRadius="md"
+                      overflow="hidden"
+                      w="220px"
+                      h="220px"
+                      bg="gray.50"
+                      cursor={isEditing ? "pointer" : "default"}
+                      onClick={() => {
+                        if (!isEditing) return;
+                        document.getElementById("customer-id-upload")?.click();
                       }}
                     >
-                      Cancel
+                      <Image
+                        src={
+                          customerIdPreview ||
+                          (profile.customer_id_image
+                            ? `${FILE_BASE_URL}/${profile.customer_id_image}`
+                            : "")
+                        }
+                        objectFit="contain"
+                        w="100%"
+                        h="100%"
+                      />
+                    </Box>
+
+                    {isEditing && (
+                      <Button
+                        size="sm"
+                        colorScheme="red"
+                        variant="outline"
+                        onClick={() => {
+                          setCustomerIdFile(null);
+                          setCustomerIdPreview("");
+                          setProfile({
+                            ...profile,
+                            customer_id_image: null,
+                          });
+                        }}
+                      >
+                        Remove
+                      </Button>
+                    )}
+                  </VStack>
+
+                  {/* ALTERNATE ID */}
+                  <VStack align="start">
+                    <Text fontWeight="bold">Alternate ID</Text>
+
+                    <input
+                      type="file"
+                      accept="image/*"
+                      hidden
+                      id="alternate-id-upload"
+                      disabled={!isEditing}
+                      onChange={(e) => {
+                        const file = e.target.files[0];
+
+                        if (!file) return;
+                        setAlternateIdFile(file);
+                        setAlternateIdPreview(URL.createObjectURL(file));
+                      }}
+                    />
+
+                    <Box
+                      borderWidth="1px"
+                      borderRadius="md"
+                      overflow="hidden"
+                      w="220px"
+                      h="220px"
+                      bg="gray.50"
+                      cursor={isEditing ? "pointer" : "default"}
+                      onClick={() => {
+                        if (!isEditing) return;
+                        document.getElementById("alternate-id-upload")?.click();
+                      }}
+                    >
+                      <Image
+                        src={
+                          alternateIdPreview ||
+                          (profile.alternate_id_image
+                            ? `${FILE_BASE_URL}/${profile.alternate_id_image}`
+                            : "")
+                        }
+                        objectFit="contain"
+                        w="100%"
+                        h="100%"
+                      />
+                    </Box>
+
+                    {isEditing && (
+                      <Button
+                        size="sm"
+                        colorScheme="red"
+                        variant="outline"
+                        onClick={() => {
+                          setAlternateIdFile(null);
+                          setAlternateIdPreview("");
+                          setProfile({
+                            ...profile,
+                            alternate_id_image: null,
+                          });
+                        }}
+                      >
+                        Remove
+                      </Button>
+                    )}
+                  </VStack>
+
+                  {/* SIGNATURE */}
+                  <VStack align="start">
+                    <Text fontWeight="bold">Customer Signature</Text>
+
+                    <input
+                      type="file"
+                      accept="image/*"
+                      hidden
+                      id="signature-upload"
+                      disabled={!isEditing}
+                      onChange={(e) => {
+                        const file = e.target.files[0];
+
+                        if (!file) return;
+                        setSignatureFile(file);
+                        setSignaturePreview(URL.createObjectURL(file));
+                      }}
+                    />
+
+                    <Box
+                      borderWidth="1px"
+                      borderRadius="md"
+                      overflow="hidden"
+                      w="220px"
+                      h="220px"
+                      bg="gray.50"
+                      cursor={isEditing ? "pointer" : "default"}
+                      onClick={() => {
+                        if (!isEditing) return;
+                        document.getElementById("signature-upload")?.click();
+                      }}
+                    >
+                      <Image
+                        src={
+                          signaturePreview ||
+                          (profile.signature_image
+                            ? `${FILE_BASE_URL}/${profile.signature_image}`
+                            : "")
+                        }
+                        objectFit="contain"
+                        w="100%"
+                        h="100%"
+                        bg="white"
+                      />
+                    </Box>
+
+                    {isEditing && (
+                      <Button
+                        size="sm"
+                        colorScheme="red"
+                        variant="outline"
+                        onClick={() => {
+                          setSignatureFile(null);
+                          setSignaturePreview("");
+                          setProfile({
+                            ...profile,
+                            signature_image: null,
+                          });
+                        }}
+                      >
+                        Remove
+                      </Button>
+                    )}
+                  </VStack>
+                </HStack>
+
+                {/* =====================================
+                  ACTION BUTTONS
+                ===================================== */}
+                <HStack mt={8}>
+                  {!isEditing ? (
+                    <Button
+                      colorScheme="blue"
+                      onClick={() => setIsEditing(true)}
+                    >
+                      Edit Details
                     </Button>
-                  </>
-                )}
-              </HStack>
-            </Box>
+                  ) : (
+                    <>
+                      <Button
+                        colorScheme="blue"
+                        onClick={updateProfile}
+                        isLoading={saving}
+                      >
+                        Update Details
+                      </Button>
+
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          setIsEditing(false);
+                          setActivePdf(null);
+                          setActivePdfTitle("");
+                          loadData();
+                        }}
+                      >
+                        Cancel
+                      </Button>
+                    </>
+                  )}
+                </HStack>
+              </Box>
+
+              {/* =====================================
+                PDF READER
+              ===================================== */}
+              <Box
+                borderWidth="1px"
+                borderRadius="md"
+                overflow="hidden"
+                h="100%"
+              >
+                <Box bg="gray.100" px={4} py={3} fontWeight="bold">
+                  {activePdfTitle || "Document Reader"}
+                </Box>
+
+                <AspectRatio ratio={0.7} h="900px">
+                  {activePdf ? (
+                    <iframe title="PDF Viewer" src={activePdf} />
+                  ) : (
+                    <Flex align="center" justify="center" bg="gray.50">
+                      <Text color="gray.500">No document selected</Text>
+                    </Flex>
+                  )}
+                </AspectRatio>
+              </Box>
+            </Grid>
           </TabPanel>
         </TabPanels>
       </Tabs>

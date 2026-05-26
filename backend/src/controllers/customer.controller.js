@@ -87,6 +87,10 @@ export const createCustomer = async (req, res) => {
     const warehouseAgreement =
       req.files?.warehouse_agreement?.[0]?.path || null;
 
+    const customerIdImage = req.files?.customer_id_image?.[0]?.path || null;
+    const alternateIdImage = req.files?.alternate_id_image?.[0]?.path || null;
+    const signatureImage = req.files?.signature_image?.[0]?.path || null;
+
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const isSelfCreated = !req.user;
@@ -94,7 +98,8 @@ export const createCustomer = async (req, res) => {
     const createdByUserId = req.user?.id || null;
 
     const result = await pool.query(
-      `INSERT INTO customers (fullname, customer_type, sex, telephone, address_1, address_2, address_3, fax, email, password, website, contact_name, contact_telephone, current_balance, payment_terms, enable, whatsapp, ig, facebook, indemnity_agreement, warehouse_agreement, indemnity_agreement_locked, warehouse_agreement_locked, selfcreated, createdatbranchid, createdbyuserid) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26) RETURNING *`,
+      `INSERT INTO customers (fullname, customer_type, sex, telephone, address_1, address_2, address_3, fax, email, password, website, contact_name, contact_telephone, current_balance, payment_terms, enable, whatsapp, ig, facebook, indemnity_agreement, warehouse_agreement, indemnity_agreement_locked, warehouse_agreement_locked, customer_id_image,
+      alternate_id_image, signature_image, selfcreated, createdatbranchid, createdbyuserid) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29) RETURNING *`,
       [
         fullname,
         customer_type,
@@ -117,8 +122,11 @@ export const createCustomer = async (req, res) => {
         facebook || null,
         indemnityAgreement,
         warehouseAgreement,
-        indemnity_agreement_locked === "false",
-        warehouse_agreement_locked === "false",
+        indemnity_agreement_locked === "true",
+        warehouse_agreement_locked === "true",
+        customerIdImage,
+        alternateIdImage,
+        signatureImage,
         isSelfCreated,
         createdBranchId,
         createdByUserId,
@@ -209,12 +217,17 @@ export const updateCustomer = async (req, res) => {
     }
 
     const indemnityAgreement = req.files?.indemnity_agreement?.[0];
-
     const warehouseAgreement = req.files?.warehouse_agreement?.[0];
 
     let indemnityPath = existing.rows[0].indemnity_agreement;
-
     let warehousePath = existing.rows[0].warehouse_agreement;
+    let customerIdImagePath = existing.rows[0].customer_id_image;
+    let alternateIdImagePath = existing.rows[0].alternate_id_image;
+    let signatureImagePath = existing.rows[0].signature_image;
+
+    const customerIdImage = req.files?.customer_id_image?.[0];
+    const alternateIdImage = req.files?.alternate_id_image?.[0];
+    const signatureImage = req.files?.signature_image?.[0];
 
     /* replace old file */
 
@@ -234,8 +247,32 @@ export const updateCustomer = async (req, res) => {
       warehousePath = warehouseAgreement.path;
     }
 
+    if (customerIdImage) {
+      if (customerIdImagePath && fs.existsSync(customerIdImagePath)) {
+        fs.unlinkSync(customerIdImagePath);
+      }
+
+      customerIdImagePath = customerIdImage.path;
+    }
+
+    if (alternateIdImage) {
+      if (alternateIdImagePath && fs.existsSync(alternateIdImagePath)) {
+        fs.unlinkSync(alternateIdImagePath);
+      }
+
+      alternateIdImagePath = alternateIdImage.path;
+    }
+
+    if (signatureImage) {
+      if (signatureImagePath && fs.existsSync(signatureImagePath)) {
+        fs.unlinkSync(signatureImagePath);
+      }
+
+      signatureImagePath = signatureImage.path;
+    }
+
     const updated = await pool.query(
-      `UPDATE customers SET fullname = $1, customer_type = $2, sex = $3, telephone = $4, address_1 = $5, address_2 = $6,address_3 = $7, fax = $8, email = $9, website = $10, contact_name = $11, contact_telephone = $12, current_balance = $13, payment_terms = $14, enable = $15, whatsapp = $16, ig = $17, facebook = $18, indemnity_agreement = $19, warehouse_agreement = $20, indemnity_agreement_locked = $21, warehouse_agreement_locked = $22, lasteditedon = NOW(), lasteditedby = $23 WHERE id = $24 RETURNING *`,
+      `UPDATE customers SET fullname = $1, customer_type = $2, sex = $3, telephone = $4, address_1 = $5, address_2 = $6,address_3 = $7, fax = $8, email = $9, website = $10, contact_name = $11, contact_telephone = $12, current_balance = $13, payment_terms = $14, enable = $15, whatsapp = $16, ig = $17, facebook = $18, indemnity_agreement = $19, warehouse_agreement = $20, indemnity_agreement_locked = $21, warehouse_agreement_locked = $22, customer_id_image = $23, alternate_id_image = $24, signature_image = $25, lasteditedon = NOW(), lasteditedby = $26 WHERE id = $27 RETURNING *`,
       [
         req.body.fullname,
         req.body.customer_type,
@@ -259,6 +296,9 @@ export const updateCustomer = async (req, res) => {
         warehousePath,
         req.body.indemnity_agreement_locked === "true",
         req.body.warehouse_agreement_locked === "true",
+        customerIdImagePath,
+        alternateIdImagePath,
+        signatureImagePath,
         req.user.id,
         id,
       ],
@@ -566,8 +606,10 @@ export const getCustomerPortalSummary = async (req, res) => {
     const transactions = await pool.query(
       `
       SELECT
-        created_at,
+      sale_id,  
+      created_at,
         transaction_type,
+        invoice_no,
         reference_no,
         amount,
         status,
@@ -575,8 +617,11 @@ export const getCustomerPortalSummary = async (req, res) => {
       FROM (
 
         SELECT
-          ps.created_at,
-          'SALE' AS transaction_type,
+        ps.sale_id,  
+        ps.created_at,
+          'PURCHASE' AS transaction_type,
+
+          invoice_no,
 
           COALESCE(
             ps.invoice_no,
@@ -594,10 +639,12 @@ export const getCustomerPortalSummary = async (req, res) => {
         UNION ALL
 
         SELECT
-          sh.created_at,
-          'STORAGE',
-          sh.storage_no,
-          0,
+        NULL AS sale_id,  
+        sh.created_at,
+          'STORAGE' AS transaction_type,
+          NULL AS invoice_no,
+          sh.storage_no AS reference_no,
+          0 AS amount,
           sh.status,
           b.branch_name
         FROM storage_headers sh
@@ -607,10 +654,12 @@ export const getCustomerPortalSummary = async (req, res) => {
           AND sh.deleted = FALSE
         UNION ALL
         SELECT
-          dh.created_at,
-          'DISCHARGE',
-          dh.discharge_no,
-          0,
+        NULL AS sale_id,  
+        dh.created_at,
+          'DISCHARGE' AS transaction_type,
+          NULL AS invoice_no,
+          dh.discharge_no AS reference_no,
+          0 AS amount,
           dh.status,
           b.branch_name
         FROM discharge_headers dh
@@ -663,7 +712,9 @@ export const getCustomerPortalSummary = async (req, res) => {
         warehouse_agreement,
         indemnity_agreement_locked,
         warehouse_agreement_locked,
-        customer_id_image
+        customer_id_image,
+        alternate_id_image,
+        signature_image
       FROM customers
       WHERE id = $1
     `,

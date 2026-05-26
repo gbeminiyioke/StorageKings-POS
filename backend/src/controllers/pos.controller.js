@@ -188,6 +188,8 @@ export const getSaleInvoice = async (req, res) => {
   try {
     const { sale_id } = req.params;
 
+    console.log("SALE ID PARAM:", req.params.sale_id);
+
     const saleRes = await pool.query(
       `
       SELECT
