@@ -7,6 +7,7 @@ import {
 
 const router = express.Router();
 
+router.post("/", login);
 router.post("/login", login);
 router.post("/forgot-password", requestPasswordReset);
 router.post("/reset-password", resetPassword);

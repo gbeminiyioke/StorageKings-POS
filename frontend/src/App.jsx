@@ -28,17 +28,20 @@ import InventoryDashboard from "./pages/InventoryDashboard";
 import POSDashboard from "./pages/posDashboard";
 import CustomerRegister from "./pages/CustomerRegister";
 import StorageVisitPage from "./pages/StorageVisitPage";
+import CustomerKyc from "./pages/CustomerKyc";
 
 export default function App() {
   return (
     <Routes>
       {/* ============= PUBLIC ROUTES ============= */}
+      <Route path="/" element={<Login />} />
       <Route path="/login" element={<Login />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/unauthorized" element={<Unauthorized />} />
       <Route path="/reports/purchases" element={<PurchasesReport />} />
       <Route path="/register" element={<CustomerRegister />} />
+      <Route path="/kyc" element={<CustomerKyc />} />
 
       <Route path="/sales/invoice/:sale_id" element={<SalesInvoicePage />} />
 

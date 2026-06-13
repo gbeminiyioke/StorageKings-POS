@@ -29,13 +29,9 @@ export default function CustomerRegister() {
   const toast = useToast();
 
   const [showPassword, setShowPassword] = useState(false);
-
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-
   const [loading, setLoading] = useState(false);
-
   const [capsLock, setCapsLock] = useState(false);
-
   const [capsLockConfirm, setCapsLockConfirm] = useState(false);
 
   const defaultValues = {

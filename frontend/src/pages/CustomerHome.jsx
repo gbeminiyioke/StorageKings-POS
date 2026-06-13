@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import {
   Box,
   Tabs,
@@ -60,6 +60,7 @@ import { useNavigate } from "react-router-dom";
 export default function CustomerHome() {
   const toast = useToast();
   const navigate = useNavigate();
+  const pdfReaderRef = useRef(null);
 
   const [loading, setLoading] = useState(true);
 
@@ -1333,8 +1334,15 @@ export default function CustomerHome() {
                         onClick={() => {
                           setActivePdfTitle("Indemnity Agreement");
                           setActivePdf(
-                            `${FILE_BASE_URL}/${profile.indemnity_agreement}`,
+                            `${FILE_BASE_URL}/${profile.indemnity_agreement}#toolbar=0&navpanes=0&scrollbar=1`,
                           );
+
+                          setTimeout(() => {
+                            pdfReaderRef.current?.scrollIntoView({
+                              behavior: "smooth",
+                              block: "start",
+                            });
+                          }, 100);
                         }}
                       />
                     </HStack>
@@ -1359,8 +1367,15 @@ export default function CustomerHome() {
                         onClick={() => {
                           setActivePdfTitle("Warehouse Agreement");
                           setActivePdf(
-                            `${FILE_BASE_URL}/${profile.warehouse_agreement}`,
+                            `${FILE_BASE_URL}/${profile.warehouse_agreement}#toolbar=0&navpanes=0&scrollbar=1`,
                           );
+
+                          setTimeout(() => {
+                            pdfReaderRef.current?.scrollIntoView({
+                              behavior: "smooth",
+                              block: "start",
+                            });
+                          }, 100);
                         }}
                       />
                     </HStack>
@@ -1606,6 +1621,7 @@ export default function CustomerHome() {
                 PDF READER
               ===================================== */}
               <Box
+                ref={pdfReaderRef}
                 borderWidth="1px"
                 borderRadius="md"
                 overflow="hidden"

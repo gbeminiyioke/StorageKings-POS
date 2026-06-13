@@ -382,7 +382,7 @@ export default function StoragePage() {
     <Box p={6}>
       <Heading mb={6}>Storage</Heading>
 
-      <VStack spacing={6} align="stretch">
+      <VStack spacing={4} align="stretch">
         <Card>
           <CardHeader>
             <Heading size="md">Customer Details</Heading>

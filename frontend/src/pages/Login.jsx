@@ -27,6 +27,7 @@ import publicApi from "../api/publicApi";
 import api from "../api/api";
 import { useAuth } from "../context/AuthContext";
 import logo from "../assets/logo-storagekings.png";
+import { statsBuffer } from "framer-motion";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -256,6 +257,14 @@ export default function Login() {
             Login
           </Button>
         </form>
+
+        {!isStaff && (
+          <Text mt={4} fontSize="sm" textAlign="center">
+            <Link color="blue.500" onClick={() => navigate("/kyc")}>
+              Customer KYC & Onboarding
+            </Link>
+          </Text>
+        )}
 
         {!isStaff && (
           <Text mt={4} fontSize="sm" textAlign="center">

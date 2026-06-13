@@ -308,7 +308,7 @@ export const deleteBranch = async (req, res) => {
       [branch.rows[0].business_id],
     );
 
-    res.json({ message: "Branch deeted successfully" });
+    res.json({ message: "Branch deleted successfully" });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Failed to delete branch" });
