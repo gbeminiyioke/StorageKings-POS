@@ -24,6 +24,22 @@ export const authenticate = async (req, res, next) => {
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
 
+    const sessionCheck = await pool.query(
+      `
+      SELECT id
+      FROM user_sessions
+      WHERE token = $1
+      AND is_active = true
+      `,
+      [token],
+    );
+
+    if (!sessionCheck.rows.length) {
+      return res.status(401).json({
+        message: "Session expired. Please login again.",
+      });
+    }
+
     const table = decoded.loginType === "staff" ? "users" : "customers";
 
     const result = await pool.query(

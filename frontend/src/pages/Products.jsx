@@ -37,7 +37,7 @@ import {
 } from "@chakra-ui/icons";
 import { useAuth } from "../context/AuthContext";
 
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:5000";
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 
 export default function Products() {
   const { user } = useAuth();

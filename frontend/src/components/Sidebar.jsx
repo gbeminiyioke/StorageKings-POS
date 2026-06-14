@@ -41,6 +41,7 @@ import {
   FiPieChart,
   FiEdit,
   FiGift,
+  FiClock,
 } from "react-icons/fi";
 
 /*-----------------------------------------
@@ -189,10 +190,17 @@ const menuConfig = [
         permission: "users",
       },
       {
-        label: "Security",
+        label: "My Active Sessions",
         path: "/dashboard/security",
         icon: FiShield,
         permission: "security",
+      },
+
+      {
+        label: "Sessions Dashboard",
+        path: "/dashboard/sessions",
+        icon: FiClock,
+        permission: "admin_session_dashboard",
       },
     ],
   },

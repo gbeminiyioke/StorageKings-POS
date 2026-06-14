@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { jwtDecode } from "jwt-decode";
+import api from "../api/api";
 
 const AuthContext = createContext(null);
 
@@ -84,19 +85,23 @@ export const AuthProvider = ({ children }) => {
   /*------------------------------------
     LOGOUT
   --------------------------------------*/
-  const logout = () => {
-    /*
-    localStorage.clear();
-    setUser(null);
-    setRole(null);
-    setPermissions({});
-    setBranchId(null);
-    setIsAuthenticated(false);
-    */
-    localStorage.removeItem("token");
+  const logout = async () => {
+    try {
+      const token = localStorage.getItem("token");
 
-    setUser(null);
-    setIsAuthenticated(false);
+      if (token) {
+        await api.post("/auth/logout");
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      localStorage.clear();
+      setUser(null);
+      setRole(null);
+      setPermissions({});
+      setBranchId(null);
+      setIsAuthenticated(false);
+    }
   };
 
   /*------------------------------------

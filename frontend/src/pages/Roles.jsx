@@ -60,7 +60,8 @@ const MODULE_GROUPS = {
     { label: "Branches", key: "branches" },
     { label: "Roles", key: "roles" },
     { label: "Users", key: "users" },
-    { label: "Security", key: "security" },
+    { label: "My Active Sessions", key: "security" },
+    { label: "Sessions Dashboard", key: "admin_session_dashboard" },
   ],
   Reports: [
     { label: "Reports & Analytics", key: "reports_and_analytics" },

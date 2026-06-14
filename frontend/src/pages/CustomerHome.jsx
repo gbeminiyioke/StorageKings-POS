@@ -293,11 +293,16 @@ export default function CustomerHome() {
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     try {
       /* =========================
+        LOGOUT SESSION ON SERVER 
+      ========================= */
+      await api.post("/auth/logout");
+
+      /* =========================
        CLEAR AUTH DATA
-    ========================= */
+      ========================= */
 
       localStorage.removeItem("token");
       localStorage.removeItem("loginType");
@@ -331,6 +336,7 @@ export default function CustomerHome() {
 
       toast({
         title: "Logout failed",
+        description: err.response?.data?.message || "Unable to logout.",
         status: "error",
       });
     }

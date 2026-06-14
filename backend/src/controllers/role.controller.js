@@ -31,6 +31,7 @@ const PERMISSION_COLUMNS = [
   "security",
   "reports_and_analytics",
   "audit_log",
+  "admin_session_dashboard",
 ];
 
 /*=========================================

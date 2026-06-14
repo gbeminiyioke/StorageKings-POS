@@ -28,6 +28,7 @@ import api from "../api/api";
 import { useAuth } from "../context/AuthContext";
 import logo from "../assets/logo-storagekings.png";
 import { statsBuffer } from "framer-motion";
+import FingerprintJS from "@fingerprintjs/fingerprintjs";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -82,12 +83,18 @@ export default function Login() {
   const onSubmit = async (data) => {
     setError("");
 
+    const fp = await FingerprintJS.load();
+    const result = await fp.get();
+
+    const deviceFingerprint = result.visitorId;
+
     try {
       const res = await api.post("/auth/login", {
         email: data.email,
         password: data.password,
         loginType,
         branchId: isStaff ? data.branchId : null,
+        deviceFingerprint,
       });
 
       // Response should now include role_id

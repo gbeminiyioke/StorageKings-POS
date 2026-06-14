@@ -41,6 +41,11 @@ export const MENU_CONFIG = [
         path: "/dashboard/security",
         permission: "settings_security",
       },
+      {
+        label: "Sessions",
+        path: "/dashboard/sessions",
+        permission: "admin_session_dashboard",
+      },
     ],
   },
 ];

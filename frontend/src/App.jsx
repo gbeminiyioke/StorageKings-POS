@@ -29,6 +29,8 @@ import POSDashboard from "./pages/posDashboard";
 import CustomerRegister from "./pages/CustomerRegister";
 import StorageVisitPage from "./pages/StorageVisitPage";
 import CustomerKyc from "./pages/CustomerKyc";
+import ActiveSessions from "./pages/ActiveSessions";
+import AdminSessionDashboard from "./pages/AdminSessionDashboard";
 
 export default function App() {
   return (
@@ -207,8 +209,17 @@ export default function App() {
         <Route
           path="security"
           element={
-            <ProtectedRoute permission="settings_security">
-              <AdminDashboard />
+            <ProtectedRoute permission="security">
+              <ActiveSessions />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="sessions"
+          element={
+            <ProtectedRoute permission="admin_session_dashboard">
+              <AdminSessionDashboard />
             </ProtectedRoute>
           }
         />

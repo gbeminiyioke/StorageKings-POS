@@ -5,6 +5,7 @@ import app from "./app.js";
 import path from "path";
 import cron from "node-cron";
 import { runMonthlyStorageReset } from "./jobs/monthlyReset.job.js";
+import { cleanupSessions } from "./jobs/sessionCleanup.js";
 import authRoutes from "./routes/auth.routes.js";
 import businessRoutes from "./routes/business.routes.js";
 import branchRoutes from "./routes/branch.routes.js";
@@ -72,6 +73,7 @@ app.use("/api/pos-dashboard", posDashboardRoutes);
 
 //Run at midnight on 1st of every month
 cron.schedule("0 0 1 * *", runMonthlyStorageReset);
+cron.schedule("0 2 * * *", cleanupSessions);
 
 /*---------------------------------
   SERVER START

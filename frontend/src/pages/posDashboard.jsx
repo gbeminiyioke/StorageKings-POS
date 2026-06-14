@@ -18,7 +18,6 @@ import {
   Alert,
   AlertIcon,
 } from "@chakra-ui/react";
-
 import {
   BarChart,
   Bar,
@@ -30,14 +29,11 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-
 import { useEffect, useState } from "react";
-
 import api from "../api/api";
 
 export default function POSDashboard() {
   const [data, setData] = useState(null);
-
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -67,7 +63,7 @@ export default function POSDashboard() {
 
   return (
     <Box p={5}>
-      <Heading mb={5}>Enterprise POS Dashboard</Heading>
+      <Heading mb={5}>Sales Dashboard</Heading>
 
       {/* KPI CARDS */}
 
@@ -245,9 +241,7 @@ export default function POSDashboard() {
           <Thead>
             <Tr>
               <Th>Product</Th>
-
               <Th isNumeric>Qty Sold</Th>
-
               <Th isNumeric>Revenue</Th>
             </Tr>
           </Thead>

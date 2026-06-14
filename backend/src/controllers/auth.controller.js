@@ -141,8 +141,8 @@ export const resetPassword = async (req, res) => {
     );
 
     await logAuthEvent({
-      userId: loginType === "staff" ? userId : null,
-      customerId: loginType === "customer" ? userId : null,
+      userId: type === "staff" ? userId : null,
+      customerId: type === "customer" ? userId : null,
       userName,
       loginType: type,
       email: null,
@@ -165,7 +165,7 @@ export const resetPassword = async (req, res) => {
   LOGIN (STAFF & CUSTOMER)
 ============================================*/
 export const login = async (req, res) => {
-  const { email, password, loginType, branchId } = req.body;
+  const { email, password, loginType, branchId, deviceFingerprint } = req.body;
   if (!email || !password || !loginType)
     return res.status(400).json({ message: "Missing login details." });
 
@@ -223,6 +223,42 @@ export const login = async (req, res) => {
       roleName = roleRes.rows[0].role_name;
       defaultPage = roleRes.rows[0].default_page;
 
+      const existingBranchSession = await pool.query(
+        `
+        SELECT id
+        FROM user_sessions
+        WHERE user_id = $1
+        AND login_type = 'staff'
+        AND branch_id = $2
+        AND is_active = true
+        `,
+        [user.id, branchId],
+      );
+
+      if (existingBranchSession.rows.length) {
+        const existingSession = await pool.query(
+          `
+          SELECT id, device_fingerprint
+          FROM user_sessions
+          WHERE user_id = $1
+          AND login_type = 'staff'
+          AND branch_id = $2
+          AND is_active = true
+          `,
+          [user.id, branchId],
+        );
+
+        if (
+          existingSession.rows.length &&
+          existingSession.rows[0].device_fingerprint !== deviceFingerprint
+        ) {
+          return res.status(409).json({
+            message:
+              "You are already logged into this branch from another device.",
+          });
+        }
+      }
+
       // Fetch permissions
       const permRes = await pool.query(
         `SELECT * FROM role_permissions WHERE role_id=$1`,
@@ -242,6 +278,23 @@ export const login = async (req, res) => {
         return res.status(401).json({ message: "Invalid login details." });
 
       user = custRes.rows[0];
+
+      const existingCustomerSession = await pool.query(
+        `
+        SELECT id
+        FROM user_sessions
+        WHERE user_id = $1
+        AND login_type='customer'
+        AND is_active=true
+        `,
+        [user.id],
+      );
+
+      if (existingCustomerSession.rows.length) {
+        return res.status(409).json({
+          message: "Your account is already logged in on another device.",
+        });
+      }
     }
 
     // Password check
@@ -282,6 +335,7 @@ export const login = async (req, res) => {
     // JWT token
     const token = signToken({
       id: user.id,
+      email: user.email,
       fullname: user.fullname,
       roleid: roleId,
       branchId: loginType === "staff" ? branchId : null,
@@ -292,9 +346,17 @@ export const login = async (req, res) => {
 
     // Save session
     await pool.query(
-      `INSERT INTO user_sessions (user_id, login_type, token, ip_address, user_agent, expires_at)
-       VALUES ($1,$2,$3,$4,$5,NOW() + INTERVAL '1 day')`,
-      [user.id, loginType, token, req.ip, req.headers["user-agent"]],
+      `INSERT INTO user_sessions (user_id, login_type, branch_id, token, ip_address, user_agent, device_fingerprint, expires_at, last_activity)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,NOW() + INTERVAL '1 day', NOW())`,
+      [
+        user.id,
+        loginType,
+        loginType === "staff" ? branchId : null,
+        token,
+        req.ip,
+        req.headers["user-agent"],
+        deviceFingerprint,
+      ],
     );
 
     await logAuthEvent({
@@ -320,5 +382,226 @@ export const login = async (req, res) => {
   } catch (err) {
     console.error("LOGIN ERROR:", err);
     res.status(500).json({ message: "Server error" });
+  }
+};
+
+export const logout = async (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(" ")[1];
+
+    if (!token) {
+      return res.status(400).json({
+        message: "Token required",
+      });
+    }
+
+    await pool.query(
+      `
+      UPDATE user_sessions
+      SET is_active = false,
+      last_activity = NOW()
+      WHERE token = $1
+      AND is_active = true
+      `,
+      [token],
+    );
+
+    return res.status(200).json({
+      message: "Logged out successfully",
+    });
+  } catch (err) {
+    console.error(err);
+
+    return res.status(500).json({
+      message: "Logout failed",
+    });
+  }
+};
+
+export const getActiveSessions = async (req, res) => {
+  try {
+    const email = req.user.email;
+
+    const sessions = await pool.query(
+      `
+      SELECT us.id, us.login_type, us.branch_id, us.ip_address, us.user_agent, us.device_fingerprint, us.created_at, us.last_activity,
+      
+      CASE
+        WHEN us.login_type = 'staff'
+        THEN u.email
+      ELSE c.email
+      END AS email
+      
+      FROM user_sessions us
+      
+      LEFT JOIN users u
+      ON us.login_type = 'staff'
+      AND us.user_id = u.id
+      
+      LEFT JOIN customers c
+      ON us.login_type = 'customer'
+      AND us.user_id = c.id
+      WHERE 
+        (
+          u.email = $1
+          OR
+          c.email = $1
+        )
+      AND us.is_active = true
+      ORDER BY us.created_at DESC
+      `,
+      [email],
+    );
+
+    return res.json(sessions.rows);
+  } catch (err) {
+    console.error(err);
+
+    return res.status(500).json({
+      message: "Failed to load sessions",
+    });
+  }
+};
+
+export const kickSession = async (req, res) => {
+  const { sessionId } = req.body;
+
+  try {
+    await pool.query(
+      `
+      UPDATE user_sessions
+      SET is_active = false
+      WHERE id = $1
+      `,
+      [sessionId],
+    );
+
+    return res.json({
+      message: "Session terminated",
+    });
+  } catch (err) {
+    console.error(err);
+
+    return res.status(500).json({
+      message: "Failed to terminate session",
+    });
+  }
+};
+
+export const getAllActiveSessions = async (req, res) => {
+  try {
+    const sessions = await pool.query(
+      `
+      SELECT
+        us.id,
+        us.login_type,
+        us.branch_id,
+        us.ip_address,
+        us.user_agent,
+        us.device_fingerprint,
+        us.created_at,
+        us.last_activity,
+
+        CASE
+          WHEN us.login_type = 'staff'
+            THEN u.email
+          ELSE c.email
+        END AS email,
+
+        CASE
+          WHEN us.login_type = 'staff'
+            THEN u.fullname
+          ELSE c.fullname
+        END AS fullname,
+
+        b.branch_name
+
+      FROM user_sessions us
+
+      LEFT JOIN users u
+        ON us.login_type='staff'
+       AND us.user_id=u.id
+
+      LEFT JOIN customers c
+        ON us.login_type='customer'
+       AND us.user_id=c.id
+
+      LEFT JOIN branches b
+        ON us.branch_id=b.branch_id
+
+      WHERE us.is_active=true
+
+      ORDER BY us.last_activity DESC
+      `,
+    );
+
+    res.json(sessions.rows);
+  } catch (err) {
+    console.error(err);
+
+    res.status(500).json({
+      message: "Failed to load sessions",
+    });
+  }
+};
+
+export const adminKickSession = async (req, res) => {
+  try {
+    const { sessionId } = req.body;
+
+    await pool.query(
+      `
+      UPDATE user_sessions
+      SET is_active = false
+      WHERE id = $1
+      `,
+      [sessionId],
+    );
+
+    res.json({
+      message: "Session terminated successfully",
+    });
+  } catch (err) {
+    console.error(err);
+
+    res.status(500).json({
+      message: "Failed to terminate session",
+    });
+  }
+};
+
+export const getSessionStatistics = async (req, res) => {
+  try {
+    const stats = await pool.query(`
+      SELECT
+      COUNT(*) FILTER (
+        WHERE is_active = true
+      ) AS total_active,
+
+      COUNT(*) FILTER (
+        WHERE is_active = true
+        AND login_type='staff'
+      ) AS active_staff,
+
+      COUNT(*) FILTER (
+        WHERE is_active = true
+        AND login_type='customer'
+      ) AS active_customers,
+
+      COUNT(DISTINCT branch_id) FILTER (
+          WHERE is_active = true
+          AND branch_id IS NOT NULL
+        ) AS active_branches
+
+      FROM user_sessions
+    `);
+
+    return res.json(stats.rows[0]);
+  } catch (err) {
+    console.error(err);
+
+    return res.status(500).json({
+      message: "Failed to load session statistics",
+    });
   }
 };

@@ -21,10 +21,17 @@ export const sessionTimeout = async (req, res, next) => {
       return res.status(401).json({ message: "Session expired." });
     }
 
+    /*
     const createdAt = new Date(session.rows[0].created_at);
     const now = new Date();
 
     const diffMinutes = (now - createdAt) / 60000;
+*/
+
+    const lastActivity = new Date(session.rows[0].last_activity);
+    const now = new Date();
+
+    const diffMinutes = (now - lastActivity) / 60000;
 
     if (diffMinutes > INACTIVITY_LIMIT_MINUTES) {
       await pool.query(
@@ -36,6 +43,15 @@ export const sessionTimeout = async (req, res, next) => {
 
       return res.status(401).json({ message: "Session timed out." });
     }
+
+    await pool.query(
+      `
+      UPDATE user_sessions
+      SET last_activity = NOW()
+      WHERE id = $1
+      `,
+      [session.rows[0].id],
+    );
 
     next();
   } catch (err) {
