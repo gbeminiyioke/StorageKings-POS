@@ -14,7 +14,7 @@ import {
   Text,
 } from "@chakra-ui/react";
 import { useForm } from "react-hook-form";
-import { useSearchParams, useNavigate, data, Form } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { useState } from "react";
 import publicApi from "../api/publicApi";
 import { ViewIcon, ViewOffIcon } from "@chakra-ui/icons";
@@ -61,7 +61,14 @@ export default function ResetPassword() {
 
   return (
     <Flex minH="100vh" align="center" justify="center" bg="gray.50">
-      <Box bg="white" p={8} rounded="md" w="100%" maxW="420px" boxShadow="md">
+      <Box
+        bg="white"
+        p={{ base: 5, md: 8 }}
+        rounded="md"
+        w="100%"
+        maxW="420px"
+        mx={4}
+      >
         <Text fontSize="xl" mb={4} fontWeight="bold">
           Reset Password
         </Text>
@@ -82,8 +89,20 @@ export default function ResetPassword() {
                 autoComplete="current-password"
                 name="password"
                 onKeyUp={handleCapsLock}
-                {...register("password", { required: true })}
+                {...register("password", {
+                  required: "Password is required",
+                  minLength: {
+                    value: 8,
+                    message: "Minimum 8 characters",
+                  },
+                })}
               />
+
+              {capsLockOn && (
+                <Text color="orange.500" fontSize="sm">
+                  Caps Lock is ON
+                </Text>
+              )}
 
               <InputRightElement>
                 <IconButton
@@ -110,6 +129,12 @@ export default function ResetPassword() {
                     v === watch("password") || "Passwords do not match",
                 })}
               />
+
+              {capsLockOn && (
+                <Text color="orange.500" fontSize="sm">
+                  Caps Lock is ON
+                </Text>
+              )}
 
               <InputRightElement>
                 <IconButton

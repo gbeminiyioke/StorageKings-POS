@@ -269,7 +269,7 @@ export default function Users() {
     USER INTERFACE (UI)
   ======================================*/
   return (
-    <Box p={6} autoComplete="off">
+    <Box p={{ base: 3, md: 6 }} autoComplete="off">
       <Heading mb={4}>Users</Heading>
 
       {/*======= PERSONAL INFORMATION =======*/}
@@ -278,7 +278,13 @@ export default function Users() {
           Personal Information
         </Heading>
 
-        <SimpleGrid columns={2} spacing={4}>
+        <SimpleGrid
+          columns={{
+            base: 1,
+            md: 2,
+          }}
+          spacing={4}
+        >
           <FormControl isInvalid={errors.fullname}>
             <FormLabel>Fullname</FormLabel>
             <Input
@@ -363,18 +369,40 @@ export default function Users() {
         </Heading>
 
         {branches.map((branch) => (
-          <Flex key={branch.branch_id} align="center" mb={3}>
+          <Flex
+            key={branch.branch_id}
+            direction={{
+              base: "column",
+              md: "row",
+            }}
+            align={{
+              base: "start",
+              md: "center",
+            }}
+            gap={3}
+            mb={4}
+          >
             <Switch
               mr={4}
               isChecked={!!branchRoles[branch.branch_id]}
               onChange={() => toggleBranch(branch.branch_id)}
             />
 
-            <Text w="200px">{branch.branch_name}</Text>
+            <Text
+              minW={{
+                base: "100%",
+                md: "200px",
+              }}
+            >
+              {branch.branch_name}
+            </Text>
 
             <Select
               placeholder="Select role"
-              w="250px"
+              w={{
+                base: "100%",
+                md: "250px",
+              }}
               isDisabled={!branchRoles[branch.branch_id]}
               value={branchRoles[branch.branch_id]?.role_id || ""}
               onChange={(e) =>
@@ -436,66 +464,76 @@ export default function Users() {
         <Spinner />
       ) : (
         <>
-          <Table>
-            <Thead>
-              <Tr>
-                <Th>Fullname</Th>
-                <Th>Email</Th>
-                <Th>Status</Th>
-                <Th>Actions</Th>
-              </Tr>
-            </Thead>
+          <Box overflowX="auto">
+            <Table size="sm">
+              <Thead>
+                <Tr>
+                  <Th>Fullname</Th>
+                  <Th>Email</Th>
+                  <Th>Status</Th>
+                  <Th>Actions</Th>
+                </Tr>
+              </Thead>
 
-            <Tbody>
-              {paginatedUsers.map((u) => (
-                <Tr key={u.id}>
-                  <Td>{u.fullname}</Td>
-                  <Td>{u.email}</Td>
-                  <Td>{u.enable ? "Enabled" : "Disabled"}</Td>
-                  <Td>
-                    {hasPermission("can_edit") && (
+              <Tbody>
+                {paginatedUsers.map((u) => (
+                  <Tr key={u.id}>
+                    <Td>{u.fullname}</Td>
+                    <Td>{u.email}</Td>
+                    <Td>{u.enable ? "Enabled" : "Disabled"}</Td>
+                    <Td>
+                      {hasPermission("can_edit") && (
+                        <IconButton
+                          icon={<EditIcon />}
+                          mr={2}
+                          size="sm"
+                          onClick={() => handleEdit(u)}
+                        />
+                      )}
+
                       <IconButton
-                        icon={<EditIcon />}
+                        icon={<CopyIcon />}
                         mr={2}
                         size="sm"
-                        onClick={() => handleEdit(u)}
+                        onClick={() => handleCopy(u)}
                       />
-                    )}
 
-                    <IconButton
-                      icon={<CopyIcon />}
-                      mr={2}
-                      size="sm"
-                      onClick={() => handleCopy(u)}
-                    />
+                      {hasPermission("can_delete") && (
+                        <IconButton
+                          icon={<DeleteIcon />}
+                          size="sm"
+                          colorScheme="red"
+                          onClick={() => setDeleteId(u.id)}
+                        />
+                      )}
 
-                    {hasPermission("can_delete") && (
-                      <IconButton
-                        icon={<DeleteIcon />}
-                        size="sm"
-                        colorScheme="red"
-                        onClick={() => setDeleteId(u.id)}
-                      />
-                    )}
-
-                    {/* ====== AUDIT TRAIL ====== */}
-                    <Button
-                      size="xs"
-                      ml={2}
-                      onClick={() =>
-                        (window.location.href = `/audit?user=${u.id}`)
-                      }
-                    >
-                      Audit
-                    </Button>
-                  </Td>
-                </Tr>
-              ))}
-            </Tbody>
-          </Table>
+                      {/* ====== AUDIT TRAIL ====== */}
+                      <Button
+                        size="xs"
+                        ml={2}
+                        onClick={() =>
+                          (window.location.href = `/audit?user=${u.id}`)
+                        }
+                      >
+                        Audit
+                      </Button>
+                    </Td>
+                  </Tr>
+                ))}
+              </Tbody>
+            </Table>
+          </Box>
 
           {/* ========= PAGINATION CONTROLS ========= */}
-          <Flex mt={4} justify="space-between">
+          <Flex
+            mt={4}
+            justify="space-between"
+            direction={{
+              base: "column",
+              md: "row",
+            }}
+            gap={3}
+          >
             <Button
               size="sm"
               disabled={currentPage === 1}

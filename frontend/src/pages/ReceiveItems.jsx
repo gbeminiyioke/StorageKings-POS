@@ -9,6 +9,7 @@ import {
   FormLabel,
   useStatStyles,
   Select,
+  Stack,
 } from "@chakra-ui/react";
 import { useState, useEffect, useRef } from "react";
 
@@ -707,7 +708,12 @@ export default function ReceiveItems() {
   };
 
   return (
-    <Box p={6}>
+    <Box
+      p={{
+        base: 3,
+        md: 6,
+      }}
+    >
       {/*==== MODE INDICATOR ==== */}
       {mode !== "CREATE" && (
         <Box
@@ -730,7 +736,14 @@ export default function ReceiveItems() {
         isView={mode === "VIEW"}
       />
 
-      <Grid templateColumns="repeat(4, 1fr)" gap={4} mb={3}>
+      <Grid
+        templateColumns={{
+          base: "1fr",
+          lg: "1fr 3fr",
+        }}
+        gap={4}
+        mb={3}
+      >
         <FormControl gridColumn="span 1">
           <FormLabel>Product Barcode</FormLabel>
 
@@ -804,7 +817,14 @@ export default function ReceiveItems() {
       />
 
       {/*  STAFF GRID */}
-      <Grid templateColumns="repeat(3, 1fr)" gap={4} mt={4}>
+      <Grid
+        templateColumns={{
+          base: "1fr",
+          md: "repeat(2,1fr)",
+          lg: "repeat(3,1fr)",
+        }}
+        gap={4}
+      >
         <FormControl>
           <FormLabel>Received By</FormLabel>
           <Input
@@ -837,11 +857,22 @@ export default function ReceiveItems() {
         </FormControl>
       </Grid>
 
-      <Box mt={4}>
+      <Stack
+        mt={4}
+        direction={{
+          base: "column",
+          md: "row",
+        }}
+        spacing={3}
+      >
         {mode === "EDIT" ? (
           <>
             <Button
               colorScheme="orange"
+              w={{
+                base: "100%",
+                md: "auto",
+              }}
               isLoading={loading}
               onClick={() => updateGRN(false)}
             >
@@ -851,6 +882,10 @@ export default function ReceiveItems() {
             <Button
               ml={3}
               colorScheme="green"
+              w={{
+                base: "100%",
+                md: "auto",
+              }}
               isLoading={loading}
               isDisabled={!selectedId}
               onClick={() => updateGRN(true)}
@@ -862,6 +897,10 @@ export default function ReceiveItems() {
           <>
             <Button
               colorScheme="blue"
+              w={{
+                base: "100%",
+                md: "auto",
+              }}
               isDisabled={mode === "VIEW"}
               isLoading={loading}
               onClick={() => save(false)}
@@ -872,6 +911,10 @@ export default function ReceiveItems() {
             <Button
               ml={3}
               colorScheme="green"
+              w={{
+                base: "100%",
+                md: "auto",
+              }}
               isDisabled={mode === "VIEW"}
               isLoading={loading}
               onClick={() => save(true)}
@@ -884,6 +927,10 @@ export default function ReceiveItems() {
         {/* CANCEL */}
         <Button
           ml={3}
+          w={{
+            base: "100%",
+            md: "auto",
+          }}
           colorScheme="red"
           variant="outline"
           onClick={() => {
@@ -894,7 +941,7 @@ export default function ReceiveItems() {
         >
           Cancel
         </Button>
-      </Box>
+      </Stack>
 
       {/*========================================
         DISPLAY PURCHASE REPORT
@@ -937,7 +984,15 @@ export default function ReceiveItems() {
       )}
 
       {/* SEARCH BAR */}
-      <Grid templateColumns="repeat(6, 1fr)" gap={3} mt={6}>
+      <Grid
+        templateColumns={{
+          base: "1fr",
+          md: "repeat(2,1fr)",
+          xl: "repeat(6,1fr)",
+        }}
+        gap={3}
+        mt={6}
+      >
         <Input
           placeholder="Search supplier/ branch / GRN"
           value={listSearch}
@@ -1003,7 +1058,15 @@ export default function ReceiveItems() {
         />
       )}
 
-      <Box mt={4} display="flex" gap={2}>
+      <Stack
+        mt={4}
+        direction={{
+          base: "column",
+          md: "row",
+        }}
+        align="center"
+        spacing={3}
+      >
         <Button
           onClick={() => setPage((p) => Math.max(p - 1, 1))}
           isDisabled={page === 1}
@@ -1021,7 +1084,7 @@ export default function ReceiveItems() {
         >
           Next
         </Button>
-      </Box>
+      </Stack>
     </Box>
   );
 }

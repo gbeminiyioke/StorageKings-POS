@@ -311,3 +311,51 @@ export const downloadSaleInvoicePdf = async (req, res) => {
     });
   }
 };
+
+export const searchSalesForRefund = async (req, res) => {
+  try {
+    const { q } = req.query;
+
+    const result = await pool.query(
+      `
+      SELECT
+        sale_id,
+        invoice_no,
+        customer_id,
+        grand_total,
+        created_at
+      FROM pos_sales
+      WHERE transaction_type = 'INVOICE'
+        AND invoice_no ILIKE $1
+      ORDER BY sale_id DESC
+      LIMIT 20
+      `,
+      [`%${q}%`],
+    );
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error(err);
+
+    res.status(500).json({
+      message: "Search failed",
+    });
+  }
+};
+
+export const convertProformaToInvoice = async (req, res) => {
+  try {
+    const result = await convertProformaToInvoiceService(
+      req.params.id,
+      req.user.id,
+    );
+
+    res.json(result);
+  } catch (err) {
+    console.error(err);
+
+    res.status(400).json({
+      message: err.message,
+    });
+  }
+};

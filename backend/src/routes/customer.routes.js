@@ -47,6 +47,10 @@ router.post(
       name: "warehouse_agreement",
       maxCount: 1,
     },
+    {
+      name: "cac_document",
+      maxCount: 1,
+    },
   ]),
   createCustomer,
 );
@@ -82,6 +86,10 @@ router.put(
     },
     {
       name: "warehouse_agreement",
+      maxCount: 1,
+    },
+    {
+      name: "cac_document",
       maxCount: 1,
     },
   ]),
@@ -140,6 +148,10 @@ router.post(
       name: "warehouse_agreement",
       maxCount: 1,
     },
+    {
+      name: "cac_document",
+      maxCount: 1,
+    },
   ]),
   createCustomer,
 );
@@ -166,6 +178,10 @@ router.put(
     },
     {
       name: "warehouse_agreement",
+      maxCount: 1,
+    },
+    {
+      name: "cac_document",
       maxCount: 1,
     },
   ]),

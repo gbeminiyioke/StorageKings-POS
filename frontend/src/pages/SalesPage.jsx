@@ -31,8 +31,28 @@ export default function SalesPage() {
           setDocNumber={setDocNumber}
         />
 
-        <Grid templateColumns="220px 1fr 420px" h="100%">
-          <GridItem borderRight="1px solid #eee">
+        <Grid
+          templateColumns={{
+            base: "1fr",
+            lg: "220px 1fr 380px",
+            xl: "220px 1fr 420px",
+          }}
+          templateRows={{
+            base: "auto auto 1fr",
+            lg: "1fr",
+          }}
+          h="100%"
+        >
+          <GridItem
+            borderRight={{
+              base: "none",
+              lg: "1px solid #eee",
+            }}
+            borderBottom={{
+              base: "1px solid #eee",
+              lg: "none",
+            }}
+          >
             <CategorySidebar selected={category} setSelected={setCategory} />
           </GridItem>
 
@@ -44,7 +64,21 @@ export default function SalesPage() {
             />
           </GridItem>
 
-          <GridItem borderLeft="1px solid #eee">
+          <GridItem
+            borderLeft={{
+              base: "none",
+              lg: "1px solid #eee",
+            }}
+            borderTop={{
+              base: "1px solid #eee",
+              lg: "none",
+            }}
+            maxH={{
+              base: "50vh",
+              lg: "100%",
+            }}
+            overflow="auto"
+          >
             <CartPanel onOpenPayment={onOpen} />
           </GridItem>
         </Grid>

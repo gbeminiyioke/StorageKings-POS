@@ -48,8 +48,25 @@ export default function SalesInvoicePage() {
   const { sale, items } = invoice;
 
   return (
-    <Box p={10} bg="white" minH="100vh" color="black">
-      <Flex justify="space-between" align="start" mb={10}>
+    <Box
+      p={{
+        base: 4,
+        md: 10,
+      }}
+      bg="white"
+      minH="100vh"
+      color="black"
+    >
+      <Flex
+        justify="space-between"
+        direction={{
+          base: "column",
+          md: "row",
+        }}
+        gap={6}
+        align="start"
+        mb={10}
+      >
         <Box>
           <Heading size="2xl">INVOICE</Heading>
           <Text fontSize="3xl" fontWeight="bold" mt={2}>
@@ -94,40 +111,47 @@ export default function SalesInvoicePage() {
         <Text>{sale.telephone}</Text>
       </Box>
 
-      <Table variant="simple" size="md">
-        <Thead bg="gray.100">
-          <Tr>
-            <Th>Description</Th>
-            <Th isNumeric>Quantity</Th>
-            <Th isNumeric>Rate</Th>
-            <Th isNumeric>Amount</Th>
-          </Tr>
-        </Thead>
-
-        <Tbody>
-          {items.map((item) => (
-            <Tr key={item.id}>
-              <Td>{item.product_name}</Td>
-              <Td isNumeric>{item.quantity}</Td>
-              <Td isNumeric>
-                ₦{" "}
-                {Number(item.selling_price).toLocaleString(undefined, {
-                  minimumFractionDigits: 2,
-                })}
-              </Td>
-              <Td isNumeric>
-                ₦{" "}
-                {Number(item.total).toLocaleString(undefined, {
-                  minimumFractionDigits: 2,
-                })}
-              </Td>
+      <Box overflowX="auto">
+        <Table variant="simple" size="md" minW="700px">
+          <Thead bg="gray.100">
+            <Tr>
+              <Th>Description</Th>
+              <Th isNumeric>Quantity</Th>
+              <Th isNumeric>Rate</Th>
+              <Th isNumeric>Amount</Th>
             </Tr>
-          ))}
-        </Tbody>
-      </Table>
+          </Thead>
+
+          <Tbody>
+            {items.map((item) => (
+              <Tr key={item.id}>
+                <Td>{item.product_name}</Td>
+                <Td isNumeric>{item.quantity}</Td>
+                <Td isNumeric>
+                  ₦{" "}
+                  {Number(item.selling_price).toLocaleString(undefined, {
+                    minimumFractionDigits: 2,
+                  })}
+                </Td>
+                <Td isNumeric>
+                  ₦{" "}
+                  {Number(item.total).toLocaleString(undefined, {
+                    minimumFractionDigits: 2,
+                  })}
+                </Td>
+              </Tr>
+            ))}
+          </Tbody>
+        </Table>
+      </Box>
 
       <Flex justify="flex-end" mt={10}>
-        <Box w="350px">
+        <Box
+          w={{
+            base: "100%",
+            md: "350px",
+          }}
+        >
           <Flex justify="space-between" mb={2}>
             <Text>Subtotal</Text>
             <Text>

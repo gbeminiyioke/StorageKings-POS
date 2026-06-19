@@ -9,6 +9,8 @@ import {
   getAllActiveSessions,
   adminKickSession,
   getSessionStatistics,
+  refresh,
+  ping,
 } from "../controllers/auth.controller.js";
 import { authenticate } from "../middleware/auth.middleware.js";
 import { authorize } from "../middleware/authorize.js";
@@ -38,5 +40,8 @@ router.get("/admin/sessions", authenticate, getAllActiveSessions);
 //router.post("/admin/kick-session", authenticate, adminKickSession);
 router.post("/admin/sessions/terminate", authenticate, adminKickSession);
 router.get("/admin/sessions/stats", authenticate, getSessionStatistics);
+
+router.post("/refresh", refresh);
+router.post("/ping", authenticate, ping);
 
 export default router;

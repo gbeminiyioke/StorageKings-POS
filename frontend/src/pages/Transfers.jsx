@@ -29,6 +29,7 @@ import {
   scanTransferProduct,
   searchTransferProducts,
 } from "../services/transferService";
+import ResponsiveTable from "../components/ResponsiveTable";
 
 export default function Transfers() {
   const toast = useToast();
@@ -249,12 +250,19 @@ export default function Transfers() {
   };
 
   return (
-    <Box p={6}>
+    <Box p={{ base: 3, md: 6 }}>
       <Heading size="lg" mb={6}>
         Stock Transfers
       </Heading>
 
-      <Grid templateColumns="repeat(4, 1fr)" gap={4} mb={4}>
+      <Grid
+        templateColumns={{
+          base: "1fr",
+          md: "repeat(2,1fr)",
+          xl: "repeat(4,1fr)",
+        }}
+        gap={4}
+      >
         <Input
           type="date"
           max={new Date().toISOString().split("T")[0]}
@@ -291,7 +299,13 @@ export default function Transfers() {
         </Select>
       </Grid>
 
-      <Grid templateColumns="1fr 1fr" gap={4} mb={4}>
+      <Grid
+        templateColumns={{
+          base: "1fr",
+          md: "1fr 1fr",
+        }}
+        gap={4}
+      >
         <Input
           placeholder="Scan Product Code"
           value={barcode}
@@ -334,43 +348,51 @@ export default function Transfers() {
         </Box>
       </Grid>
 
-      <Table mb={6}>
-        <Thead>
-          <Tr>
-            <Th>Product Name</Th>
-            <Th width="150px">Quantity</Th>
-            <Th width="60px"></Th>
-          </Tr>
-        </Thead>
-        <Tbody>
-          {items.map((item) => (
-            <Tr key={item.product_id}>
-              <Td>{item.product_name}</Td>
-              <Td>
-                <Input
-                  type="number"
-                  min={1}
-                  max={item.stock_quantity}
-                  value={item.quantity}
-                  onChange={(e) => updateQty(item.product_id, e.target.value)}
-                />
-              </Td>
-              <Td>
-                <IconButton
-                  icon={<DeleteIcon />}
-                  onClick={() =>
-                    setItems((prev) =>
-                      prev.filter((x) => x.product_id !== item.product_id),
-                    )
-                  }
-                />
-              </Td>
+      <ResponsiveTable minWidth="700px">
+        <Table mb={6}>
+          <Thead>
+            <Tr>
+              <Th>Product Name</Th>
+              <Th width="150px">Quantity</Th>
+              <Th width="60px"></Th>
             </Tr>
-          ))}
-        </Tbody>
-      </Table>
+          </Thead>
+          <Tbody>
+            {items.map((item) => (
+              <Tr key={item.product_id}>
+                <Td>{item.product_name}</Td>
+                <Td>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={item.stock_quantity}
+                    value={item.quantity}
+                    onChange={(e) => updateQty(item.product_id, e.target.value)}
+                  />
+                </Td>
+                <Td>
+                  <IconButton
+                    icon={<DeleteIcon />}
+                    onClick={() =>
+                      setItems((prev) =>
+                        prev.filter((x) => x.product_id !== item.product_id),
+                      )
+                    }
+                  />
+                </Td>
+              </Tr>
+            ))}
+          </Tbody>
+        </Table>
+      </ResponsiveTable>
 
-      <Grid templateColumns="repeat(3, 1fr)" gap={4} mb={4}>
+      <Grid
+        templateColumns={{
+          base: "1fr",
+          md: "repeat(3,1fr)",
+        }}
+        gap={4}
+      >
         <Input
           placeholder="Transferred By"
           value={form.transferred_by}
@@ -408,30 +430,32 @@ export default function Transfers() {
         Recent Transfers
       </Heading>
 
-      <Table>
-        <Thead>
-          <Tr>
-            <Th>Date</Th>
-            <Th>Transfer No</Th>
-            <Th>Transfer From</Th>
-            <Th>Transfer To</Th>
-            <Th>Status</Th>
-          </Tr>
-        </Thead>
-        <Tbody>
-          {recent.map((row) => (
-            <Tr key={row.transfer_id}>
-              <Td>{row.transfer_date}</Td>
-              <Td>{row.transfer_no}</Td>
-              <Td>{row.from_branch}</Td>
-              <Td>{row.to_branch}</Td>
-              <Td>{row.status}</Td>
+      <ResponsiveTable minWidth="850px">
+        <Table>
+          <Thead>
+            <Tr>
+              <Th>Date</Th>
+              <Th>Transfer No</Th>
+              <Th>Transfer From</Th>
+              <Th>Transfer To</Th>
+              <Th>Status</Th>
             </Tr>
-          ))}
-        </Tbody>
-      </Table>
+          </Thead>
+          <Tbody>
+            {recent.map((row) => (
+              <Tr key={row.transfer_id}>
+                <Td>{row.transfer_date}</Td>
+                <Td>{row.transfer_no}</Td>
+                <Td>{row.from_branch}</Td>
+                <Td>{row.to_branch}</Td>
+                <Td>{row.status}</Td>
+              </Tr>
+            ))}
+          </Tbody>
+        </Table>
+      </ResponsiveTable>
 
-      <HStack mt={4}>
+      <HStack mt={4} flexWrap="wrap">
         <Button
           isDisabled={page === 1}
           onClick={() => {

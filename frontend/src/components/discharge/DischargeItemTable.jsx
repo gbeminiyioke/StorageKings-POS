@@ -1,4 +1,5 @@
 import {
+  Box,
   Checkbox,
   Input,
   Select,
@@ -11,6 +12,7 @@ import {
   Tr,
   VStack,
 } from "@chakra-ui/react";
+import ResponsiveTable from "../ResponsiveTable";
 
 export default function DischargeItemTable({ items, setItems }) {
   // =========================
@@ -95,85 +97,94 @@ export default function DischargeItemTable({ items, setItems }) {
   };
 
   return (
-    <Table size="sm">
-      <Thead>
-        <Tr>
-          <Th>
-            <Checkbox
-              isChecked={allSelected}
-              isIndeterminate={someSelected}
-              onChange={(e) => handleBulkSelect(e.target.checked)}
-            />
-          </Th>
-          <Th>Item</Th>
-          <Th>Date Received</Th>
-          <Th>Condition</Th>
-          <Th isNumeric>Qty Received</Th>
-          <Th isNumeric>Qty Remaining</Th>
-          <Th isNumeric>Discharge</Th>
-        </Tr>
-      </Thead>
-
-      <Tbody>
-        {items.map((item, index) => (
-          <Tr key={item.storage_item_id}>
-            {/* SELECT */}
-            <Td>
+    <ResponsiveTable minWidth="950px">
+      <Table size="sm">
+        <Thead>
+          <Tr>
+            <Th>
               <Checkbox
-                isChecked={!!item.selected}
-                onChange={(e) => handleSelectChange(index, e.target.checked)}
+                size="lg"
+                isChecked={allSelected}
+                isIndeterminate={someSelected}
+                onChange={(e) => handleBulkSelect(e.target.checked)}
               />
-            </Td>
-
-            {/* ITEM */}
-            <Td>
-              <VStack align="start" spacing={0}>
-                <Text fontWeight="bold">{item.product_name}</Text>
-                <Text fontSize="xs" color="gray.500">
-                  {item.category_name}
-                </Text>
-              </VStack>
-            </Td>
-
-            {/* DATE */}
-            <Td>{item.received_date?.slice(0, 10)}</Td>
-
-            {/* CONDITION (INLINE EDIT) */}
-            <Td>
-              <Select
-                size="sm"
-                value={item.condition || "Good"}
-                onChange={(e) => handleConditionChange(index, e.target.value)}
-              >
-                <option value="Good">Good</option>
-                <option value="Fair">Fair</option>
-                <option value="Damaged">Damaged</option>
-                <option value="Broken">Broken</option>
-                <option value="Non Tested">Non Tested</option>
-              </Select>
-            </Td>
-
-            {/* RECEIVED */}
-            <Td isNumeric>{item.received_quantity}</Td>
-
-            {/* REMAINING */}
-            <Td isNumeric>{item.remaining_quantity}</Td>
-
-            {/* DISCHARGE */}
-            <Td width="130px">
-              <Input
-                type="number"
-                size="sm"
-                min={0}
-                max={item.remaining_quantity}
-                isDisabled={!item.selected}
-                value={item.discharge_quantity ?? 0}
-                onChange={(e) => handleQuantityChange(index, e.target.value)}
-              />
-            </Td>
+            </Th>
+            <Th>Item</Th>
+            <Th>Date Received</Th>
+            <Th>Condition</Th>
+            <Th isNumeric>Qty Received</Th>
+            <Th isNumeric>Qty Remaining</Th>
+            <Th isNumeric>Discharge</Th>
           </Tr>
-        ))}
-      </Tbody>
-    </Table>
+        </Thead>
+
+        <Tbody>
+          {items.map((item, index) => (
+            <Tr key={item.storage_item_id}>
+              {/* SELECT */}
+              <Td>
+                <Checkbox
+                  size="lg"
+                  isChecked={!!item.selected}
+                  onChange={(e) => handleSelectChange(index, e.target.checked)}
+                />
+              </Td>
+
+              {/* ITEM */}
+              <Td>
+                <VStack align="start" spacing={0} minW="180px">
+                  <Text fontWeight="bold">{item.product_name}</Text>
+                  <Text fontSize="xs" color="gray.500">
+                    {item.category_name}
+                  </Text>
+                </VStack>
+              </Td>
+
+              {/* DATE */}
+              <Td whiteSpace="nowrap">{item.received_date?.slice(0, 10)}</Td>
+
+              {/* CONDITION (INLINE EDIT) */}
+              <Td>
+                <Select
+                  size="sm"
+                  minW="120px"
+                  value={item.condition || "Good"}
+                  onChange={(e) => handleConditionChange(index, e.target.value)}
+                >
+                  <option value="Good">Good</option>
+                  <option value="Fair">Fair</option>
+                  <option value="Damaged">Damaged</option>
+                  <option value="Broken">Broken</option>
+                  <option value="Non Tested">Non Tested</option>
+                </Select>
+              </Td>
+
+              {/* RECEIVED */}
+              <Td isNumeric whiteSpace="nowrap">
+                {item.received_quantity}
+              </Td>
+
+              {/* REMAINING */}
+              <Td isNumeric whiteSpace="nowrap">
+                {item.remaining_quantity}
+              </Td>
+
+              {/* DISCHARGE */}
+              <Td minW="130px" width="130px">
+                <Input
+                  type="number"
+                  size="sm"
+                  min={0}
+                  max={item.remaining_quantity}
+                  isDisabled={!item.selected}
+                  value={item.discharge_quantity ?? 0}
+                  onChange={(e) => handleQuantityChange(index, e.target.value)}
+                />
+              </Td>
+            </Tr>
+          ))}
+        </Tbody>
+      </Table>
+    </ResponsiveTable>
   );
 }

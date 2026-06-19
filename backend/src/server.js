@@ -25,6 +25,7 @@ import storageRoutes from "./routes/storage.routes.js";
 import dischargeRoutes from "./routes/discharge.routes.js";
 import inventoryRoutes from "./routes/inventory.routes.js";
 import posDashboardRoutes from "./routes/posDashboard.routes.js";
+import customerKycRoutes from "./routes/customerKyc.routes.js";
 
 //const app = express();
 
@@ -70,6 +71,7 @@ app.use("/api/storage", storageRoutes);
 app.use("/api/discharge", dischargeRoutes);
 app.use("/api/inventory", inventoryRoutes);
 app.use("/api/pos-dashboard", posDashboardRoutes);
+app.use("/api/customer-kyc", customerKycRoutes);
 
 //Run at midnight on 1st of every month
 cron.schedule("0 0 1 * *", runMonthlyStorageReset);

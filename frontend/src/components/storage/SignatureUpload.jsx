@@ -57,7 +57,10 @@ export default function SignatureUpload({
         borderColor="gray.300"
         borderRadius="lg"
         p={3}
-        minH="140px"
+        minH={{
+          base: "120px",
+          md: "140px",
+        }}
         display="flex"
         alignItems="center"
         justifyContent="center"
@@ -72,7 +75,10 @@ export default function SignatureUpload({
         <Image
           src={value || PLACEHOLDER_IMAGE}
           fallbackSrc={PLACEHOLDER_IMAGE}
-          maxH="120px"
+          maxH={{
+            base: "100px",
+            md: "120px",
+          }}
           maxW="100%"
           objectFit="contain"
           alt={`${label} signature`}
@@ -81,7 +87,10 @@ export default function SignatureUpload({
 
       {value && !isDisabled && (
         <Button
-          size="sm"
+          size={{
+            base: "xs",
+            md: "sm",
+          }}
           variant="ghost"
           colorScheme="red"
           alignSelf="flex-start"

@@ -10,6 +10,7 @@ import {
   Heading,
 } from "@chakra-ui/react";
 import api from "../api";
+import ResponsiveTable from "../components/ResponsiveTable";
 
 export default function AdminAuthLogs() {
   const [logs, setLogs] = useState([]);
@@ -24,33 +25,42 @@ export default function AdminAuthLogs() {
   };
 
   return (
-    <Box p={6}>
+    <Box
+      p={{
+        base: 3,
+        md: 6,
+      }}
+    >
       <Heading mb={4}>Authentication Logs</Heading>
-      <Table variant="simple">
-        <Thead>
-          <Tr>
-            <Th>User ID</Th>
-            <Th>Login</Th>
-            <Th>Email</Th>
-            <Th>Action</Th>
-            <Th>IP</Th>
-            <Th>Date</Th>
-          </Tr>
-        </Thead>
-
-        <Tbody>
-          {logs.map((log) => (
-            <Tr key={log.id}>
-              <Td>{log.user_id}</Td>
-              <Td>{log.loginType}</Td>
-              <Td>{log.email}</Td>
-              <Td>{log.action}</Td>
-              <Td>{log.ip_address}</Td>
-              <Td>{new Date(log.created_at).toLocaleString()}</Td>
+      <ResponsiveTable minWidth="1000px">
+        <Table variant="simple">
+          <Thead>
+            <Tr>
+              <Th>User ID</Th>
+              <Th>Login</Th>
+              <Th>Email</Th>
+              <Th>Action</Th>
+              <Th>IP</Th>
+              <Th>Date</Th>
             </Tr>
-          ))}
-        </Tbody>
-      </Table>
+          </Thead>
+
+          <Tbody>
+            {logs.map((log) => (
+              <Tr key={log.id}>
+                <Td>{log.user_id}</Td>
+                <Td>{log.loginType}</Td>
+                <Td>{log.email}</Td>
+                <Td>{log.action}</Td>
+                <Td>{log.ip_address}</Td>
+                <Td whiteSpace="nowrap">
+                  {new Date(log.created_at).toLocaleString()}
+                </Td>
+              </Tr>
+            ))}
+          </Tbody>
+        </Table>
+      </ResponsiveTable>
     </Box>
   );
 }

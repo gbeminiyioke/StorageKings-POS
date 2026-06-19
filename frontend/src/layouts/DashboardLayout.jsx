@@ -17,11 +17,20 @@ export default function DashboardLayout() {
     const path = location.pathname.split("/").pop();
 
     const routeMap = {
-      dashboard: "Dashboard",
+      dashboard: "Admin Dashboard",
+      "sales-dashboard": "Sales Dashboard",
       sales: "Sales",
       refund: "Refund",
       categories: "Categories",
-      products: " Products",
+      products: "Inventory",
+      "inventory-dashboard": "Inventory Dashboard",
+      suppliers: "Suppliers",
+      "receive-items": "Purchases/Receive Items",
+      "discharge-items": "Discharge Items",
+      "discharge-approval": "Discharge Approval",
+      storage: "Storage",
+      transfer: "Transfer",
+      "storage-visit": "Storage Visit",
       purchases: "Purchases",
       payment: "Payment",
       bank: "Bank",
@@ -30,8 +39,10 @@ export default function DashboardLayout() {
       users: "Users",
       roles: "Roles",
       branches: "Branches",
-      security: "Security",
+      security: "My Active Sessions",
+      sessions: "Sessions Dashboard",
       business: "Business Settings",
+      customers: "Customers",
     };
 
     return routeMap[path] || "Staff Dashboard";
@@ -48,9 +59,9 @@ export default function DashboardLayout() {
         <Box
           h="56px"
           bg="white"
-          dispay="flex"
+          display="flex"
           alignItems="center"
-          px={6}
+          px={{ base: 3, md: 6 }}
           borderBottom="1px solid"
           borderColor="gray.200"
           flexShrink="0"
@@ -59,7 +70,7 @@ export default function DashboardLayout() {
         </Box>
 
         {/* ======= PAGE CONTENT (SCROLLABLE) ======== */}
-        <Box flex="1" overflowY="auto" p={6} bg="gray.50">
+        <Box flex="1" overflowY="auto" p={{ base: 3, md: 6 }} bg="gray.50">
           <MotionBox
             key={location.pathname}
             initial={{ opacity: 0, y: 8 }}

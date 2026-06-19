@@ -24,6 +24,7 @@ import { EditIcon, DeleteIcon, CopyIcon } from "@chakra-ui/icons";
 import { useEffect, useState } from "react";
 import api from "../api/api";
 import { useAuth } from "../context/AuthContext";
+import ResponsiveTable from "../components/ResponsiveTable";
 
 const Branches = () => {
   const toast = useToast();
@@ -162,7 +163,7 @@ const Branches = () => {
   };
 
   return (
-    <Box p={6}>
+    <Box p={{ base: 3, md: 6 }}>
       <Box maxW="1000px" mx="auto">
         <Heading mb={6}>Branches</Heading>
 
@@ -276,63 +277,65 @@ const Branches = () => {
           </Flex>
         </Box>
 
-        <Table bg="white" shadow="sm" rounded="lg">
-          <Thead bg="gray.50">
-            <Tr>
-              <Th>Name</Th>
-              <Th>Address</Th>
-              <Th>Email</Th>
-              <Th>Telephone</Th>
-              <Th>Status</Th>
-              <Th>Prefix</Th>
-              <Th></Th>
-            </Tr>
-          </Thead>
-
-          <Tbody>
-            {branches.map((b) => (
-              <Tr
-                key={b.branch_id}
-                bg={b.hq_branch ? "green.50" : "transparent"}
-              >
-                <Td>{b.branch_name}</Td>
-                <Td>{b.branch_address}</Td>
-                <Td>{b.branch_email}</Td>
-                <Td>{b.branch_telephone}</Td>
-                <Td>{b.enable ? "Enabled" : "Disabled"}</Td>
-                <Td>{b.branch_prefix}</Td>
-                <Td>
-                  {hasPermission("can_edit") && (
-                    <IconButton
-                      icon={<EditIcon />}
-                      size="sm"
-                      mr={2}
-                      onClick={() => handleEdit(b)}
-                    />
-                  )}
-
-                  {hasPermission("can_edit") && (
-                    <IconButton
-                      icon={<CopyIcon />}
-                      size="sm"
-                      mr={2}
-                      onClick={() => handleClone(b)}
-                    />
-                  )}
-
-                  {hasPermission("can_delete") && (
-                    <IconButton
-                      icon={<DeleteIcon />}
-                      size="sm"
-                      colorScheme="red"
-                      onClick={() => handleDelete(b.branch_id)}
-                    />
-                  )}
-                </Td>
+        <ResponsiveTable minWidth="1000px">
+          <Table bg="white" shadow="sm" rounded="lg">
+            <Thead bg="gray.50">
+              <Tr>
+                <Th>Name</Th>
+                <Th>Address</Th>
+                <Th>Email</Th>
+                <Th>Telephone</Th>
+                <Th>Status</Th>
+                <Th>Prefix</Th>
+                <Th></Th>
               </Tr>
-            ))}
-          </Tbody>
-        </Table>
+            </Thead>
+
+            <Tbody>
+              {branches.map((b) => (
+                <Tr
+                  key={b.branch_id}
+                  bg={b.hq_branch ? "green.50" : "transparent"}
+                >
+                  <Td>{b.branch_name}</Td>
+                  <Td>{b.branch_address}</Td>
+                  <Td>{b.branch_email}</Td>
+                  <Td>{b.branch_telephone}</Td>
+                  <Td>{b.enable ? "Enabled" : "Disabled"}</Td>
+                  <Td>{b.branch_prefix}</Td>
+                  <Td>
+                    {hasPermission("can_edit") && (
+                      <IconButton
+                        icon={<EditIcon />}
+                        size={{ base: "xs", md: "sm" }}
+                        mr={2}
+                        onClick={() => handleEdit(b)}
+                      />
+                    )}
+
+                    {hasPermission("can_edit") && (
+                      <IconButton
+                        icon={<CopyIcon />}
+                        size={{ base: "xs", md: "sm" }}
+                        mr={2}
+                        onClick={() => handleClone(b)}
+                      />
+                    )}
+
+                    {hasPermission("can_delete") && (
+                      <IconButton
+                        icon={<DeleteIcon />}
+                        size={{ base: "xs", md: "sm" }}
+                        colorScheme="red"
+                        onClick={() => handleDelete(b.branch_id)}
+                      />
+                    )}
+                  </Td>
+                </Tr>
+              ))}
+            </Tbody>
+          </Table>
+        </ResponsiveTable>
       </Box>
     </Box>
   );

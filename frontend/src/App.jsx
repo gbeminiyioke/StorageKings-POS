@@ -31,208 +31,213 @@ import StorageVisitPage from "./pages/StorageVisitPage";
 import CustomerKyc from "./pages/CustomerKyc";
 import ActiveSessions from "./pages/ActiveSessions";
 import AdminSessionDashboard from "./pages/AdminSessionDashboard";
+import IdleWarningModal from "./components/IdleWarningModal";
 
 export default function App() {
   return (
-    <Routes>
-      {/* ============= PUBLIC ROUTES ============= */}
-      <Route path="/" element={<Login />} />
-      <Route path="/login" element={<Login />} />
-      <Route path="/forgot-password" element={<ForgotPassword />} />
-      <Route path="/reset-password" element={<ResetPassword />} />
-      <Route path="/unauthorized" element={<Unauthorized />} />
-      <Route path="/reports/purchases" element={<PurchasesReport />} />
-      <Route path="/register" element={<CustomerRegister />} />
-      <Route path="/kyc" element={<CustomerKyc />} />
+    <>
+      <IdleWarningModal />
 
-      <Route path="/sales/invoice/:sale_id" element={<SalesInvoicePage />} />
+      <Routes>
+        {/* ============= PUBLIC ROUTES ============= */}
+        <Route path="/" element={<Login />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="/unauthorized" element={<Unauthorized />} />
+        <Route path="/reports/purchases" element={<PurchasesReport />} />
+        <Route path="/register" element={<CustomerRegister />} />
+        <Route path="/kyc" element={<CustomerKyc />} />
 
-      {/* ================ CUSTOMER ================ */}
-      <Route
-        path="/customer-home"
-        element={
-          <ProtectedRoute customerOnly>
-            <CustomerHome />
-          </ProtectedRoute>
-        }
-      />
+        <Route path="/sales/invoice/:sale_id" element={<SalesInvoicePage />} />
 
-      {/* ================== STAFF ================== */}
-      <Route
-        path="/dashboard"
-        element={
-          <ProtectedRoute staffOnly>
-            <DashboardLayout />
-          </ProtectedRoute>
-        }
-      >
-        {/* ========= DASHBOARD HOME ========= */}
-        <Route index element={<StaffDashboard />} />
-
-        {/*============== SALES =============== */}
+        {/* ================ CUSTOMER ================ */}
         <Route
-          path="sales-dashboard"
+          path="/customer-home"
           element={
-            <ProtectedRoute permission="sales_dashboard">
-              <POSDashboard />
+            <ProtectedRoute customerOnly>
+              <CustomerHome />
             </ProtectedRoute>
           }
         />
 
+        {/* ================== STAFF ================== */}
         <Route
-          path="sales"
+          path="/dashboard"
           element={
-            <ProtectedRoute permission="sales">
-              <SalesPage />
+            <ProtectedRoute staffOnly>
+              <DashboardLayout />
+            </ProtectedRoute>
+          }
+        >
+          {/* ========= DASHBOARD HOME ========= */}
+          <Route index element={<StaffDashboard />} />
+
+          {/*============== SALES =============== */}
+          <Route
+            path="sales-dashboard"
+            element={
+              <ProtectedRoute permission="sales_dashboard">
+                <POSDashboard />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="sales"
+            element={
+              <ProtectedRoute permission="sales">
+                <SalesPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="transfer"
+            element={
+              <ProtectedRoute permission="transfer">
+                <Transfers />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="storage"
+            element={
+              <ProtectedRoute permission="storage">
+                <StoragePage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="discharge-items"
+            element={
+              <ProtectedRoute permission="discharge_items">
+                <DischargePage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="discharge-approval"
+            element={
+              <ProtectedRoute permission="discharge_approval">
+                <ApprovalDashboard />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="inventory-dashboard"
+            element={
+              <ProtectedRoute permission="inventory_dashboard">
+                <InventoryDashboard />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="products"
+            element={
+              <ProtectedRoute permission="inventory">
+                <Products />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="suppliers"
+            element={
+              <ProtectedRoute permission="suppliers">
+                <Suppliers />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="receive-items"
+            element={
+              <ProtectedRoute permission="receive_items">
+                <ReceiveItems />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="storage-visit"
+            element={
+              <ProtectedRoute permission="storage_visit">
+                <StorageVisitPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="customers"
+            element={
+              <ProtectedRoute permission="customers">
+                <Customers />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* ============ SETTINGS ============ */}
+          <Route
+            path="users"
+            element={
+              <ProtectedRoute permission="users">
+                <Users />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="roles"
+            element={
+              <ProtectedRoute permission="roles">
+                <Roles />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="branches"
+            element={
+              <ProtectedRoute permission="branches">
+                <Branches />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="security"
+            element={
+              <ProtectedRoute permission="security">
+                <ActiveSessions />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="sessions"
+            element={
+              <ProtectedRoute permission="admin_session_dashboard">
+                <AdminSessionDashboard />
+              </ProtectedRoute>
+            }
+          />
+        </Route>
+
+        <Route
+          path="business"
+          element={
+            <ProtectedRoute permission="settings_parameter_settings">
+              <Business />
             </ProtectedRoute>
           }
         />
-
-        <Route
-          path="transfer"
-          element={
-            <ProtectedRoute permission="transfer">
-              <Transfers />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="storage"
-          element={
-            <ProtectedRoute permission="storage">
-              <StoragePage />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="discharge-items"
-          element={
-            <ProtectedRoute permission="discharge_items">
-              <DischargePage />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="discharge-approval"
-          element={
-            <ProtectedRoute permission="discharge_approval">
-              <ApprovalDashboard />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="inventory-dashboard"
-          element={
-            <ProtectedRoute permission="inventory_dashboard">
-              <InventoryDashboard />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="products"
-          element={
-            <ProtectedRoute permission="inventory">
-              <Products />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="suppliers"
-          element={
-            <ProtectedRoute permission="suppliers">
-              <Suppliers />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="receive-items"
-          element={
-            <ProtectedRoute permission="receive_items">
-              <ReceiveItems />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="storage-visit"
-          element={
-            <ProtectedRoute permission="storage_visit">
-              <StorageVisitPage />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="customers"
-          element={
-            <ProtectedRoute permission="customers">
-              <Customers />
-            </ProtectedRoute>
-          }
-        />
-
-        {/* ============ SETTINGS ============ */}
-        <Route
-          path="users"
-          element={
-            <ProtectedRoute permission="users">
-              <Users />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="roles"
-          element={
-            <ProtectedRoute permission="roles">
-              <Roles />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="branches"
-          element={
-            <ProtectedRoute permission="branches">
-              <Branches />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="security"
-          element={
-            <ProtectedRoute permission="security">
-              <ActiveSessions />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="sessions"
-          element={
-            <ProtectedRoute permission="admin_session_dashboard">
-              <AdminSessionDashboard />
-            </ProtectedRoute>
-          }
-        />
-      </Route>
-
-      <Route
-        path="business"
-        element={
-          <ProtectedRoute permission="settings_parameter_settings">
-            <Business />
-          </ProtectedRoute>
-        }
-      />
-    </Routes>
+      </Routes>
+    </>
   );
 }

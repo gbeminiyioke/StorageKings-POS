@@ -12,17 +12,34 @@ export default function ReceiveTotals({ header = {}, setHeader, isView }) {
 
   return (
     <Box mt={4}>
-      <Flex justify="space-between">
+      <Flex
+        justify="space-between"
+        direction={{
+          base: "column",
+          md: "row",
+        }}
+        gap={2}
+      >
         <Text>Subtotal</Text>
         <Text fontWeight="bold">
           {formatCurrency(safeNumber(header.subtotal))}
         </Text>
       </Flex>
 
-      <Flex justify="space-between" mb={2}>
+      <Flex
+        justify="space-between"
+        direction={{
+          base: "column",
+          md: "row",
+        }}
+        gap={2}
+      >
         <Text>Other Charges</Text>
         <Input
-          width="160px"
+          width={{
+            base: "100%",
+            md: "160px",
+          }}
           value={safeNumber(header.other)}
           isDisabled={isView}
           onChange={(e) =>
@@ -31,10 +48,20 @@ export default function ReceiveTotals({ header = {}, setHeader, isView }) {
         />
       </Flex>
 
-      <Flex justify="space-between">
+      <Flex
+        justify="space-between"
+        direction={{
+          base: "column",
+          md: "row",
+        }}
+        gap={2}
+      >
         <Text>Amount Paid</Text>
         <Input
-          width="160px"
+          width={{
+            base: "100%",
+            md: "160px",
+          }}
           value={safeNumber(header.amount_paid)}
           isDisabled={isView}
           onChange={(e) =>
@@ -43,14 +70,28 @@ export default function ReceiveTotals({ header = {}, setHeader, isView }) {
         />
       </Flex>
 
-      <Flex justify="space-between" mt={3}>
+      <Flex
+        justify="space-between"
+        direction={{
+          base: "column",
+          md: "row",
+        }}
+        gap={2}
+      >
         <Text fontWeight="bold">Grand Total</Text>
         <Text fontWeight="bold">
           {formatCurrency(safeNumber(header.grand_total))}
         </Text>
       </Flex>
 
-      <Flex justify="space-between">
+      <Flex
+        justify="space-between"
+        direction={{
+          base: "column",
+          md: "row",
+        }}
+        gap={2}
+      >
         <Text>Outstanding</Text>
         <Text>{formatCurrency(safeNumber(header.outstanding))}</Text>
       </Flex>

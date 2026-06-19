@@ -34,7 +34,15 @@ export const createCustomer = async (req, res) => {
       facebook,
       indemnity_agreement_locked,
       warehouse_agreement_locked,
+      kyc_id,
+      from_kyc,
     } = req.body;
+
+    let kycApproval = null;
+
+    if (req.body.kyc_approval) {
+      kycApproval = JSON.parse(req.body.kyc_approval);
+    }
 
     /* ======= VALIDATION ======= */
     if (!fullname || !customer_type || !password)
@@ -87,19 +95,42 @@ export const createCustomer = async (req, res) => {
     const warehouseAgreement =
       req.files?.warehouse_agreement?.[0]?.path || null;
 
-    const customerIdImage = req.files?.customer_id_image?.[0]?.path || null;
-    const alternateIdImage = req.files?.alternate_id_image?.[0]?.path || null;
-    const signatureImage = req.files?.signature_image?.[0]?.path || null;
+    let customerIdImage = req.files?.customer_id_image?.[0]?.path || null;
+    let alternateIdImage = req.files?.alternate_id_image?.[0]?.path || null;
+    let signatureImage = req.files?.signature_image?.[0]?.path || null;
+    let cacDocument = req.files?.cac_document?.[0]?.path || null;
+
+    /* =====================================
+   COPY FILES FROM KYC IF NOT UPLOADED
+===================================== */
+
+    if (kyc_id) {
+      const kycResult = await pool.query(
+        `
+    SELECT *
+    FROM customer_kyc
+    WHERE id = $1
+    `,
+        [kyc_id],
+      );
+
+      if (kycResult.rows.length) {
+        const kyc = kycResult.rows[0];
+        customerIdImage = customerIdImage || kyc.customer_id_image;
+        alternateIdImage = alternateIdImage || kyc.alternate_id_image;
+        signatureImage = signatureImage || kyc.client_signature;
+        cacDocument = cacDocument || kyc.cac_document;
+      }
+    }
 
     const hashedPassword = await bcrypt.hash(password, 10);
-
     const isSelfCreated = !req.user;
     const createdBranchId = req.user?.branch_id || null;
     const createdByUserId = req.user?.id || null;
 
     const result = await pool.query(
       `INSERT INTO customers (fullname, customer_type, sex, telephone, address_1, address_2, address_3, fax, email, password, website, contact_name, contact_telephone, current_balance, payment_terms, enable, whatsapp, ig, facebook, indemnity_agreement, warehouse_agreement, indemnity_agreement_locked, warehouse_agreement_locked, customer_id_image,
-      alternate_id_image, signature_image, selfcreated, createdatbranchid, createdbyuserid) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29) RETURNING *`,
+      alternate_id_image, signature_image, selfcreated, createdatbranchid, createdbyuserid, cac_document, from_kyc) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31) RETURNING *`,
       [
         fullname,
         customer_type,
@@ -130,9 +161,39 @@ export const createCustomer = async (req, res) => {
         isSelfCreated,
         createdBranchId,
         createdByUserId,
+        cacDocument,
+        from_kyc === "true",
       ],
     );
     //userId: loginType === "staff" ? userId : null,
+    const customer = result.rows[0];
+
+    if (kyc_id) {
+      await pool.query(
+        `
+        UPDATE customer_kyc
+        SET
+        converted = TRUE,
+        customer_id = $1,
+        compliance_confirmed = $2,
+        kyc_verified_by = $3,
+        authorised_by = $4,
+        approved = $5
+        WHERE id = $6
+        `,
+        [
+          result.rows[0].id,
+
+          kycApproval?.compliance_confirmed ?? false,
+          kycApproval?.kyc_verified_by ?? null,
+          kycApproval?.authorised_by ?? null,
+          kycApproval?.approved ?? false,
+
+          kyc_id,
+        ],
+      );
+    }
+
     /* === ACTIVITY LOG === */
     await logActivity({
       userId: req.user?.id || null,
@@ -224,10 +285,12 @@ export const updateCustomer = async (req, res) => {
     let customerIdImagePath = existing.rows[0].customer_id_image;
     let alternateIdImagePath = existing.rows[0].alternate_id_image;
     let signatureImagePath = existing.rows[0].signature_image;
+    let cacDocumentPath = existing.rows[0].cac_document;
 
     const customerIdImage = req.files?.customer_id_image?.[0];
     const alternateIdImage = req.files?.alternate_id_image?.[0];
     const signatureImage = req.files?.signature_image?.[0];
+    const cacDocument = req.files?.cac_document?.[0];
 
     /* replace old file */
 
@@ -271,8 +334,16 @@ export const updateCustomer = async (req, res) => {
       signatureImagePath = signatureImage.path;
     }
 
+    if (cacDocument) {
+      if (cacDocumentPath && fs.existsSync(cacDocumentPath)) {
+        fs.unlinkSync(cacDocumentPath);
+      }
+
+      cacDocumentPath = cacDocument.path;
+    }
+
     const updated = await pool.query(
-      `UPDATE customers SET fullname = $1, customer_type = $2, sex = $3, telephone = $4, address_1 = $5, address_2 = $6,address_3 = $7, fax = $8, email = $9, website = $10, contact_name = $11, contact_telephone = $12, current_balance = $13, payment_terms = $14, enable = $15, whatsapp = $16, ig = $17, facebook = $18, indemnity_agreement = $19, warehouse_agreement = $20, indemnity_agreement_locked = $21, warehouse_agreement_locked = $22, customer_id_image = $23, alternate_id_image = $24, signature_image = $25, lasteditedon = NOW(), lasteditedby = $26 WHERE id = $27 RETURNING *`,
+      `UPDATE customers SET fullname = $1, customer_type = $2, sex = $3, telephone = $4, address_1 = $5, address_2 = $6,address_3 = $7, fax = $8, email = $9, website = $10, contact_name = $11, contact_telephone = $12, current_balance = $13, payment_terms = $14, enable = $15, whatsapp = $16, ig = $17, facebook = $18, indemnity_agreement = $19, warehouse_agreement = $20, indemnity_agreement_locked = $21, warehouse_agreement_locked = $22, customer_id_image = $23, alternate_id_image = $24, signature_image = $25, lasteditedon = NOW(), cac_document = $26, lasteditedby = $27 WHERE id = $28 RETURNING *`,
       [
         req.body.fullname,
         req.body.customer_type,
@@ -299,6 +370,7 @@ export const updateCustomer = async (req, res) => {
         customerIdImagePath,
         alternateIdImagePath,
         signatureImagePath,
+        cacDocumentPath,
         req.user.id,
         id,
       ],
@@ -714,7 +786,9 @@ export const getCustomerPortalSummary = async (req, res) => {
         warehouse_agreement_locked,
         customer_id_image,
         alternate_id_image,
-        signature_image
+        signature_image,
+        cac_document,
+        from_kyc
       FROM customers
       WHERE id = $1
     `,
@@ -919,6 +993,7 @@ export const updateOwnProfile = async (req, res) => {
     let indemnityAgreement = current.indemnity_agreement;
     let warehouseAgreement = current.warehouse_agreement;
     let customerImage = current.customer_id_image;
+    let cacDocument = current.cac_document;
 
     /* ==========================
          REMOVE FILES
@@ -996,6 +1071,17 @@ export const updateOwnProfile = async (req, res) => {
       customerImage = req.files.customer_id_image[0].path;
     }
 
+    /* --------------------------
+         CAC DOCUMENT
+      --------------------------- */
+    if (req.files?.cac_document?.[0]) {
+      if (cacDocument && fs.existsSync(cacDocument)) {
+        fs.unlinkSync(cacDocument);
+      }
+
+      cacDocument = req.files.cac_document[0].path;
+    }
+
     /* ==========================
          UPDATE CUSTOMER
       ========================== */
@@ -1023,36 +1109,30 @@ export const updateOwnProfile = async (req, res) => {
             warehouse_agreement = $13,
 
             customer_id_image = $14,
+            cac_document = $15,
 
             lasteditedon = NOW()
 
-          WHERE id = $15
+          WHERE id = $16
 
           RETURNING *
         `,
       [
         req.body.customer_type,
-
         req.body.sex || null,
-
         req.body.telephone,
-
         req.body.address_1 || null,
         req.body.address_2 || null,
         req.body.address_3 || null,
-
         req.body.fax || null,
         req.body.website || null,
-
         req.body.whatsapp || null,
         req.body.ig || null,
         req.body.facebook || null,
-
         indemnityAgreement,
         warehouseAgreement,
-
         customerImage,
-
+        cacDocument,
         customerId,
       ],
     );

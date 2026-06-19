@@ -20,6 +20,7 @@ import {
   rejectDischarge,
 } from "../services/dischargeService";
 import { useAuth } from "../context/AuthContext";
+import ResponsiveTable from "../components/ResponsiveTable";
 
 export default function ApprovalDashboard() {
   const toast = useToast();
@@ -91,14 +92,17 @@ export default function ApprovalDashboard() {
   };
 
   return (
-    <Box p={6}>
+    <Box p={{ base: 3, md: 6 }}>
       <Heading mb={4}>Approval Dashboard</Heading>
 
-      <HStack mb={4} spacing={4}>
+      <HStack mb={4} spacing={4} flexWrap="wrap">
         <Select
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
-          width="200px"
+          width={{
+            base: "100%",
+            md: "200px",
+          }}
         >
           <option value="PENDING">Pending</option>
           <option value="APPROVED">Approved</option>
@@ -117,64 +121,66 @@ export default function ApprovalDashboard() {
         )}
       </HStack>
 
-      <Table size="sm">
-        <Thead>
-          <Tr>
-            {filter === "PENDING" && <Th></Th>}
-            <Th>Date</Th>
-            <Th>Discharge No</Th>
-            <Th>Customer</Th>
-            <Th>Branch</Th>
-            <Th>Status</Th>
-            <Th>Actions</Th>
-          </Tr>
-        </Thead>
-
-        <Tbody>
-          {filtered.map((row) => (
-            <Tr key={row.discharge_id}>
-              {filter === "PENDING" && (
-                <Td>
-                  <Checkbox
-                    isChecked={selected.includes(row.discharge_id)}
-                    onChange={() => toggleSelect(row.discharge_id)}
-                  />
-                </Td>
-              )}
-
-              <Td>{row.discharge_date?.slice(0, 10)}</Td>
-              <Td>{row.discharge_no}</Td>
-              <Td>{row.customer_name}</Td>
-              <Td>{row.branch_name}</Td>
-              <Td>{row.approval_status}</Td>
-
-              <Td>
-                <HStack>
-                  {filter === "PENDING" && hasPermission("can_approve") && (
-                    <>
-                      <Button
-                        size="xs"
-                        colorScheme="green"
-                        onClick={() => handleApprove(row.discharge_id)}
-                      >
-                        Approve
-                      </Button>
-
-                      <Button
-                        size="xs"
-                        colorScheme="orange"
-                        onClick={() => handleReject(row.discharge_id)}
-                      >
-                        Reject
-                      </Button>
-                    </>
-                  )}
-                </HStack>
-              </Td>
+      <ResponsiveTable minWidth="900px">
+        <Table size="sm">
+          <Thead>
+            <Tr>
+              {filter === "PENDING" && <Th></Th>}
+              <Th>Date</Th>
+              <Th>Discharge No</Th>
+              <Th>Customer</Th>
+              <Th>Branch</Th>
+              <Th>Status</Th>
+              <Th>Actions</Th>
             </Tr>
-          ))}
-        </Tbody>
-      </Table>
+          </Thead>
+
+          <Tbody>
+            {filtered.map((row) => (
+              <Tr key={row.discharge_id}>
+                {filter === "PENDING" && (
+                  <Td>
+                    <Checkbox
+                      isChecked={selected.includes(row.discharge_id)}
+                      onChange={() => toggleSelect(row.discharge_id)}
+                    />
+                  </Td>
+                )}
+
+                <Td>{row.discharge_date?.slice(0, 10)}</Td>
+                <Td>{row.discharge_no}</Td>
+                <Td>{row.customer_name}</Td>
+                <Td>{row.branch_name}</Td>
+                <Td>{row.approval_status}</Td>
+
+                <Td>
+                  <HStack>
+                    {filter === "PENDING" && hasPermission("can_approve") && (
+                      <>
+                        <Button
+                          size="xs"
+                          colorScheme="green"
+                          onClick={() => handleApprove(row.discharge_id)}
+                        >
+                          Approve
+                        </Button>
+
+                        <Button
+                          size="xs"
+                          colorScheme="orange"
+                          onClick={() => handleReject(row.discharge_id)}
+                        >
+                          Reject
+                        </Button>
+                      </>
+                    )}
+                  </HStack>
+                </Td>
+              </Tr>
+            ))}
+          </Tbody>
+        </Table>
+      </ResponsiveTable>
     </Box>
   );
 }

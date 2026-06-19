@@ -317,7 +317,7 @@ export default function StorageVisitPage() {
   ==================================== */
 
   return (
-    <Box p={6}>
+    <Box p={{ base: 3, md: 6 }}>
       <Heading mb={6}>Storage Visit Page</Heading>
 
       {/* ==============================
@@ -326,10 +326,16 @@ export default function StorageVisitPage() {
 
       {!visit && (
         <Box
-          maxW="700px"
+          maxW={{
+            base: "100%",
+            md: "700px",
+          }}
           mx="auto"
           bg="white"
-          p={6}
+          p={{
+            base: 4,
+            md: 6,
+          }}
           borderRadius="lg"
           boxShadow="md"
         >
@@ -337,10 +343,14 @@ export default function StorageVisitPage() {
             Scan Visitor QR Pass
           </Text>
 
-          <Box id="qr-reader" />
+          <Box id="qr-reader" overflow="hidden" maxW="100%" />
 
           <Button
             mt={4}
+            w={{
+              base: "100%",
+              md: "auto",
+            }}
             colorScheme="red"
             variant="outline"
             onClick={stopCamera}
@@ -402,10 +412,16 @@ export default function StorageVisitPage() {
 
       {visit && (
         <Box
-          maxW="800px"
+          maxW={{
+            base: "100%",
+            md: "800px",
+          }}
           mx="auto"
           bg="white"
-          p={8}
+          p={{
+            base: 4,
+            md: 8,
+          }}
           borderRadius="lg"
           boxShadow="lg"
         >
@@ -414,7 +430,15 @@ export default function StorageVisitPage() {
                 HEADER
             ====================== */}
 
-            <Flex justify="space-between" align="center">
+            <Flex
+              direction={{
+                base: "column",
+                md: "row",
+              }}
+              gap={3}
+              justify="space-between"
+              align="center"
+            >
               <HStack>
                 <FiCheckCircle size={28} color="green" />
                 <Heading size="md">Approved Visit</Heading>
@@ -475,8 +499,18 @@ export default function StorageVisitPage() {
                 ACTIONS
             ====================== */}
 
-            <HStack spacing={4}>
+            <HStack
+              direction={{
+                base: "column",
+                md: "row",
+              }}
+              spacing={4}
+            >
               <Button
+                w={{
+                  base: "100%",
+                  md: "auto",
+                }}
                 colorScheme="blue"
                 onClick={completeVisit}
                 isLoading={loading}
@@ -485,6 +519,10 @@ export default function StorageVisitPage() {
               </Button>
 
               <Button
+                w={{
+                  base: "100%",
+                  md: "auto",
+                }}
                 leftIcon={<FiRefreshCw />}
                 variant="outline"
                 onClick={resetScanner}
@@ -509,71 +547,73 @@ export default function StorageVisitPage() {
             No active visits
           </Flex>
         ) : (
-          <Table variant="simple" size="sm">
-            <Thead>
-              <Tr>
-                <Th>Customer</Th>
-                <Th>Storage No</Th>
-                <Th>Branch</Th>
-                <Th>Time In</Th>
-                <Th>Duration</Th>
-                <Th>Status</Th>
-                <Th>Actions</Th>
-              </Tr>
-            </Thead>
+          <Box overflowX="auto">
+            <Table variant="simple" size="sm">
+              <Thead>
+                <Tr>
+                  <Th>Customer</Th>
+                  <Th>Storage No</Th>
+                  <Th>Branch</Th>
+                  <Th>Time In</Th>
+                  <Th>Duration</Th>
+                  <Th>Status</Th>
+                  <Th>Actions</Th>
+                </Tr>
+              </Thead>
 
-            <Tbody>
-              {activeVisits.map((item) => {
-                const durationMinutes = Number(item.duration_minutes || 0);
+              <Tbody>
+                {activeVisits.map((item) => {
+                  const durationMinutes = Number(item.duration_minutes || 0);
 
-                return (
-                  <Tr key={item.visit_log_id}>
-                    <Td>{item.customer_name}</Td>
-                    <Td>{item.storage_no}</Td>
-                    <Td>{item.branch_name}</Td>
-                    <Td>{new Date(item.checked_in_at).toLocaleString()}</Td>
+                  return (
+                    <Tr key={item.visit_log_id}>
+                      <Td>{item.customer_name}</Td>
+                      <Td>{item.storage_no}</Td>
+                      <Td>{item.branch_name}</Td>
+                      <Td>{new Date(item.checked_in_at).toLocaleString()}</Td>
 
-                    <Td>
-                      <Badge
-                        colorScheme={
-                          durationMinutes > 120
-                            ? "red"
-                            : durationMinutes > 60
-                              ? "orange"
-                              : "green"
-                        }
-                      >
-                        {durationMinutes < 60
-                          ? `${durationMinutes} mins`
-                          : `${(durationMinutes / 60).toFixed(1)} hrs`}
-                      </Badge>
-                    </Td>
+                      <Td>
+                        <Badge
+                          colorScheme={
+                            durationMinutes > 120
+                              ? "red"
+                              : durationMinutes > 60
+                                ? "orange"
+                                : "green"
+                          }
+                        >
+                          {durationMinutes < 60
+                            ? `${durationMinutes} mins`
+                            : `${(durationMinutes / 60).toFixed(1)} hrs`}
+                        </Badge>
+                      </Td>
 
-                    <Td>
-                      <Badge colorScheme="green">CHECKED IN</Badge>
-                    </Td>
+                      <Td>
+                        <Badge colorScheme="green">CHECKED IN</Badge>
+                      </Td>
 
-                    <Td>
-                      <Button
-                        size="sm"
-                        colorScheme="blue"
-                        onClick={() => {
-                          setVisit({
-                            ...item,
-                            visit_date: item.visit_date,
-                            approved_by: item.approved_by,
-                          });
-                          setRemarks(item.remarks || "");
-                        }}
-                      >
-                        Checkout
-                      </Button>
-                    </Td>
-                  </Tr>
-                );
-              })}
-            </Tbody>
-          </Table>
+                      <Td>
+                        <Button
+                          size="sm"
+                          colorScheme="blue"
+                          onClick={() => {
+                            setVisit({
+                              ...item,
+                              visit_date: item.visit_date,
+                              approved_by: item.approved_by,
+                            });
+                            setRemarks(item.remarks || "");
+                          }}
+                        >
+                          Checkout
+                        </Button>
+                      </Td>
+                    </Tr>
+                  );
+                })}
+              </Tbody>
+            </Table>
+          </Box>
         )}
       </Box>
     </Box>

@@ -36,11 +36,11 @@ export default function AdminDashboard() {
     <Box>
       {/* PAGE TITLE */}
       <Text fontSize="xl" fontWeight="bold" mb={4}>
-        Wellcome back, {user?.fullname}
+        Welcome back, {user?.fullname}
       </Text>
 
       {/* SECURITY OVERVIEW */}
-      <Box bg="white" p={6} rounded="lg" boxShadow="sm" mb={6}>
+      <Box bg="white" p={{ base: 4, md: 6 }} rounded="lg" boxShadow="sm" mb={6}>
         <Heading size="md" mb={4}>
           Security Overview
         </Heading>
@@ -74,7 +74,7 @@ export default function AdminDashboard() {
       </Box>
 
       {/* FUTURE ADMIN MODULLES */}
-      <Box bg="white" p={6} rounded="lg" boxShadow="sm">
+      <Box bg="white" p={{ base: 4, md: 6 }} rounded="lg" boxShadow="sm">
         <Text fontWeight="bold" mb={2}>
           System Overview
         </Text>

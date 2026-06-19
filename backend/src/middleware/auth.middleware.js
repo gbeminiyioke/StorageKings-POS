@@ -68,6 +68,16 @@ export const authenticate = async (req, res, next) => {
     // ATTACH DECODED TOKEN TO REQUEST
     req.user = decoded;
 
+    await pool.query(
+      `
+      UPDATE user_sessions
+      SET last_activity = NOW(),
+      expires_at = NOW() + INTERVAL '3 days'
+      WHERE token = $1
+      `,
+      [token],
+    );
+
     next();
   } catch (err) {
     console.error("Auth middleware error:", err);

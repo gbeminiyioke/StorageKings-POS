@@ -139,8 +139,21 @@ export default function CustomerRegister() {
   };
 
   return (
-    <Flex minH="100vh" justify="center" bg="gray.50" py={8}>
-      <Box bg="white" w="50%" minW="700px" p={8} shadow="lg" rounded="lg">
+    <Flex
+      minH="100vh"
+      justify="center"
+      bg="gray.50"
+      py={8}
+      px={{ base: 3, md: 6 }}
+    >
+      <Box
+        bg="white"
+        w="100%"
+        maxW="900px"
+        p={{ base: 4, md: 8 }}
+        shadow="lg"
+        rounded="lg"
+      >
         <Heading size="md" mb={6} textAlign="center">
           Create Customer Account
         </Heading>
@@ -174,7 +187,6 @@ export default function CustomerRegister() {
                 })}
               >
                 <option value="Coporate">Coporate</option>
-
                 <option value="Individual">Individual</option>
               </Select>
 
@@ -200,7 +212,13 @@ export default function CustomerRegister() {
             )}
           </Grid>
 
-          <Grid templateColumns="2fr 1fr 1fr" gap={4} mt={4}>
+          <Grid
+            templateColumns={{
+              base: "1fr",
+              lg: "2fr 1fr 1fr",
+            }}
+            gap={4}
+          >
             <FormControl isInvalid={errors.email} isRequired>
               <FormLabel>Email</FormLabel>
 
@@ -273,7 +291,13 @@ export default function CustomerRegister() {
             </FormControl>
           </Grid>
 
-          <Grid templateColumns="1fr 1fr" gap={4} mt={4}>
+          <Grid
+            templateColumns={{
+              base: "1fr",
+              md: "1fr 1fr",
+            }}
+            gap={4}
+          >
             <FormControl isInvalid={errors.telephone} isRequired>
               <FormLabel>Telephone</FormLabel>
 
@@ -293,7 +317,13 @@ export default function CustomerRegister() {
             </FormControl>
           </Grid>
 
-          <Grid templateColumns="1fr 1fr" gap={4} mt={4}>
+          <Grid
+            templateColumns={{
+              base: "1fr",
+              md: "1fr 1fr",
+            }}
+            gap={4}
+          >
             <FormControl>
               <FormLabel>Address 1</FormLabel>
 
@@ -308,7 +338,13 @@ export default function CustomerRegister() {
           </Grid>
 
           {customerType === "Coporate" && (
-            <Grid templateColumns="1fr 1fr" gap={4} mt={4}>
+            <Grid
+              templateColumns={{
+                base: "1fr",
+                md: "1fr 1fr",
+              }}
+              gap={4}
+            >
               <FormControl isInvalid={errors.contact_name} isRequired>
                 <FormLabel>Contact Name</FormLabel>
 
@@ -339,17 +375,27 @@ export default function CustomerRegister() {
             </Grid>
           )}
 
-          <Flex justify="center" gap={4} mt={8}>
+          <Flex
+            justify="center"
+            gap={3}
+            direction={{ base: "column", md: "row" }}
+            mt={8}
+          >
             <Button
               type="submit"
               colorScheme="blue"
+              w={{ base: "100%", md: "auto" }}
               isLoading={loading}
               leftIcon={loading && <Spinner size="sm" />}
             >
               Create Account
             </Button>
 
-            <Button variant="outline" onClick={handleCancel}>
+            <Button
+              variant="outline"
+              w={{ base: "100%", md: "auto" }}
+              onClick={handleCancel}
+            >
               Cancel
             </Button>
           </Flex>

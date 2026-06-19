@@ -96,7 +96,7 @@ export default function ActiveSessions() {
   }
 
   return (
-    <Box p={6}>
+    <Box p={{ base: 3, md: 6 }}>
       <Heading size="lg" mb={6}>
         Active Sessions
       </Heading>

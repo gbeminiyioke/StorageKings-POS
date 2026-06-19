@@ -1,9 +1,10 @@
 import bcrypt from "bcrypt";
 import crypto from "crypto";
 import pool from "../config/db.js";
-import { signToken } from "../config/jwt.js";
+import { signToken, signRefreshToken, REFRESH_SECRET } from "../config/jwt.js";
 import { sendResetEmail } from "../utils/mailer.js";
 import { logActivity } from "../utils/activityLogger.js";
+import jwt from "jsonwebtoken";
 
 const MAX_ATTEMPTS = 5;
 const LOCK_TIME = 15 * 60 * 1000; // 15 minutes
@@ -136,7 +137,7 @@ export const resetPassword = async (req, res) => {
 
     await pool.query(
       `INSERT INTO user_sessions (user_id, login_type, token, ip_address, user_agent, expires_at)
-       VALUES ($1, $2, $3, $4, $5, NOW() + INTERVAL '1 day')`,
+       VALUES ($1, $2, $3, $4, $5, NOW() + INTERVAL '3 days')`,
       [userId, type, tokenJwt, req.ip, req.headers["user-agent"]],
     );
 
@@ -177,7 +178,8 @@ export const login = async (req, res) => {
       roleId = null,
       roleName = null,
       defaultPage = null,
-      permissions = {};
+      permissions = {},
+      branchName = "";
 
     /* ================= STAFF LOGIN ================= */
     if (loginType === "staff") {
@@ -223,10 +225,23 @@ export const login = async (req, res) => {
       roleName = roleRes.rows[0].role_name;
       defaultPage = roleRes.rows[0].default_page;
 
+      const branchResult = await pool.query(
+        `
+        SELECT branch_name
+        FROM branches
+        WHERE branch_id = $1
+        `,
+        [branchId],
+      );
+
+      branchName = branchResult.rows[0]?.branch_name || "";
+
       const existingBranchSession = await pool.query(
         `
-        SELECT id
-        FROM user_sessions
+        UPDATE user_sessions
+        SET
+        is_active = false,
+        last_activity = NOW()
         WHERE user_id = $1
         AND login_type = 'staff'
         AND branch_id = $2
@@ -234,7 +249,7 @@ export const login = async (req, res) => {
         `,
         [user.id, branchId],
       );
-
+      /*
       if (existingBranchSession.rows.length) {
         const existingSession = await pool.query(
           `
@@ -258,6 +273,7 @@ export const login = async (req, res) => {
           });
         }
       }
+      */
 
       // Fetch permissions
       const permRes = await pool.query(
@@ -281,11 +297,13 @@ export const login = async (req, res) => {
 
       const existingCustomerSession = await pool.query(
         `
-        SELECT id
-        FROM user_sessions
+        UPDATE user_sessions
+        SET
+        is_active = false,
+        last_activity = NOW()
         WHERE user_id = $1
-        AND login_type='customer'
-        AND is_active=true
+        AND login_type = 'customer'
+        AND is_active = true
         `,
         [user.id],
       );
@@ -339,20 +357,27 @@ export const login = async (req, res) => {
       fullname: user.fullname,
       roleid: roleId,
       branchId: loginType === "staff" ? branchId : null,
+      branchName,
       loginType,
       permissions,
       passwordChangedAt: user.password_changed_at,
     });
 
+    const refreshToken = signRefreshToken({
+      id: user.id,
+      loginType,
+    });
+
     // Save session
     await pool.query(
-      `INSERT INTO user_sessions (user_id, login_type, branch_id, token, ip_address, user_agent, device_fingerprint, expires_at, last_activity)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,NOW() + INTERVAL '1 day', NOW())`,
+      `INSERT INTO user_sessions (user_id, login_type, branch_id, token, refresh_token, ip_address, user_agent, device_fingerprint, expires_at, refresh_expires_at, last_activity)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8, NOW() + INTERVAL '3 days', NOW() + INTERVAL '3 days', NOW())`,
       [
         user.id,
         loginType,
         loginType === "staff" ? branchId : null,
         token,
+        refreshToken,
         req.ip,
         req.headers["user-agent"],
         deviceFingerprint,
@@ -372,9 +397,11 @@ export const login = async (req, res) => {
 
     res.status(200).json({
       token,
+      refreshToken,
       loginType,
       roleId,
       roleName,
+      branchName,
       defaultPage,
       permissions,
       name: user.fullname,
@@ -501,6 +528,7 @@ export const getAllActiveSessions = async (req, res) => {
         us.device_fingerprint,
         us.created_at,
         us.last_activity,
+        us.created_at,
 
         CASE
           WHEN us.login_type = 'staff'
@@ -602,6 +630,170 @@ export const getSessionStatistics = async (req, res) => {
 
     return res.status(500).json({
       message: "Failed to load session statistics",
+    });
+  }
+};
+
+export const refresh = async (req, res) => {
+  try {
+    const { refreshToken } = req.body;
+
+    if (!refreshToken) {
+      return res.status(401).json({
+        message: "Refresh token required",
+      });
+    }
+
+    const decoded = jwt.verify(refreshToken, REFRESH_SECRET);
+
+    const session = await pool.query(
+      `
+      SELECT *
+      FROM user_sessions
+      WHERE refresh_token = $1
+      AND is_active = true
+      AND refresh_expires_at > NOW()
+      `,
+      [refreshToken],
+    );
+
+    if (!session.rows.length) {
+      return res.status(401).json({
+        message: "Invalid session",
+      });
+    }
+
+    const table = decoded.loginType === "staff" ? "users" : "customers";
+
+    const userResult = await pool.query(
+      `
+      SELECT *
+      FROM ${table}
+      WHERE id = $1
+      `,
+      [decoded.id],
+    );
+
+    if (!userResult.rows.length) {
+      return res.status(401).json({
+        message: "User not found",
+      });
+    }
+
+    const user = userResult.rows[0];
+
+    let permissions = {};
+    let roleId = null;
+    let branchId = null;
+    let branchName = "";
+
+    if (decoded.loginType === "staff") {
+      branchId = session.rows[0].branch_id;
+
+      const roleResult = await pool.query(
+        `
+      SELECT r.role_id
+      FROM user_branch_roles ubr
+      JOIN roles r
+        ON ubr.role_id = r.role_id
+      WHERE ubr.user_id = $1
+      AND ubr.branch_id = $2
+      `,
+        [decoded.id, branchId],
+      );
+
+      roleId = roleResult.rows[0]?.role_id || null;
+
+      if (roleId) {
+        const permResult = await pool.query(
+          `
+          SELECT *
+          FROM role_permissions
+          WHERE role_id = $1
+          `,
+          [roleId],
+        );
+
+        permissions = permResult.rows[0] || {};
+      }
+    }
+
+    const branchResult = await pool.query(
+      `
+      SELECT branch_name
+      FROM branches
+      WHERE branch_id = $1
+      `,
+      [branchId],
+    );
+
+    branchName = branchResult.rows[0]?.branch_name || "";
+
+    const newToken = signToken({
+      id: user.id,
+      email: user.email,
+      fullname: user.fullname,
+      roleid: roleId,
+      branchId,
+      branchName,
+      loginType: decoded.loginType,
+      permissions,
+      passwordChangedAt: user.password_changed_at,
+    });
+
+    const newRefreshToken = signRefreshToken({
+      id: user.id,
+      loginType: decoded.loginType,
+    });
+
+    await pool.query(
+      `
+      UPDATE user_sessions
+      SET
+      token = $1,
+      refresh_token = $2,
+      refresh_expires_at =
+      NOW() + INTERVAL '3 days',
+      last_activity = NOW()
+      WHERE refresh_token = $3
+      `,
+      [newToken, newRefreshToken, refreshToken],
+    );
+
+    return res.json({
+      token: newToken,
+      refreshToken: newRefreshToken,
+    });
+  } catch (err) {
+    console.error(err);
+
+    return res.status(401).json({
+      message: "Refresh token expired",
+    });
+  }
+};
+
+export const ping = async (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(" ")[1];
+
+    await pool.query(
+      `
+      UPDATE user_sessions
+      SET last_activity = NOW()
+      WHERE token = $1
+      `,
+      [token],
+    );
+
+    res.json({
+      success: true,
+    });
+  } catch (err) {
+    console.error(err);
+
+    res.status(500).json({
+      success: false,
     });
   }
 };

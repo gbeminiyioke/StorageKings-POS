@@ -15,40 +15,45 @@ export const AuthProvider = ({ children }) => {
     LOAD FROM LOCAL STORAGE ON APP START
   -----------------------------------------*/
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    const storedUser = localStorage.getItem("user");
-    const storedRole = localStorage.getItem("role");
-    const storedPermissions = localStorage.getItem("permissions");
-    const storedBranch = localStorage.getItem("branch_id");
+    const initializeAuth = async () => {
+      const token = localStorage.getItem("token");
+      const refreshToken = localStorage.getItem("refreshToken");
 
-    if (!token) return;
+      if (!token) return;
 
-    try {
-      const decoded = jwtDecode(token);
+      try {
+        let activeToken = token;
 
-      if (decoded.exp * 1000 < Date.now()) {
+        const decoded = jwtDecode(token);
+
+        if (decoded.exp * 1000 < Date.now()) {
+          if (!refreshToken) {
+            logout();
+            return;
+          }
+
+          const res = await api.post("/auth/refresh", {
+            refreshToken,
+          });
+          activeToken = res.data.token;
+          localStorage.setItem("token", activeToken);
+          localStorage.setItem("refreshToken", res.data.refreshToken);
+        }
+        const finalDecoded = jwtDecode(activeToken);
+        const storedUser = localStorage.getItem("user");
+        const parsedUser = storedUser ? JSON.parse(storedUser) : finalDecoded;
+
+        setUser(parsedUser);
+        setPermissions(parsedUser.permissions || {});
+        setRole(parsedUser.role || null);
+        setBranchId(parsedUser.branchId || null);
+        setIsAuthenticated(true);
+      } catch (err) {
+        console.error(err);
         logout();
-        return;
       }
-
-      let parsedUser = null;
-
-      if (storedUser && storedUser !== "undefined") {
-        parsedUser = JSON.parse(storedUser);
-      }
-
-      setUser(parsedUser || decoded);
-      setPermissions(parsedUser?.permissions || {});
-      setRole(parsedUser?.role || null);
-      setBranchId(parsedUser?.branch_id || null);
-      setIsAuthenticated(true);
-
-      //setUser(decoded);
-      //setIsAuthenticated(true);
-    } catch (err) {
-      console.error("Invalid token:", err);
-      logout();
-    }
+    };
+    initializeAuth();
   }, []);
 
   /*-----------------------------------
@@ -62,13 +67,15 @@ export const AuthProvider = ({ children }) => {
       ...decoded,
       permissions: data.permissions || {},
       role: data.role || null,
-      branch_id: data.branch_id || null,
+      branch_id: decoded.branchId || null,
+      branchName: decoded.branchName || null,
       name: data.name,
       roleName: data.roleName,
       defaultPage: data.defaultPage,
     };
 
     localStorage.setItem("token", data.token);
+    localStorage.setItem("refreshToken", data.refreshToken);
     localStorage.setItem("user", JSON.stringify(userData));
     /*
     localStorage.setItem("role", JSON.stringify(role));
@@ -95,7 +102,10 @@ export const AuthProvider = ({ children }) => {
     } catch (err) {
       console.error(err);
     } finally {
-      localStorage.clear();
+      //localStorage.clear();
+      localStorage.removeItem("token");
+      localStorage.removeItem("refreshToken");
+      localStorage.removeItem("user");
       setUser(null);
       setRole(null);
       setPermissions({});

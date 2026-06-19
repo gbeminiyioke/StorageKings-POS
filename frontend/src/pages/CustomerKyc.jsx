@@ -15,6 +15,13 @@ import {
   Text,
   VStack,
   useToast,
+  Modal,
+  ModalOverlay,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
+  ModalCloseButton,
 } from "@chakra-ui/react";
 
 import axios from "axios";
@@ -115,6 +122,29 @@ export default function CustomerKyc() {
   const [authorisedSignaturePreview, setAuthorisedSignaturePreview] =
     useState("");
 
+  const [pdfOpen, setPdfOpen] = useState(false);
+  const [pdfPreview, setPdfPreview] = useState("");
+
+  const customerIdRef = useRef();
+  const alternateIdRef = useRef();
+  const cacDocumentRef = useRef();
+
+  const [customerIdImage, setCustomerIdImage] = useState(null);
+  const [customerIdPreview, setCustomerIdPreview] = useState("");
+  const [alternateIdImage, setAlternateIdImage] = useState(null);
+  const [alternateIdPreview, setAlternateIdPreview] = useState("");
+  const [cacDocument, setCacDocument] = useState(null);
+
+  const closePdf = () => {
+    setPdfOpen(false);
+  };
+
+  const openPdf = () => {
+    if (pdfPreview) {
+      setPdfOpen(true);
+    }
+  };
+
   const identificationOptions = useMemo(() => {
     const options = [
       "National ID Card",
@@ -153,6 +183,32 @@ export default function CustomerKyc() {
       setAuthorisedSignature(file);
       setAuthorisedSignaturePreview(preview);
     }
+  };
+
+  const handleCustomerIdChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setCustomerIdImage(file);
+    setCustomerIdPreview(URL.createObjectURL(file));
+  };
+
+  const handleAlternateIdChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setAlternateIdImage(file);
+    setAlternateIdPreview(URL.createObjectURL(file));
+  };
+
+  const handleCacDocumentChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setCacDocument(file);
+
+    const url = URL.createObjectURL(file);
+    setPdfPreview(url);
   };
 
   const removeImage = (type) => {
@@ -207,6 +263,18 @@ export default function CustomerKyc() {
         payload.append("authorisedSignature", authorisedSignature);
       }
 
+      if (customerIdImage) {
+        payload.append("customer_id_image", customerIdImage);
+      }
+
+      if (alternateIdImage) {
+        payload.append("alternate_id_image", alternateIdImage);
+      }
+
+      if (cacDocument) {
+        payload.append("cac_document", cacDocument);
+      }
+
       await axios.post("/api/customer-kyc/create", payload, {
         headers: {
           "Content-Type": "multipart/form-data",
@@ -234,17 +302,23 @@ export default function CustomerKyc() {
   };
 
   return (
-    <Box p={6}>
+    <Box p={{ base: 3, md: 6 }}>
       <VStack spacing={8} align="stretch">
         <Heading size="lg">Customer KYC & Onboarding Form</Heading>
 
         {/* General Information */}
-        <Box borderWidth="1px" borderRadius="lg" p={6}>
+        <Box borderWidth="1px" borderRadius="lg" p={{ base: 4, md: 6 }}>
           <Heading size="md" mb={6}>
             General Information
           </Heading>
 
-          <Grid templateColumns="repeat(2, 1fr)" gap={5}>
+          <Grid
+            templateColumns={{
+              base: "1fr",
+              md: "repeat(2,1fr)",
+            }}
+            gap={5}
+          >
             <FormControl isRequired>
               <FormLabel>Full Name/Company Name</FormLabel>
               <Input
@@ -376,12 +450,18 @@ export default function CustomerKyc() {
         </Box>
 
         {/* Storage Details */}
-        <Box borderWidth="1px" borderRadius="lg" p={6}>
+        <Box borderWidth="1px" borderRadius="lg" p={{ base: 4, md: 6 }}>
           <Heading size="md" mb={6}>
             Storage Details
           </Heading>
 
-          <Grid templateColumns="repeat(2, 1fr)" gap={5}>
+          <Grid
+            templateColumns={{
+              base: "1fr",
+              md: "repeat(2,1fr)",
+            }}
+            gap={5}
+          >
             <FormControl>
               <FormLabel>Type of Service Required</FormLabel>
 
@@ -400,7 +480,7 @@ export default function CustomerKyc() {
             </FormControl>
 
             <FormControl>
-              <FormLabel>Storage Duration/Rental Period (Months)</FormLabel>
+              <FormLabel>Storage Duration/Period (Months)</FormLabel>
 
               <Input
                 type="number"
@@ -432,7 +512,7 @@ export default function CustomerKyc() {
               />
             </FormControl>
 
-            <GridItem colSpan={2}>
+            <GridItem colSpan={{ base: 1, md: 2 }}>
               <FormControl>
                 <FormLabel>Items to be stored/Service Description</FormLabel>
 
@@ -447,12 +527,18 @@ export default function CustomerKyc() {
         </Box>
 
         {/* Emergency Contact */}
-        <Box borderWidth="1px" borderRadius="lg" p={6}>
+        <Box borderWidth="1px" borderRadius="lg" p={{ base: 4, md: 6 }}>
           <Heading size="md" mb={6}>
             Emergency Contact / Next of Kin
           </Heading>
 
-          <Grid templateColumns="repeat(2, 1fr)" gap={5}>
+          <Grid
+            templateColumns={{
+              base: "1fr",
+              md: "repeat(2,1fr)",
+            }}
+            gap={5}
+          >
             <FormControl>
               <FormLabel>Full Name</FormLabel>
               <Input
@@ -471,23 +557,14 @@ export default function CustomerKyc() {
                 onChange={handleChange}
               >
                 <option value="">Select Relationship</option>
-
                 <option>Spouse / Partner</option>
-
                 <option>Child (Son / Daughter)</option>
-
                 <option>Parent (Mother / Father)</option>
-
                 <option>Sibling (Brother / Sister)</option>
-
                 <option>Grandparent / Grandchild</option>
-
                 <option>Uncle / Aunt</option>
-
                 <option>Niece / Nephew</option>
-
                 <option>Cousin</option>
-
                 <option>Other Relative</option>
               </Select>
             </FormControl>
@@ -513,7 +590,7 @@ export default function CustomerKyc() {
         </Box>
 
         {/* Compliance */}
-        <Box borderWidth="1px" borderRadius="lg" p={6}>
+        <Box borderWidth="1px" borderRadius="lg" p={{ base: 4, md: 6 }}>
           <Heading size="md" mb={6}>
             Compliance & Security Declaration
           </Heading>
@@ -534,7 +611,7 @@ export default function CustomerKyc() {
         </Box>
 
         {/* Prohibited Items */}
-        <Box borderWidth="1px" borderRadius="lg" p={6}>
+        <Box borderWidth="1px" borderRadius="lg" p={{ base: 4, md: 6 }}>
           <Heading size="md" mb={6}>
             Prohibited Items
           </Heading>
@@ -547,13 +624,167 @@ export default function CustomerKyc() {
           />
         </Box>
 
+        <Box borderWidth="1px" borderRadius="lg" p={{ base: 4, md: 6 }}>
+          <Heading size="md" mb={6}>
+            Supporting Documents
+          </Heading>
+
+          <Grid
+            templateColumns={{
+              base: "1fr",
+              md: "repeat(3,1fr)",
+            }}
+            gap={5}
+          >
+            {/* Customer ID */}
+            <Box>
+              <FormLabel>Customer ID</FormLabel>
+
+              <Box
+                borderWidth="1px"
+                borderRadius="md"
+                h="180px"
+                display="flex"
+                alignItems="center"
+                justifyContent="center"
+                cursor="pointer"
+                overflow="hidden"
+                onClick={() => customerIdRef.current.click()}
+              >
+                {customerIdPreview ? (
+                  <Image
+                    src={customerIdPreview}
+                    h="100%"
+                    w="100%"
+                    objectFit="cover"
+                  />
+                ) : (
+                  <Text>Click to upload ID</Text>
+                )}
+              </Box>
+
+              <Input
+                hidden
+                type="file"
+                accept="image/*"
+                ref={customerIdRef}
+                onChange={handleCustomerIdChange}
+              />
+
+              {customerIdPreview && (
+                <Button
+                  mt={2}
+                  size="sm"
+                  colorScheme="red"
+                  onClick={() => {
+                    setCustomerIdImage(null);
+                    setCustomerIdPreview("");
+                  }}
+                >
+                  Remove
+                </Button>
+              )}
+            </Box>
+
+            {/* Alternate ID */}
+            <Box>
+              <FormLabel>Alternate ID</FormLabel>
+
+              <Box
+                borderWidth="1px"
+                borderRadius="md"
+                h="180px"
+                display="flex"
+                alignItems="center"
+                justifyContent="center"
+                cursor="pointer"
+                overflow="hidden"
+                onClick={() => alternateIdRef.current.click()}
+              >
+                {alternateIdPreview ? (
+                  <Image
+                    src={alternateIdPreview}
+                    h="100%"
+                    w="100%"
+                    objectFit="cover"
+                  />
+                ) : (
+                  <Text>Click to upload ID</Text>
+                )}
+              </Box>
+
+              <Input
+                hidden
+                type="file"
+                accept="image/*"
+                ref={alternateIdRef}
+                onChange={handleAlternateIdChange}
+              />
+
+              {alternateIdPreview && (
+                <Button
+                  mt={2}
+                  size="sm"
+                  colorScheme="red"
+                  onClick={() => {
+                    setAlternateIdImage(null);
+                    setAlternateIdPreview("");
+                  }}
+                >
+                  Remove
+                </Button>
+              )}
+            </Box>
+
+            {/* CAC Document */}
+            <Box>
+              <FormLabel>CAC Document (PDF)</FormLabel>
+
+              <Input
+                type="file"
+                accept=".pdf"
+                ref={cacDocumentRef}
+                onChange={handleCacDocumentChange}
+              />
+
+              <Stack direction="row" mt={3}>
+                <Button
+                  size="sm"
+                  colorScheme="blue"
+                  onClick={openPdf}
+                  isDisabled={!pdfPreview}
+                >
+                  Preview
+                </Button>
+
+                <Button
+                  size="sm"
+                  colorScheme="red"
+                  onClick={() => {
+                    setCacDocument(null);
+                    setPdfPreview("");
+                  }}
+                >
+                  Remove
+                </Button>
+              </Stack>
+            </Box>
+          </Grid>
+        </Box>
+
         {/* Client Consent */}
-        <Box borderWidth="1px" borderRadius="lg" p={6}>
+        <Box borderWidth="1px" borderRadius="lg" p={{ base: 4, md: 6 }}>
           <Heading size="md" mb={6}>
             Client Consent
           </Heading>
 
-          <Grid templateColumns="repeat(2, 1fr)" gap={5}>
+          <Grid
+            templateColumns={{
+              base: "1fr",
+              md: "repeat(2,1fr)",
+            }}
+            gap={5}
+          >
             <Box>
               <FormLabel>Client Signature</FormLabel>
 
@@ -612,12 +843,18 @@ export default function CustomerKyc() {
         </Box>
 
         {/* Official Use */}
-        <Box borderWidth="1px" borderRadius="lg" p={6}>
+        <Box borderWidth="1px" borderRadius="lg" p={{ base: 4, md: 6 }}>
           <Heading size="md" mb={6}>
             For Official Use Only
           </Heading>
 
-          <Grid templateColumns="repeat(2, 1fr)" gap={5}>
+          <Grid
+            templateColumns={{
+              base: "1fr",
+              md: "repeat(2,1fr)",
+            }}
+            gap={5}
+          >
             <FormControl>
               <FormLabel>KYC Verified By</FormLabel>
 
@@ -638,7 +875,7 @@ export default function CustomerKyc() {
               />
             </FormControl>
 
-            <GridItem colSpan={2}>
+            <GridItem colSpan={{ base: 1, md: 2 }}>
               <FormControl>
                 <FormLabel>Comments</FormLabel>
 
@@ -706,16 +943,41 @@ export default function CustomerKyc() {
           </Grid>
         </Box>
 
-        <Stack direction="row" spacing={4}>
-          <Button colorScheme="blue" isLoading={loading} onClick={handleSubmit}>
+        <Stack direction={{ base: "column", md: "row" }} spacing={4}>
+          <Button
+            w={{ base: "100%", md: "auto" }}
+            colorScheme="blue"
+            isLoading={loading}
+            onClick={handleSubmit}
+          >
             Save Details
           </Button>
 
-          <Button variant="outline" onClick={() => navigate("/login")}>
+          <Button
+            w={{ base: "100%", md: "auto" }}
+            variant="outline"
+            onClick={() => navigate("/login")}
+          >
             Cancel
           </Button>
         </Stack>
       </VStack>
+
+      <Modal isOpen={pdfOpen} onClose={closePdf}>
+        <ModalOverlay />
+        <ModalContent maxW="6xl">
+          <ModalHeader>CAC Document Preview</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody h="80vh">
+            <iframe
+              src={pdfPreview}
+              width="100%"
+              height="100%"
+              style={{ border: "none" }}
+            />
+          </ModalBody>
+        </ModalContent>
+      </Modal>
     </Box>
   );
 }

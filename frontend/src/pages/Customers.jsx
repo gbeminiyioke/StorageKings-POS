@@ -30,6 +30,13 @@ import {
   InputGroup,
   InputRightElement,
   Tooltip,
+  Modal,
+  ModalOverlay,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
+  ModalCloseButton,
 } from "@chakra-ui/react";
 import {
   ViewIcon,
@@ -109,6 +116,23 @@ export default function Customers() {
   const [alternateIdPreview, setAlternateIdPreview] = useState(null);
   const [signaturePreview, setSignaturePreview] = useState(null);
 
+  const [disableKycButton, setDisableKycButton] = useState(false);
+
+  const [selectedKycId, setSelectedKycId] = useState(null);
+  const [kycList, setKycList] = useState([]);
+  const [isKycOpen, setIsKycOpen] = useState(false);
+
+  const [isApprovalOpen, setIsApprovalOpen] = useState(false);
+
+  const [kycApproval, setKycApproval] = useState({
+    compliance_confirmed: false,
+    kyc_verified_by: "",
+    authorised_by: "",
+    approved: true,
+  });
+
+  const [pendingPayload, setPendingPayload] = useState(null);
+
   const cancelRef = useRef();
   const indemnityRef = useRef(null);
   const warehouseRef = useRef(null);
@@ -120,11 +144,6 @@ export default function Customers() {
     setCustomers(res.data.data);
     setTotal(res.data.total);
   };
-  /*
-  useEffect(() => {
-    loadSuppliers();
-  }, [search, page]);
-*/
 
   useEffect(() => {
     if (!editingId) {
@@ -133,6 +152,85 @@ export default function Customers() {
 
     loadCustomers();
   }, [search, page]);
+
+  const openKycModal = async () => {
+    try {
+      const res = await api.get("/customer-kyc/unconverted");
+      setKycList(res.data);
+      setIsKycOpen(true);
+    } catch (err) {
+      toast({
+        title: err.response?.data?.message || "Failed to load KYC records",
+        status: "error",
+      });
+    }
+  };
+
+  const loadKyc = async (id) => {
+    try {
+      const res = await api.get(`/customer-kyc/${id}`);
+      const kyc = res.data;
+
+      setSelectedKycId(id);
+
+      reset({
+        ...defaultValues,
+
+        fullname: kyc.full_name_company_name || "",
+        email: kyc.email_address || "",
+        customer_type: kyc.customer_type || "Individual",
+        sex: kyc.sex || "",
+        contact_name: kyc.contact_person || "",
+        telephone: kyc.telephone_number || "",
+        contact_telephone: kyc.alternate_telephone || "",
+        address_1: kyc.residential_business_address || "",
+
+        customer_id_image: kyc.customer_id_image,
+        alternate_id_image: kyc.alternate_id_image,
+        signature_image: kyc.client_signature,
+        cac_document: kyc.cac_document,
+      });
+
+      const apiBase = (import.meta.env.VITE_API_URL || "").replace(
+        /\/api\/?$/,
+        "",
+      );
+
+      setCustomerIdPreview(
+        kyc.customer_id_image
+          ? `${apiBase}/${kyc.customer_id_image.replace(/\\/g, "/")}`
+          : null,
+      );
+
+      setAlternateIdPreview(
+        kyc.alternate_id_image
+          ? `${apiBase}/${kyc.alternate_id_image.replace(/\\/g, "/")}`
+          : null,
+      );
+
+      setSignaturePreview(
+        kyc.client_signature
+          ? `${apiBase}/${kyc.client_signature.replace(/\\/g, "/")}`
+          : null,
+      );
+      /*
+      if (kyc.cac_document) {
+        setPdfPreview(`${apiBase}/${kyc.cac_document.replace(/\\/g, "/")}`);
+      }
+*/
+      setIsKycOpen(false);
+
+      toast({
+        title: "KYC loaded successfully",
+        status: "success",
+      });
+    } catch (err) {
+      toast({
+        title: err.response?.data?.message || "Failed to load KYC",
+        status: "error",
+      });
+    }
+  };
 
   const formatCurrency = (value) => {
     const number = parseFloat(value || 0);
@@ -153,6 +251,8 @@ export default function Customers() {
     setCustomerIdPreview(null);
     setAlternateIdPreview(null);
     setSignaturePreview(null);
+    setSelectedKycId(null);
+    setDisableKycButton(false);
 
     if (indemnityRef.current) {
       indemnityRef.current.value = "";
@@ -177,6 +277,35 @@ export default function Customers() {
   };
 
   /*=====================================
+    SAVE HANDLER
+  =======================================*/
+  const saveCustomerFromKyc = async () => {
+    try {
+      setLoading(true);
+
+      pendingPayload.append("kyc_approval", JSON.stringify(kycApproval));
+
+      const res = await api.post("/customers", pendingPayload);
+
+      toast({
+        title: "Customer created successfully",
+        status: "success",
+      });
+
+      setIsApprovalOpen(false);
+      clearAgreementFields();
+      loadCustomers();
+    } catch (err) {
+      toast({
+        title: err.response?.data?.message || "Save failed",
+        status: "error",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /*=====================================
     SAVE / UPDATE
   =======================================*/
   const onSubmit = async (data) => {
@@ -188,14 +317,6 @@ export default function Customers() {
 
     try {
       setLoading(true);
-      /*
-      const payload = {
-        ...data,
-        current_balance: parseFloat(
-          data.current_balance?.toString().replace(/,/g, "") || 0,
-        ),
-      };
-*/
 
       const payload = new FormData();
 
@@ -212,11 +333,9 @@ export default function Customers() {
       );
 
       if (editingId) {
-        //delete payload.password;
-        //delete payload.confirmPassword;
-
         payload.delete("password");
         payload.delete("confirmPassword");
+
         await api.put(`/customers/${editingId}`, payload);
 
         toast({
@@ -226,6 +345,15 @@ export default function Customers() {
           isClosable: true,
         });
       } else {
+        payload.append("kyc_id", selectedKycId);
+        payload.append("from_kyc", !!selectedKycId);
+
+        if (selectedKycId) {
+          setPendingPayload(payload);
+          setIsApprovalOpen(true);
+          return;
+        }
+
         await api.post("/customers", payload);
 
         toast({
@@ -240,6 +368,8 @@ export default function Customers() {
       //setEditingId(null);
       clearAgreementFields();
       loadCustomers();
+      setDisableKycButton(false);
+      setSelectedKycId(null);
     } catch (err) {
       if (err.response?.data?.message === "CUSTOMER_NAME_EXISTS") {
         setError("fullname", {
@@ -271,11 +401,14 @@ export default function Customers() {
   =====================================*/
   const handleEdit = (customer) => {
     setEditingId(customer.id);
+    setDisableKycButton(true);
 
-    //const apiBase = import.meta.env.VITE_API_URL?.replace(/\/$/, "") || "";
-    const apiBase = (
-      import.meta.env.VITE_API_URL || "http://localhost:5000"
-    ).replace(/\/api$/, "");
+    //const apiBase = (import.meta.env.VITE_API_URL || "").replace(/\/api$/, "");
+
+    const apiBase = (import.meta.env.VITE_API_URL || "").replace(
+      /\/api\/?$/,
+      "",
+    );
 
     setCustomerIdPreview(
       customer.customer_id_image
@@ -312,6 +445,7 @@ export default function Customers() {
     //reset(defaultValues);
     //setEditingId(null);
     clearAgreementFields();
+    setDisableKycButton(false);
   };
 
   /*====================================
@@ -327,6 +461,7 @@ export default function Customers() {
 
     reset(clone);
     setEditingId(null);
+    setDisableKycButton(true);
   };
 
   /*====================================
@@ -391,14 +526,15 @@ export default function Customers() {
   };
 
   return (
-    <Box p={6}>
+    <Box p={{ base: 3, md: 6 }}>
       {/* ========== FORM ========== */}
-      <Box bg="white" p={6} rounded="md" shadow="md">
+      <Box bg="white" p={{ base: 4, md: 6 }} rounded="md" shadow="md">
         <form onSubmit={handleSubmit(onSubmit)}>
           <Grid
-            templateColumns={
-              customerType === "Individual" ? "2fr 1fr 1fr" : "2fr 2fr"
-            }
+            templateColumns={{
+              base: "1fr",
+              lg: customerType === "Individual" ? "2fr 1fr 1fr" : "2fr 2fr",
+            }}
             gap={4}
           >
             <FormControl isInvalid={errors.fullname} isRequired>
@@ -427,7 +563,13 @@ export default function Customers() {
             )}
           </Grid>
 
-          <Grid templateColumns="2fr 1fr 1fr" gap={4} mt={4}>
+          <Grid
+            templateColumns={{
+              base: "1fr",
+              lg: "2fr 1fr 1fr",
+            }}
+            gap={4}
+          >
             <FormControl isInvalid={errors.email} isRequired>
               <FormLabel>Email</FormLabel>
               <Input type="email" {...register("email")} />
@@ -486,7 +628,13 @@ export default function Customers() {
             </FormControl>
           </Grid>
 
-          <Grid templateColumns="1fr 1fr" gap={4} mt={4}>
+          <Grid
+            templateColumns={{
+              base: "1fr",
+              md: "1fr 1fr",
+            }}
+            gap={4}
+          >
             <FormControl>
               <FormLabel>Address 1</FormLabel>
               <Input {...register("address_1")} />
@@ -498,7 +646,13 @@ export default function Customers() {
             </FormControl>
           </Grid>
 
-          <Grid templateColumns="1fr 1fr" gap={4} mt={4}>
+          <Grid
+            templateColumns={{
+              base: "1fr",
+              md: "1fr 1fr",
+            }}
+            gap={4}
+          >
             <FormControl>
               <FormLabel>Address 3</FormLabel>
               <Input {...register("address_3")} />
@@ -511,7 +665,13 @@ export default function Customers() {
             </FormControl>
           </Grid>
 
-          <Grid templateColumns="1fr 1fr" gap={4} mt={4}>
+          <Grid
+            templateColumns={{
+              base: "1fr",
+              md: "1fr 1fr",
+            }}
+            gap={4}
+          >
             <FormControl>
               <FormLabel>Fax</FormLabel>
               <Input {...register("fax")} />
@@ -525,7 +685,13 @@ export default function Customers() {
 
           {/* ====== COPORATE ONLY ======= */}
           {customerType === "Coporate" && (
-            <Grid templateColumns="1fr 1fr" gap={4} mt={4}>
+            <Grid
+              templateColumns={{
+                base: "1fr",
+                md: "1fr 1fr",
+              }}
+              gap={4}
+            >
               <FormControl isRequired>
                 <FormLabel>Contact Name</FormLabel>
                 <Input {...register("contact_name", { required: true })} />
@@ -539,7 +705,13 @@ export default function Customers() {
           )}
 
           {/* ====== CURRENT BALANCE ====== */}
-          <Grid templateColumns="1fr 1fr" gap={4} mt={4}>
+          <Grid
+            templateColumns={{
+              base: "1fr",
+              md: "1fr 1fr",
+            }}
+            gap={4}
+          >
             <FormControl>
               <FormLabel>Current Balance</FormLabel>
               <Input
@@ -558,7 +730,13 @@ export default function Customers() {
             </FormControl>
           </Grid>
 
-          <Grid templateColumns="1fr 1fr" gap={4} mt={4}>
+          <Grid
+            templateColumns={{
+              base: "1fr",
+              md: "1fr 1fr",
+            }}
+            gap={4}
+          >
             <FormControl>
               <FormLabel>Whatsapp</FormLabel>
               <Input {...register("whatsapp")} />
@@ -570,7 +748,13 @@ export default function Customers() {
             </FormControl>
           </Grid>
 
-          <Grid templateColumns="1fr 1fr" gap={4} mt={4}>
+          <Grid
+            templateColumns={{
+              base: "1fr",
+              md: "1fr 1fr",
+            }}
+            gap={4}
+          >
             <FormControl>
               <FormLabel>Facebook</FormLabel>
               <Input {...register("facebook")} />
@@ -582,7 +766,13 @@ export default function Customers() {
             </FormControl>
           </Grid>
 
-          <Grid templateColumns="1fr 1fr" gap={4} mt={4}>
+          <Grid
+            templateColumns={{
+              base: "1fr",
+              md: "1fr 1fr",
+            }}
+            gap={4}
+          >
             <FormControl>
               <FormLabel>Indemnity Agreement (PDF)</FormLabel>
 
@@ -673,7 +863,14 @@ export default function Customers() {
           </Grid>
 */}
 
-          <Grid templateColumns="1fr 1fr 1fr" gap={4} mt={6}>
+          <Grid
+            templateColumns={{
+              base: "1fr",
+              md: "repeat(2,1fr)",
+              lg: "repeat(3,1fr)",
+            }}
+            gap={4}
+          >
             {/* CUSTOMER ID */}
             <FormControl>
               <FormLabel>Customer ID</FormLabel>
@@ -878,6 +1075,14 @@ export default function Customers() {
             </Button>
 
             <Button
+              colorScheme="purple"
+              onClick={openKycModal}
+              isDisabled={disableKycButton}
+            >
+              Create from Customer KYC
+            </Button>
+
+            <Button
               variant="outline"
               onClick={handleCancel}
               isDisabled={loading}
@@ -889,75 +1094,82 @@ export default function Customers() {
       </Box>
 
       {/* =============== SEARCH ================= */}
-      <Flex mt={8} justify="space-between">
+      <Flex
+        mt={8}
+        justify="space-between"
+        direction={{ base: "column", md: "row" }}
+        gap={3}
+      >
         <Input
           placeholder="Search by name, customer type or telephone"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          w="300px"
+          w={{ base: "100%", md: "300px" }}
         />
         <Text>Total: {total}</Text>
       </Flex>
 
       {/* =========== TABLE =========== */}
-      <Table mt={4}>
-        <Thead>
-          <Tr>
-            <Th>Name</Th>
-            <Th>Address</Th>
-            <Th>Type</Th>
-            <Th>Telephone</Th>
-            <Th>Enable</Th>
-            <Th>Actions</Th>
-          </Tr>
-        </Thead>
-
-        <Tbody>
-          {customers.map((c) => (
-            <Tr key={c.id}>
-              <Td>{c.fullname}</Td>
-              <Td>{c.address_1}</Td>
-              <Td>{c.customer_type}</Td>
-              <Td>{c.telephone}</Td>
-              <Td>{c.enable ? "Yes" : "No"}</Td>
-              <Td>
-                {hasPermission("can_edit") && (
-                  <>
-                    <Tooltip label="Edit Customer">
-                      <IconButton
-                        icon={<EditIcon />}
-                        size="sm"
-                        mr={2}
-                        onClick={() => handleEdit(c)}
-                      />
-                    </Tooltip>
-
-                    <Tooltip label="Clone Customer">
-                      <IconButton
-                        icon={<CopyIcon />}
-                        size="sm"
-                        mr={2}
-                        onClick={() => handleClone(c)}
-                      />
-                    </Tooltip>
-                  </>
-                )}
-
-                {hasPermission("can_delete") && (
-                  <Tooltip label="Delete Customer">
-                    <IconButton
-                      icon={<DeleteIcon />}
-                      size="sm"
-                      colorScheme="red"
-                      onClick={() => handleDelete(c.id)}
-                    />
-                  </Tooltip>
-                )}
-              </Td>
+      <Box overflowX="auto">
+        <Table size="sm">
+          <Thead>
+            <Tr>
+              <Th>Name</Th>
+              <Th>Address</Th>
+              <Th>Type</Th>
+              <Th>Telephone</Th>
+              <Th>Enable</Th>
+              <Th>Actions</Th>
             </Tr>
-          ))}
-        </Tbody>
-      </Table>
+          </Thead>
+
+          <Tbody>
+            {customers.map((c) => (
+              <Tr key={c.id}>
+                <Td>{c.fullname}</Td>
+                <Td>{c.address_1}</Td>
+                <Td>{c.customer_type}</Td>
+                <Td>{c.telephone}</Td>
+                <Td>{c.enable ? "Yes" : "No"}</Td>
+                <Td>
+                  {hasPermission("can_edit") && (
+                    <>
+                      <Tooltip label="Edit Customer">
+                        <IconButton
+                          icon={<EditIcon />}
+                          size="sm"
+                          mr={2}
+                          onClick={() => handleEdit(c)}
+                        />
+                      </Tooltip>
+
+                      <Tooltip label="Clone Customer">
+                        <IconButton
+                          icon={<CopyIcon />}
+                          size="sm"
+                          mr={2}
+                          onClick={() => handleClone(c)}
+                        />
+                      </Tooltip>
+                    </>
+                  )}
+
+                  {hasPermission("can_delete") && (
+                    <Tooltip label="Delete Customer">
+                      <IconButton
+                        icon={<DeleteIcon />}
+                        size="sm"
+                        colorScheme="red"
+                        onClick={() => handleDelete(c.id)}
+                      />
+                    </Tooltip>
+                  )}
+                </Td>
+              </Tr>
+            ))}
+          </Tbody>
+        </Table>
+      </Box>
 
       <AlertDialog
         isOpen={deleteId !== null}
@@ -990,7 +1202,12 @@ export default function Customers() {
       </AlertDialog>
 
       {/* =========== PAGINATION =========== */}
-      <Flex mt={4} gap={2}>
+      <Flex
+        mt={4}
+        gap={2}
+        justify="center"
+        direction={{ base: "column", md: "row" }}
+      >
         <Button disabled={page === 1} onClick={() => setPage(page - 1)}>
           Prev
         </Button>
@@ -999,6 +1216,133 @@ export default function Customers() {
           Next
         </Button>
       </Flex>
+
+      <Modal isOpen={isKycOpen} onClose={() => setIsKycOpen(false)} size="5xl">
+        <ModalOverlay />
+
+        <ModalContent>
+          <ModalHeader>Select Customer KYC</ModalHeader>
+
+          <ModalCloseButton />
+
+          <ModalBody>
+            <Table size="sm">
+              <Thead>
+                <Tr>
+                  <Th>ID</Th>
+                  <Th>Email</Th>
+                  <Th>Name</Th>
+                  <Th>Telephone</Th>
+                </Tr>
+              </Thead>
+
+              <Tbody>
+                {kycList.map((item) => (
+                  <Tr
+                    key={item.id}
+                    cursor="pointer"
+                    _hover={{
+                      bg: "gray.100",
+                    }}
+                    onDoubleClick={() => loadKyc(item.id)}
+                  >
+                    <Td>{item.id}</Td>
+
+                    <Td>{item.email_address}</Td>
+
+                    <Td>{item.full_name_company_name}</Td>
+
+                    <Td>{item.telephone_number}</Td>
+                  </Tr>
+                ))}
+              </Tbody>
+            </Table>
+          </ModalBody>
+
+          <ModalFooter>
+            <Button onClick={() => setIsKycOpen(false)}>Close</Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      <Modal isOpen={isApprovalOpen} onClose={() => setIsApprovalOpen(false)}>
+        <ModalOverlay />
+
+        <ModalContent>
+          <ModalHeader>KYC Approval</ModalHeader>
+
+          <ModalCloseButton />
+
+          <ModalBody>
+            <Checkbox
+              isChecked={kycApproval.compliance_confirmed}
+              onChange={(e) =>
+                setKycApproval({
+                  ...kycApproval,
+                  compliance_confirmed: e.target.checked,
+                })
+              }
+            >
+              Compliance Confirmed
+            </Checkbox>
+
+            <FormControl mt={4}>
+              <FormLabel>KYC Verified By</FormLabel>
+
+              <Input
+                value={kycApproval.kyc_verified_by}
+                onChange={(e) =>
+                  setKycApproval({
+                    ...kycApproval,
+                    kyc_verified_by: e.target.value,
+                  })
+                }
+              />
+            </FormControl>
+
+            <FormControl mt={4}>
+              <FormLabel>Authorised By</FormLabel>
+
+              <Input
+                value={kycApproval.authorised_by}
+                onChange={(e) =>
+                  setKycApproval({
+                    ...kycApproval,
+                    authorised_by: e.target.value,
+                  })
+                }
+              />
+            </FormControl>
+
+            <Checkbox
+              mt={4}
+              isChecked={kycApproval.approved}
+              onChange={(e) =>
+                setKycApproval({
+                  ...kycApproval,
+                  approved: e.target.checked,
+                })
+              }
+            >
+              Approved
+            </Checkbox>
+          </ModalBody>
+
+          <ModalFooter>
+            <Button mr={3} onClick={() => setIsApprovalOpen(false)}>
+              Cancel
+            </Button>
+
+            <Button
+              colorScheme="blue"
+              onClick={saveCustomerFromKyc}
+              isLoading={loading}
+            >
+              Save
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
     </Box>
   );
 }

@@ -23,6 +23,7 @@ import {
 import { ViewIcon, ViewOffIcon } from "@chakra-ui/icons";
 import { useEffect, useState } from "react";
 import api from "../api/api";
+import ResponsiveTable from "../components/ResponsiveTable";
 
 /*----------------------------------------------
   BUSINESS PAGE
@@ -124,8 +125,6 @@ const Business = () => {
           isClosable: true,
         });
       } else {
-        //const res = await axios.post('http://localhost:5000/api/business/register', data);
-        //await axios.post("/api/business", {
         await api.post("/business", {
           ...form,
           max_branches: Number(form.max_branches),
@@ -192,8 +191,15 @@ const Business = () => {
   /*------------------------UI--------------------------- */
   return (
     <Box p={6}>
-      <Flex minH="100vh" align="center" justify="center" bg="gray.50">
-        <Box bg="white" p={8} rounded="md" w="100%" maxW="60%" boxShadow="md">
+      <Flex minH="100vh" align="start" justify="center" bg="gray.50" py={6}>
+        <Box
+          bg="white"
+          p={{ base: 4, md: 8 }}
+          rounded="md"
+          w="100%"
+          maxW={{ base: "100%", md: "900px" }}
+          boxShadow="md"
+        >
           <Heading mb={6}>Business Setup</Heading>
           {/*---------------FORM----------------*/}
           <Flex wrap="wrap" gap={4}>
@@ -284,41 +290,43 @@ const Business = () => {
         Existing Businesses
       </Heading>
 
-      <Table>
-        <Thead>
-          <Tr>
-            <Th>Name</Th>
-            <Th>DB Name</Th>
-            <Th>Max Branches</Th>
-            <Th>Actions</Th>
-          </Tr>
-        </Thead>
-
-        <Tbody>
-          {business.map((biz, index) => (
-            <Tr key={biz.business_id ?? `biz-${index}`}>
-              <Td>{biz.business_name}</Td>
-              <Td>{biz.db_name}</Td>
-              <Td>{biz.max_branches}</Td>
-              <Td>
-                <Flex gap={2}>
-                  <Button size="sm" onClick={() => handleEdit(biz)}>
-                    Edit
-                  </Button>
-
-                  <Button
-                    size="sm"
-                    colorScheme="red"
-                    onClick={() => handleDelete(biz.business_id)}
-                  >
-                    Delete
-                  </Button>
-                </Flex>
-              </Td>
+      <ResponsiveTable minWidth="700px">
+        <Table>
+          <Thead>
+            <Tr>
+              <Th>Name</Th>
+              <Th>DB Name</Th>
+              <Th>Max Branches</Th>
+              <Th>Actions</Th>
             </Tr>
-          ))}
-        </Tbody>
-      </Table>
+          </Thead>
+
+          <Tbody>
+            {business.map((biz, index) => (
+              <Tr key={biz.business_id ?? `biz-${index}`}>
+                <Td>{biz.business_name}</Td>
+                <Td>{biz.db_name}</Td>
+                <Td>{biz.max_branches}</Td>
+                <Td>
+                  <Flex gap={2}>
+                    <Button size="sm" onClick={() => handleEdit(biz)}>
+                      Edit
+                    </Button>
+
+                    <Button
+                      size="sm"
+                      colorScheme="red"
+                      onClick={() => handleDelete(biz.business_id)}
+                    >
+                      Delete
+                    </Button>
+                  </Flex>
+                </Td>
+              </Tr>
+            ))}
+          </Tbody>
+        </Table>
+      </ResponsiveTable>
     </Box>
   );
 };

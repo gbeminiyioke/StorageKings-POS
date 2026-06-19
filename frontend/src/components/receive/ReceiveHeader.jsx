@@ -16,7 +16,14 @@ export default function ReceiveHeader({
 
   return (
     <>
-      <Grid templateColumns="repeat(4, 1fr)" gap={4} mb={4}>
+      <Grid
+        templateColumns={{
+          base: "1fr",
+          md: "repeat(2,1fr)",
+          xl: "repeat(4,1fr)",
+        }}
+        gap={4}
+      >
         <FormControl>
           <FormLabel>Date</FormLabel>
           <Input
@@ -60,7 +67,14 @@ export default function ReceiveHeader({
         </FormControl>
       </Grid>
 
-      <Grid templateColumns="repeat(4, 1fr)" gap={4} mb={4}>
+      <Grid
+        templateColumns={{
+          base: "1fr",
+          md: "repeat(2,1fr)",
+          xl: "repeat(4,1fr)",
+        }}
+        gap={4}
+      >
         <FormControl gridColumn="span 1">
           <FormLabel>Supplier</FormLabel>
           <Select

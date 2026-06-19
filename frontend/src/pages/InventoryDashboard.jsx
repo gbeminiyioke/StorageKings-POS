@@ -55,6 +55,7 @@ import {
   Legend,
 } from "recharts";
 import StorageVisitRequestsTable from "../components/storage/StorageVisitRequestsTable";
+import ResponsiveTable from "../components/ResponsiveTable";
 
 export default function InventoryDashboard() {
   const [metrics, setMetrics] = useState({});
@@ -509,24 +510,26 @@ export default function InventoryDashboard() {
     const headers = Object.keys(data[0]);
 
     return (
-      <Table size="sm" variant="striped">
-        <Thead>
-          <Tr>
-            {headers.map((h) => (
-              <Th key={h}>{h}</Th>
-            ))}
-          </Tr>
-        </Thead>
-        <Tbody>
-          {data.map((row, i) => (
-            <Tr key={i} onClick={() => openDetails(row)} cursor="pointer">
+      <ResponsiveTable minWidth="1000px">
+        <Table size="sm" variant="striped">
+          <Thead>
+            <Tr>
               {headers.map((h) => (
-                <Td key={h}>{row[h]}</Td>
+                <Th key={h}>{h}</Th>
               ))}
             </Tr>
-          ))}
-        </Tbody>
-      </Table>
+          </Thead>
+          <Tbody>
+            {data.map((row, i) => (
+              <Tr key={i} onClick={() => openDetails(row)} cursor="pointer">
+                {headers.map((h) => (
+                  <Td key={h}>{row[h]}</Td>
+                ))}
+              </Tr>
+            ))}
+          </Tbody>
+        </Table>
+      </ResponsiveTable>
     );
   };
 
@@ -689,49 +692,51 @@ export default function InventoryDashboard() {
                 BRANCH: {branch}
               </Heading>
 
-              <Table size="sm" sx={tableStyle}>
-                <Thead>
-                  <Tr>
-                    <Th sx={cellStyle}>PRODUCT NAME</Th>
-                    <Th sx={cellStyle} isNumeric>
-                      COST PRICE
-                    </Th>
-                    <Th sx={cellStyle} isNumeric>
-                      QUANTITY
-                    </Th>
-                    <Th sx={cellStyle} isNumeric>
-                      AMOUNT
-                    </Th>
-                  </Tr>
-                </Thead>
+              <ResponsiveTable minWidth="1000px">
+                <Table size="sm" sx={tableStyle}>
+                  <Thead>
+                    <Tr>
+                      <Th sx={cellStyle}>PRODUCT NAME</Th>
+                      <Th sx={cellStyle} isNumeric>
+                        COST PRICE
+                      </Th>
+                      <Th sx={cellStyle} isNumeric>
+                        QUANTITY
+                      </Th>
+                      <Th sx={cellStyle} isNumeric>
+                        AMOUNT
+                      </Th>
+                    </Tr>
+                  </Thead>
 
-                <Tbody>
-                  {rows.map((r, i) => (
-                    <Tr key={i}>
-                      <Td sx={cellStyle}>{r.product_name}</Td>
-                      <Td sx={cellStyle} isNumeric>
-                        {format(r.cost_price)}
+                  <Tbody>
+                    {rows.map((r, i) => (
+                      <Tr key={i}>
+                        <Td sx={cellStyle}>{r.product_name}</Td>
+                        <Td sx={cellStyle} isNumeric>
+                          {format(r.cost_price)}
+                        </Td>
+                        <Td sx={cellStyle} isNumeric>
+                          {format(r.quantity)}
+                        </Td>
+                        <Td sx={cellStyle} isNumeric>
+                          {format(r.amount)}
+                        </Td>
+                      </Tr>
+                    ))}
+
+                    {/* TOTAL ROW */}
+                    <Tr fontWeight="bold">
+                      <Td sx={cellStyle} colSpan={3}>
+                        TOTAL - {branch}
                       </Td>
                       <Td sx={cellStyle} isNumeric>
-                        {format(r.quantity)}
-                      </Td>
-                      <Td sx={cellStyle} isNumeric>
-                        {format(r.amount)}
+                        {format(total)}
                       </Td>
                     </Tr>
-                  ))}
-
-                  {/* TOTAL ROW */}
-                  <Tr fontWeight="bold">
-                    <Td sx={cellStyle} colSpan={3}>
-                      TOTAL - {branch}
-                    </Td>
-                    <Td sx={cellStyle} isNumeric>
-                      {format(total)}
-                    </Td>
-                  </Tr>
-                </Tbody>
-              </Table>
+                  </Tbody>
+                </Table>
+              </ResponsiveTable>
             </Box>
           );
         })}
@@ -744,49 +749,51 @@ export default function InventoryDashboard() {
             BRANCH: ALL BRANCHES
           </Heading>
 
-          <Table size="sm" sx={tableStyle}>
-            <Thead>
-              <Tr>
-                <Th sx={cellStyle}>PRODUCT NAME</Th>
-                <Th sx={cellStyle} isNumeric>
-                  COST PRICE
-                </Th>
-                <Th sx={cellStyle} isNumeric>
-                  QUANTITY
-                </Th>
-                <Th sx={cellStyle} isNumeric>
-                  AMOUNT
-                </Th>
-              </Tr>
-            </Thead>
+          <ResponsiveTable minWidth="1000px">
+            <Table size="sm" sx={tableStyle}>
+              <Thead>
+                <Tr>
+                  <Th sx={cellStyle}>PRODUCT NAME</Th>
+                  <Th sx={cellStyle} isNumeric>
+                    COST PRICE
+                  </Th>
+                  <Th sx={cellStyle} isNumeric>
+                    QUANTITY
+                  </Th>
+                  <Th sx={cellStyle} isNumeric>
+                    AMOUNT
+                  </Th>
+                </Tr>
+              </Thead>
 
-            <Tbody>
-              {allRows.map((r, i) => (
-                <Tr key={i}>
-                  <Td sx={cellStyle}>{r.product_name}</Td>
-                  <Td sx={cellStyle} isNumeric>
-                    {format(r.cost_price)}
+              <Tbody>
+                {allRows.map((r, i) => (
+                  <Tr key={i}>
+                    <Td sx={cellStyle}>{r.product_name}</Td>
+                    <Td sx={cellStyle} isNumeric>
+                      {format(r.cost_price)}
+                    </Td>
+                    <Td sx={cellStyle} isNumeric>
+                      {format(r.quantity)}
+                    </Td>
+                    <Td sx={cellStyle} isNumeric>
+                      {format(r.amount)}
+                    </Td>
+                  </Tr>
+                ))}
+
+                {/* GRAND TOTAL */}
+                <Tr fontWeight="bold">
+                  <Td sx={cellStyle} colSpan={3}>
+                    GRAND TOTAL - ALL BRANCHES
                   </Td>
                   <Td sx={cellStyle} isNumeric>
-                    {format(r.quantity)}
-                  </Td>
-                  <Td sx={cellStyle} isNumeric>
-                    {format(r.amount)}
+                    {format(grandTotal)}
                   </Td>
                 </Tr>
-              ))}
-
-              {/* GRAND TOTAL */}
-              <Tr fontWeight="bold">
-                <Td sx={cellStyle} colSpan={3}>
-                  GRAND TOTAL - ALL BRANCHES
-                </Td>
-                <Td sx={cellStyle} isNumeric>
-                  {format(grandTotal)}
-                </Td>
-              </Tr>
-            </Tbody>
-          </Table>
+              </Tbody>
+            </Table>
+          </ResponsiveTable>
         </Box>
       </Box>
     );
@@ -827,66 +834,68 @@ export default function InventoryDashboard() {
                 BRANCH: {branch}
               </Heading>
 
-              <Table size="sm" border="1px solid #000">
-                <Thead>
-                  <Tr>
-                    <Th border="1px solid #000">PRODUCT NAME</Th>
+              <ResponsiveTable minWidth="1000px">
+                <Table size="sm" border="1px solid #000">
+                  <Thead>
+                    <Tr>
+                      <Th border="1px solid #000">PRODUCT NAME</Th>
 
-                    <Th border="1px solid #000" isNumeric>
-                      Min Quantity
-                    </Th>
+                      <Th border="1px solid #000" isNumeric>
+                        Min Quantity
+                      </Th>
 
-                    <Th border="1px solid #000" isNumeric>
-                      Quantity
-                    </Th>
-                  </Tr>
-                </Thead>
+                      <Th border="1px solid #000" isNumeric>
+                        Quantity
+                      </Th>
+                    </Tr>
+                  </Thead>
 
-                <Tbody>
-                  {rows.map((r, i) => {
-                    let color = "black";
+                  <Tbody>
+                    {rows.map((r, i) => {
+                      let color = "black";
 
-                    // =========================
-                    // COLOR CODING
-                    // =========================
-                    if (r.quantity === 0) {
-                      color = "red";
-                    } else if (r.quantity <= r.minimum_quantity) {
-                      color = "purple";
-                    }
+                      // =========================
+                      // COLOR CODING
+                      // =========================
+                      if (r.quantity === 0) {
+                        color = "red";
+                      } else if (r.quantity <= r.minimum_quantity) {
+                        color = "purple";
+                      }
 
-                    return (
-                      <Tr key={i}>
-                        <Td border="1px solid #000">{r.product_name}</Td>
+                      return (
+                        <Tr key={i}>
+                          <Td border="1px solid #000">{r.product_name}</Td>
 
-                        <Td border="1px solid #000" isNumeric>
-                          {r.minimum_quantity}
-                        </Td>
+                          <Td border="1px solid #000" isNumeric>
+                            {r.minimum_quantity}
+                          </Td>
 
-                        <Td
-                          border="1px solid #000"
-                          isNumeric
-                          color={color}
-                          fontWeight="bold"
-                        >
-                          {r.quantity}
-                        </Td>
-                      </Tr>
-                    );
-                  })}
+                          <Td
+                            border="1px solid #000"
+                            isNumeric
+                            color={color}
+                            fontWeight="bold"
+                          >
+                            {r.quantity}
+                          </Td>
+                        </Tr>
+                      );
+                    })}
 
-                  {/* TOTAL */}
-                  <Tr fontWeight="bold">
-                    <Td border="1px solid #000" colSpan={2}>
-                      TOTAL
-                    </Td>
+                    {/* TOTAL */}
+                    <Tr fontWeight="bold">
+                      <Td border="1px solid #000" colSpan={2}>
+                        TOTAL
+                      </Td>
 
-                    <Td border="1px solid #000" isNumeric>
-                      {totalQty}
-                    </Td>
-                  </Tr>
-                </Tbody>
-              </Table>
+                      <Td border="1px solid #000" isNumeric>
+                        {totalQty}
+                      </Td>
+                    </Tr>
+                  </Tbody>
+                </Table>
+              </ResponsiveTable>
             </Box>
           );
         })}
@@ -951,37 +960,39 @@ export default function InventoryDashboard() {
           TABLE
       ========================= */}
         <Box overflowX="auto">
-          <Table size="sm" variant="simple">
-            <Thead bg="gray.100">
-              <Tr>
-                <Th>Date</Th>
-                <Th>Branch</Th>
-                <Th>Product</Th>
-                <Th>Movement</Th>
-                <Th isNumeric>Quantity</Th>
-                <Th isNumeric>Balance</Th>
-                <Th>Reference</Th>
-                <Th>Source</Th>
-              </Tr>
-            </Thead>
-
-            <Tbody>
-              {data.map((row) => (
-                <Tr key={row.movement_id}>
-                  <Td>{new Date(row.created_at).toLocaleString()}</Td>
-                  <Td>{row.branch_name}</Td>
-                  <Td>{row.product_name}</Td>
-                  <Td>{row.movement_type}</Td>
-                  <Td isNumeric>{Number(row.quantity).toLocaleString()}</Td>
-                  <Td isNumeric>
-                    {Number(row.balance_after).toLocaleString()}
-                  </Td>
-                  <Td>{row.reference_no}</Td>
-                  <Td>{row.reference_table}</Td>
+          <ResponsiveTable minWidth="1000px">
+            <Table size="sm" variant="simple">
+              <Thead bg="gray.100">
+                <Tr>
+                  <Th>Date</Th>
+                  <Th>Branch</Th>
+                  <Th>Product</Th>
+                  <Th>Movement</Th>
+                  <Th isNumeric>Quantity</Th>
+                  <Th isNumeric>Balance</Th>
+                  <Th>Reference</Th>
+                  <Th>Source</Th>
                 </Tr>
-              ))}
-            </Tbody>
-          </Table>
+              </Thead>
+
+              <Tbody>
+                {data.map((row) => (
+                  <Tr key={row.movement_id}>
+                    <Td>{new Date(row.created_at).toLocaleString()}</Td>
+                    <Td>{row.branch_name}</Td>
+                    <Td>{row.product_name}</Td>
+                    <Td>{row.movement_type}</Td>
+                    <Td isNumeric>{Number(row.quantity).toLocaleString()}</Td>
+                    <Td isNumeric>
+                      {Number(row.balance_after).toLocaleString()}
+                    </Td>
+                    <Td>{row.reference_no}</Td>
+                    <Td>{row.reference_table}</Td>
+                  </Tr>
+                ))}
+              </Tbody>
+            </Table>
+          </ResponsiveTable>
         </Box>
 
         {/* =========================
@@ -1379,7 +1390,7 @@ export default function InventoryDashboard() {
   };
 
   return (
-    <Box p={6}>
+    <Box p={{ base: 3, md: 6 }}>
       <Heading mb={4}>Inventory Dashboard</Heading>
 
       {/* FILTERS */}
@@ -1541,9 +1552,15 @@ export default function InventoryDashboard() {
               </Box>
 
               {/* STORAGE TREND */}
-              <Box mt={8}>
+              <Box
+                h={{
+                  base: "250px",
+                  md: "350px",
+                }}
+                w="100%"
+              >
                 <Heading size="sm">Storage Trend</Heading>
-                <ResponsiveContainer width="100%" height={300}>
+                <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={trends}>
                     <XAxis dataKey="day" />
                     <YAxis />
@@ -1554,7 +1571,13 @@ export default function InventoryDashboard() {
               </Box>
 
               {/* DISTRIBUTION */}
-              <Box mt={8}>
+              <Box
+                h={{
+                  base: "250px",
+                  md: "350px",
+                }}
+                w="100%"
+              >
                 <Heading size="md" mb={3}>
                   Storage Distribution
                 </Heading>
@@ -1562,7 +1585,7 @@ export default function InventoryDashboard() {
                 {distribution.length === 0 ? (
                   <Text>No data available</Text>
                 ) : (
-                  <ResponsiveContainer width="100%" height={300}>
+                  <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Pie
                         data={distribution}
@@ -1585,9 +1608,15 @@ export default function InventoryDashboard() {
               </Box>
 
               {/* BRANCH PERFOEMANCE CHART */}
-              <Box mt={8}>
+              <Box
+                h={{
+                  base: "250px",
+                  md: "350px",
+                }}
+                w="100%"
+              >
                 <Heading size="sm">Branch Performance</Heading>
-                <ResponsiveContainer width="100%" height={300}>
+                <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={branchPerf}>
                     <XAxis dataKey="branch" />
                     <YAxis />

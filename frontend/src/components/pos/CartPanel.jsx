@@ -1,5 +1,6 @@
 import {
   Box,
+  Flex,
   Text,
   VStack,
   HStack,
@@ -7,12 +8,14 @@ import {
   Input,
   Divider,
   Select,
+  Spacer,
   Grid,
   GridItem,
   IconButton,
+  Tooltip,
 } from "@chakra-ui/react";
 import { DeleteIcon } from "@chakra-ui/icons";
-import { useMemo } from "react";
+import { useMemo, useEffect, useRef, useState } from "react";
 import { usePOS } from "../../context/POSContext";
 
 export default function CartPanel({ onOpenPayment }) {
@@ -21,6 +24,7 @@ export default function CartPanel({ onOpenPayment }) {
     updateQty,
     removeItem,
     clearCart,
+    lastTouchedProductId,
     subtotal,
     tax,
     total,
@@ -38,6 +42,46 @@ export default function CartPanel({ onOpenPayment }) {
     removePaymentRow,
   } = usePOS();
 
+  const [flashId, setFlashId] = useState(null);
+
+  const cartListRef = useRef(null);
+  const itemRefs = useRef({});
+
+  useEffect(() => {
+    if (!lastTouchedProductId) return;
+
+    const element = itemRefs.current[lastTouchedProductId];
+
+    if (element) {
+      element.scrollIntoView({
+        behavior: "smooth",
+        block: "nearest",
+      });
+    }
+
+    setFlashId(lastTouchedProductId);
+
+    const timer = setTimeout(() => {
+      setFlashId(null);
+    }, 1200);
+
+    return () => clearTimeout(timer);
+  }, [lastTouchedProductId]);
+
+  useEffect(() => {
+    if (cart.length > 0) {
+      const last = cart[cart.length - 1];
+
+      setFlashId(last.product_id);
+
+      const timer = setTimeout(() => {
+        setFlashId(null);
+      }, 1200);
+
+      return () => clearTimeout(timer);
+    }
+  }, [cart.length]);
+
   /* =====================================
      NEW: amount paid + balance due
   ===================================== */
@@ -47,16 +91,40 @@ export default function CartPanel({ onOpenPayment }) {
 
   const balanceDue = Math.max(total - amountPaid, 0);
 
+  //console.log("CartPanel cart:", cart);
+
   return (
     <Box bg="gray.50" p={4} h="100%" display="flex" flexDirection="column">
-      <Text fontSize="xl" fontWeight="bold" mb={4}>
-        Selected Products
-      </Text>
+      <Flex align="center" mb={2}>
+        <Text fontSize="lg" fontWeight="bold">
+          Selected Products
+        </Text>
+
+        <Spacer />
+
+        <Tooltip label="Clear cart">
+          <IconButton
+            size={{ base: "xs", md: "sm" }}
+            colorScheme="red"
+            variant="ghost"
+            icon={<DeleteIcon />}
+            aria-label="Clear cart"
+            onClick={() => {
+              if (
+                window.confirm("Remove all selected products from the cart?")
+              ) {
+                clearCart();
+              }
+            }}
+          />
+        </Tooltip>
+      </Flex>
 
       {/* =====================================
          CART ITEMS
       ===================================== */}
       <VStack
+        ref={cartListRef}
         align="stretch"
         spacing={3}
         flex="1"
@@ -78,15 +146,25 @@ export default function CartPanel({ onOpenPayment }) {
           </Box>
         )}
 
-        {cart.map((item) => (
+        {cart.map((item, index) => (
           <Box
             key={item.product_id}
-            bg="white"
+            ref={(el) => {
+              if (el) {
+                itemRefs.current[item.product_id] = el;
+              }
+            }}
+            bg={flashId === item.product_id ? "blue.50" : "white"}
+            borderColor={
+              flashId === item.product_id ? "blue.400" : "transparent"
+            }
+            borderWidth="1px"
+            transition="all 0.4s ease"
             borderRadius="md"
             p={3}
             shadow="sm"
           >
-            <HStack align="start" spacing={3}>
+            <HStack align="start" spacing={3} flexWrap="wrap">
               <Box flex="1">
                 <Text fontWeight="bold">{item.product_name}</Text>
 
@@ -105,7 +183,10 @@ export default function CartPanel({ onOpenPayment }) {
               <Input
                 type="number"
                 min={1}
-                width="80px"
+                width={{
+                  base: "100%",
+                  md: "80px",
+                }}
                 value={item.qty}
                 onChange={(e) =>
                   updateQty(
@@ -148,7 +229,10 @@ export default function CartPanel({ onOpenPayment }) {
             {payments.map((payment, index) => (
               <Grid
                 key={index}
-                templateColumns="1fr 1fr auto"
+                templateColumns={{
+                  base: "1fr",
+                  md: "1fr 1fr auto",
+                }}
                 gap={2}
                 alignItems="center"
               >
@@ -270,7 +354,13 @@ export default function CartPanel({ onOpenPayment }) {
       {/* =====================================
          ACTION BUTTONS
       ===================================== */}
-      <Grid templateColumns="1fr 1fr" gap={3} mt={5}>
+      <Grid
+        templateColumns={{
+          base: "1fr",
+          md: "1fr 1fr",
+        }}
+        gap={3}
+      >
         {/* UPDATED: uses clearCart through browser reload replacement later */}
         <Button colorScheme="red" variant="outline" onClick={clearCart}>
           Cancel Sale

@@ -209,6 +209,23 @@ export const completeSaleService = async (data) => {
 
     const sale_id = saleRes.rows[0].sale_id;
 
+    if (transaction_type === "REFUND" && original_sale_id) {
+      await client.query(
+        `
+    INSERT INTO pos_refunds
+    (
+      sale_id,
+      refund_sale_id,
+      created_by,
+      reason
+    )
+    VALUES
+    ($1,$2,$3,$4)
+    `,
+        [original_sale_id, sale_id, user_id, refund_reason],
+      );
+    }
+
     for (const item of items) {
       const stockRes = await client.query(
         `
@@ -243,6 +260,27 @@ export const completeSaleService = async (data) => {
       let newStock = Number(stock_quantity);
 
       if (transaction_type !== "PROFORMA") {
+        if (transaction_type === "REFUND") {
+          const refundedQty = await client.query(
+            `
+            SELECT
+            COALESCE(SUM(d.quantity), 0) AS refunded
+            FROM pos_refunds pr
+            JOIN pos_sale_details d
+            ON d.sale_id = pr.refund_sale_id
+            WHERE pr.sale_id = $1 AND d.product_id = $2
+            `,
+            [original_sale_id, item.product_id],
+          );
+
+          if (
+            Number(refundedQty.rows[0].refunded) + Number(item.quantity) >
+            originalQty
+          ) {
+            throw new Error("Refund exceeds sold quantity");
+          }
+        }
+
         newStock =
           transaction_type === "REFUND"
             ? Number(stock_quantity) + Number(item.quantity)
@@ -250,11 +288,11 @@ export const completeSaleService = async (data) => {
 
         await client.query(
           `
-    UPDATE products_by_branch
-    SET stock_quantity = $1
-    WHERE branch_id = $2
-      AND product_id = $3
-  `,
+            UPDATE products_by_branch
+            SET stock_quantity = $1
+            WHERE branch_id = $2
+            AND product_id = $3
+          `,
           [newStock, branch_id, item.product_id],
         );
       }
@@ -278,20 +316,20 @@ export const completeSaleService = async (data) => {
       if (transaction_type !== "PROFORMA") {
         await client.query(
           `
-    INSERT INTO stock_movements
-    (
-      product_id,
-      branch_id,
-      movement_type,
-      quantity,
-      reference_id,
-      reference_table,
-      created_by,
-      created_at,
-      balance_after
-    )
-    VALUES ($1,$2,$3,$4,$5,'pos_sales',$6,NOW(),$7)
-  `,
+            INSERT INTO stock_movements
+            (
+            product_id,
+            branch_id,
+            movement_type,
+            quantity,
+            reference_id,
+            reference_table,
+            created_by,
+            created_at,
+            balance_after
+            )
+            VALUES ($1,$2,$3,$4,$5,'pos_sales',$6,NOW(),$7)
+          `,
           [
             item.product_id,
             branch_id,
@@ -310,10 +348,10 @@ export const completeSaleService = async (data) => {
     if (transaction_type !== "PROFORMA" && customer_id && creditAmount > 0) {
       await client.query(
         `
-    UPDATE customers
-    SET current_balance = COALESCE(current_balance, 0) - $1
-    WHERE id = $2
-    `,
+          UPDATE customers
+          SET current_balance = COALESCE(current_balance, 0) - $1
+          WHERE id = $2
+        `,
         [creditAmount, customer_id],
       );
     }
@@ -353,6 +391,203 @@ export const completeSaleService = async (data) => {
       discount_amount: computedDiscountAmount,
       vat: computedVat,
       grand_total: computedGrandTotal,
+    };
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
+};
+
+export const convertProformaToInvoiceService = async (proformaId, userId) => {
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    // =====================================
+    // LOAD PROFORMA
+    // =====================================
+
+    const proformaRes = await client.query(
+      `
+      SELECT *
+      FROM pos_sales
+      WHERE sale_id = $1
+        AND transaction_type = 'PROFORMA'
+      FOR UPDATE
+      `,
+      [proformaId],
+    );
+
+    if (!proformaRes.rows.length) {
+      throw new Error("Proforma not found");
+    }
+
+    const proforma = proformaRes.rows[0];
+
+    if (proforma.converted) {
+      throw new Error("This proforma has already been converted");
+    }
+
+    // =====================================
+    // LOAD ITEMS
+    // =====================================
+
+    const itemsRes = await client.query(
+      `
+      SELECT *
+      FROM pos_sale_details
+      WHERE sale_id = $1
+      `,
+      [proformaId],
+    );
+
+    const items = itemsRes.rows;
+
+    // =====================================
+    // STOCK VALIDATION
+    // =====================================
+
+    for (const item of items) {
+      const stockRes = await client.query(
+        `
+        SELECT
+          stock_quantity,
+          monitor_stock
+        FROM products
+        WHERE product_id = $1
+        `,
+        [item.product_id],
+      );
+
+      const product = stockRes.rows[0];
+
+      if (
+        product.monitor_stock &&
+        Number(product.stock_quantity) < Number(item.quantity)
+      ) {
+        throw new Error(`${item.product_name} has insufficient stock`);
+      }
+    }
+
+    // =====================================
+    // CREATE INVOICE NUMBER
+    // =====================================
+
+    const branchRes = await client.query(
+      `
+      UPDATE branches
+      SET next_pos_no =
+        next_pos_no + 1
+      WHERE branch_id = $1
+      RETURNING next_pos_no
+      `,
+      [proforma.branch_id],
+    );
+
+    const invoiceNo = `POS-${String(branchRes.rows[0].next_pos_no).padStart(
+      6,
+      "0",
+    )}`;
+
+    // =====================================
+    // CREATE INVOICE
+    // =====================================
+
+    const invoiceRes = await client.query(
+      `
+      INSERT INTO pos_sales
+      (
+        invoice_no,
+        transaction_type,
+        customer_id,
+        branch_id,
+        subtotal,
+        tax_amount,
+        grand_total,
+        created_by,
+        source_sale_id
+      )
+      VALUES
+      ($1,'INVOICE',$2,$3,$4,$5,$6,$7,$8)
+      RETURNING sale_id
+      `,
+      [
+        invoiceNo,
+        proforma.customer_id,
+        proforma.branch_id,
+        proforma.subtotal,
+        proforma.tax_amount,
+        proforma.grand_total,
+        userId,
+        proforma.sale_id,
+      ],
+    );
+
+    const invoiceId = invoiceRes.rows[0].sale_id;
+
+    // =====================================
+    // COPY DETAILS
+    // =====================================
+
+    for (const item of items) {
+      await client.query(
+        `
+        INSERT INTO pos_sale_details
+        (
+          sale_id,
+          product_id,
+          quantity,
+          unit_price,
+          total
+        )
+        VALUES
+        ($1,$2,$3,$4,$5)
+        `,
+        [
+          invoiceId,
+          item.product_id,
+          item.quantity,
+          item.unit_price,
+          item.total,
+        ],
+      );
+
+      // Deduct stock now
+      await client.query(
+        `
+        UPDATE products
+        SET stock_quantity =
+          stock_quantity - $1
+        WHERE product_id = $2
+        `,
+        [item.quantity, item.product_id],
+      );
+    }
+
+    // =====================================
+    // MARK PROFORMA
+    // =====================================
+
+    await client.query(
+      `
+      UPDATE pos_sales
+      SET
+        converted = TRUE,
+        converted_at = NOW(),
+        converted_by = $1
+      WHERE sale_id = $2
+      `,
+      [userId, proforma.sale_id],
+    );
+
+    await client.query("COMMIT");
+
+    return {
+      sale_id: invoiceId,
+      invoice_no: invoiceNo,
     };
   } catch (err) {
     await client.query("ROLLBACK");

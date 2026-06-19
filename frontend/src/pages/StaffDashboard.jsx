@@ -14,6 +14,7 @@ import DashboardGrid from "../components/dashboard/DashboardGrid";
 import StatCard from "../components/dashboard/StatCard";
 import { useAuth } from "../context/AuthContext";
 import api from "../api/api";
+import POSDashboard from "./posDashboard";
 
 export default function StaffDashboard() {
   const { user } = useAuth();
@@ -131,7 +132,14 @@ export default function StaffDashboard() {
         />
       </DashboardGrid>
 
-      {/* FUTURE SECTIONS */}
+      {/* SALES DASHBOARD */}
+      <Box bg="gray.50" p={2} rounded="lg" boxShadow="sm" mt={6}>
+        <POSDashboard showAlerts={false} embedded={true} />
+      </Box>
+
+      {/*
+      // FUTURE SECTIONS
+      
       <Box bg="white" p={6} rounded="lg" boxShadow="sm">
         <Text fontWeight="bold" mb={2}>
           Sales Overview
@@ -141,6 +149,7 @@ export default function StaffDashboard() {
           Charts and recent actvities coming next...
         </Text>
       </Box>
+      */}
     </Box>
   );
 }

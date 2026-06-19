@@ -47,7 +47,7 @@ export default function CategorySidebar({ selected, setSelected }) {
      CATEGORY LIST
   =============================== */
   return (
-    <VStack bg="gray.50" p={3} align="stretch" h="100%">
+    <VStack bg="gray.50" p={3} align="stretch" h="100%" overflowY="auto">
       <Text fontWeight="bold">Categories</Text>
 
       {/* ALWAYS include ALL */}
@@ -62,6 +62,7 @@ export default function CategorySidebar({ selected, setSelected }) {
         <Button
           key={cat.category_id}
           variant={selected === cat.category_name ? "solid" : "ghost"}
+          justifyContent="flex-start"
           onClick={() => setSelected(cat.category_name)}
         >
           {cat.category_name}

@@ -16,6 +16,7 @@ import {
   Badge,
   VStack,
   Button,
+  Stack,
 } from "@chakra-ui/react";
 import {
   FaBarcode,
@@ -29,6 +30,7 @@ import {
   emailStoragePdf,
   getStorageItems,
 } from "../../services/storageService";
+import ResponsiveTable from "../ResponsiveTable";
 
 export default function RecentStorageList({
   storages = [],
@@ -108,7 +110,12 @@ export default function RecentStorageList({
 
   return (
     <VStack spacing={4} align="stretch">
-      <InputGroup maxW="420px">
+      <InputGroup
+        maxW={{
+          base: "100%",
+          md: "420px",
+        }}
+      >
         <InputLeftElement pointerEvents="none">
           <FaSearch color="#718096" />
         </InputLeftElement>
@@ -123,7 +130,7 @@ export default function RecentStorageList({
         />
       </InputGroup>
 
-      <Box overflowX="auto" borderWidth="1px" borderRadius="lg">
+      <ResponsiveTable minWidth="1000px">
         <Table size="sm">
           <Thead bg="gray.50">
             <Tr>
@@ -150,30 +157,28 @@ export default function RecentStorageList({
             ) : (
               paginatedStorages.map((storage) => (
                 <Tr key={storage.storage_id}>
-                  <Td>
+                  <Td whiteSpace="nowrap">
                     {storage.received_date
                       ? new Date(storage.received_date).toLocaleDateString()
                       : "-"}
                   </Td>
-
                   <Td fontWeight="semibold">{storage.storage_no}</Td>
-
                   <Td>{storage.branch_name}</Td>
-
                   <Td>{storage.customer_name}</Td>
-
                   <Td>
                     <Badge colorScheme={getStatusColor(storage.status)}>
                       {storage.status}
                     </Badge>
                   </Td>
-
                   <Td>
-                    <HStack justify="center" spacing={2}>
+                    <HStack justify="center" spacing={2} flexWrap="wrap">
                       {storage.status === "PRINTED" && (
                         <Tooltip label="Load Printed Storage">
                           <IconButton
-                            size="sm"
+                            size={{
+                              base: "xs",
+                              md: "sm",
+                            }}
                             colorScheme="orange"
                             icon={<FaDownload />}
                             aria-label="Load Printed Storage"
@@ -184,7 +189,10 @@ export default function RecentStorageList({
 
                       <Tooltip label="View / Print Storage Form">
                         <IconButton
-                          size="sm"
+                          size={{
+                            base: "xs",
+                            md: "sm",
+                          }}
                           colorScheme="blue"
                           icon={<FaFilePdf />}
                           aria-label="View Storage Form"
@@ -194,7 +202,10 @@ export default function RecentStorageList({
 
                       <Tooltip label="Print Barcode Labels">
                         <IconButton
-                          size="sm"
+                          size={{
+                            base: "xs",
+                            md: "sm",
+                          }}
                           colorScheme="purple"
                           icon={<FaBarcode />}
                           aria-label="Print Barcode Labels"
@@ -204,7 +215,10 @@ export default function RecentStorageList({
 
                       <Tooltip label="Email Storage Form">
                         <IconButton
-                          size="sm"
+                          size={{
+                            base: "xs",
+                            md: "sm",
+                          }}
                           colorScheme="green"
                           icon={<FaEnvelope />}
                           aria-label="Email Storage Form"
@@ -219,10 +233,17 @@ export default function RecentStorageList({
             )}
           </Tbody>
         </Table>
-      </Box>
+      </ResponsiveTable>
 
       {totalPages > 1 && (
-        <HStack justify="space-between">
+        <Stack
+          direction={{
+            base: "column",
+            md: "row",
+          }}
+          justify="space-between"
+          spacing={4}
+        >
           <Text fontSize="sm" color="gray.600">
             Showing {(page - 1) * pageSize + 1} -{" "}
             {Math.min(page * pageSize, filteredStorages.length)} of{" "}
@@ -252,7 +273,7 @@ export default function RecentStorageList({
               Next
             </Button>
           </HStack>
-        </HStack>
+        </Stack>
       )}
     </VStack>
   );

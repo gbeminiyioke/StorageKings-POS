@@ -6,6 +6,7 @@ export const usePOS = () => useContext(POSContext);
 
 export const POSProvider = ({ children }) => {
   const [cart, setCart] = useState([]);
+  const [lastTouchedProductId, setLastTouchedProductId] = useState(null);
 
   const [discountType, setDiscountType] = useState("AMOUNT");
   const [discountValue, setDiscountValue] = useState(0);
@@ -39,6 +40,8 @@ export const POSProvider = ({ children }) => {
      CART FUNCTIONS
   ===================================== */
   const addToCart = (product) => {
+    setLastTouchedProductId(product.product_id);
+
     setCart((prev) => {
       const exists = prev.find((p) => p.product_id === product.product_id);
 
@@ -136,6 +139,7 @@ export const POSProvider = ({ children }) => {
         updateQty,
         removeItem,
         clearCart,
+        lastTouchedProductId,
         subtotal,
         tax,
         total,

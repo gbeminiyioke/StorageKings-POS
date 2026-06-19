@@ -280,12 +280,18 @@ export default function Roles() {
   const rightsSelected = RIGHTS.filter((r) => permissions[r.key]);
 
   return (
-    <Box p={6}>
+    <Box p={{ base: 3, md: 6 }}>
       <Heading size="md" mb={6}>
         {editingId ? "Edit Role" : "Add New Role"}
       </Heading>
 
-      <SimpleGrid columns={[1, 2]} spacing={6}>
+      <SimpleGrid
+        columns={{
+          base: 1,
+          md: 2,
+        }}
+        spacing={6}
+      >
         <Input
           borderWidth="2px"
           placeholder="Role Name"
@@ -378,7 +384,13 @@ export default function Roles() {
             {group}
           </Heading>
 
-          <Grid templateColumns="repeat(auto-fit, minmax(220px, 1fr))" gap={4}>
+          <Grid
+            templateColumns={{
+              base: "1fr",
+              md: "repeat(auto-fit, minmax(220px, 1fr))",
+            }}
+            gap={4}
+          >
             {modules.map((m) => (
               <ScaleFade in key={m.key}>
                 <Checkbox
@@ -421,6 +433,7 @@ export default function Roles() {
 
       <Button
         mt={6}
+        w={{ base: "100%", md: "auto" }}
         colorScheme="blue"
         onClick={handleSubmit}
         isDisabled={!user?.permissions?.can_create && !editingId}
@@ -429,7 +442,12 @@ export default function Roles() {
       </Button>
 
       {editingId && (
-        <Button mt={6} ml={3} onClick={resetForm}>
+        <Button
+          mt={6}
+          w={{ base: "100%", md: "auto" }}
+          ml={3}
+          onClick={resetForm}
+        >
           Cancel
         </Button>
       )}
@@ -441,52 +459,55 @@ export default function Roles() {
           <Heading size="sm" mb={4}>
             Existing Roles
           </Heading>
-          <Table>
-            <Thead bg="gray.100">
-              <Tr>
-                <Th>Role</Th>
-                <Th>Description</Th>
-                <Th>Status</Th>
-                <Th textAlign="center">Actions</Th>
-              </Tr>
-            </Thead>
 
-            <Tbody>
-              {roles.map((r) => (
-                <Tr key={r.role_id}>
-                  <Td>{r.role_name}</Td>
-                  <Td>{r.role_description}</Td>
-                  <Td>{r.enable ? "Enabled" : "Disabled"}</Td>
-                  <Td textAlign="center">
-                    {user.permissions.can_view && (
+          <Box overflowX="auto">
+            <Table>
+              <Thead bg="gray.100">
+                <Tr>
+                  <Th>Role</Th>
+                  <Th>Description</Th>
+                  <Th>Status</Th>
+                  <Th textAlign="center">Actions</Th>
+                </Tr>
+              </Thead>
+
+              <Tbody>
+                {roles.map((r) => (
+                  <Tr key={r.role_id}>
+                    <Td>{r.role_name}</Td>
+                    <Td>{r.role_description}</Td>
+                    <Td>{r.enable ? "Enabled" : "Disabled"}</Td>
+                    <Td textAlign="center">
+                      {user.permissions.can_view && (
+                        <IconButton
+                          icon={<EditIcon />}
+                          size="sm"
+                          mr={2}
+                          onClick={() => handleEdit(r)}
+                        />
+                      )}
+
                       <IconButton
-                        icon={<EditIcon />}
+                        icon={<CopyIcon />}
                         size="sm"
                         mr={2}
-                        onClick={() => handleEdit(r)}
+                        onClick={() => handleClone(r)}
                       />
-                    )}
 
-                    <IconButton
-                      icon={<CopyIcon />}
-                      size="sm"
-                      mr={2}
-                      onClick={() => handleClone(r)}
-                    />
-
-                    {user.permissions.can_delete && (
-                      <IconButton
-                        icon={<DeleteIcon />}
-                        size="sm"
-                        colorScheme="red"
-                        onClick={() => confirmDelete(r)}
-                      />
-                    )}
-                  </Td>
-                </Tr>
-              ))}
-            </Tbody>
-          </Table>
+                      {user.permissions.can_delete && (
+                        <IconButton
+                          icon={<DeleteIcon />}
+                          size="sm"
+                          colorScheme="red"
+                          onClick={() => confirmDelete(r)}
+                        />
+                      )}
+                    </Td>
+                  </Tr>
+                ))}
+              </Tbody>
+            </Table>
+          </Box>
         </>
       )}
 

@@ -1,4 +1,4 @@
-import pool from "../database/db.js";
+import pool from "../config/db.js";
 
 export const createCustomerKyc = async (req, res) => {
   try {
@@ -80,9 +80,11 @@ export const createCustomerKyc = async (req, res) => {
     }
 
     const clientSignature = req.files?.clientSignature?.[0]?.path || null;
-
     const authorisedSignature =
       req.files?.authorisedSignature?.[0]?.path || null;
+    const alternateIdImage = req.files?.alternate_id_image?.[0]?.path || null;
+    const cacDocument = req.files?.cac_document?.[0]?.path || null;
+    const customerIdImage = req.files?.customer_id_image?.[0]?.path || null;
 
     const query = `
       INSERT INTO customer_kyc (
@@ -121,12 +123,19 @@ export const createCustomerKyc = async (req, res) => {
         authorised_by,
         authorised_signature,
 
-        approved
+        customer_id_image,
+        alternate_id_image,
+        cac_document,
+
+        approved,
+        converted,
+        customer_id
       )
       VALUES (
         $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,
         $11,$12,$13,$14,$15,$16,$17,$18,$19,$20,
-        $21,$22,$23,$24,$25,$26,$27,$28,$29,$30
+        $21,$22,$23,$24,$25,$26,$27,$28,$29,$30,
+        $31,$32,$33,$34,$35
       )
       RETURNING *
     `;
@@ -143,12 +152,12 @@ export const createCustomerKyc = async (req, res) => {
       occupationNatureOfBusiness,
       meansOfIdentification,
       idNumber,
-      expiryDate,
+      expiryDate?.trim() ? expiryDate : null,
 
       typeOfServiceRequired,
       storageDurationMonths || null,
       estimatedValueOfItems || null,
-      dateOfMoveIn,
+      dateOfMoveIn?.trim() ? dateOfMoveIn : null,
       itemsToBeStored,
 
       emergencyFullName,
@@ -156,10 +165,10 @@ export const createCustomerKyc = async (req, res) => {
       emergencyTelephone,
       emergencyAddress,
 
-      complianceConfirmed === "true",
+      complianceConfirmed === true,
 
       clientSignature,
-      consentDate,
+      consentDate?.trim() ? consentDate : null,
 
       kycVerifiedBy,
       storageUnitReferenceNumber,
@@ -167,7 +176,13 @@ export const createCustomerKyc = async (req, res) => {
       authorisedBy,
       authorisedSignature,
 
+      customerIdImage,
+      alternateIdImage,
+      cacDocument,
+
       false,
+      false,
+      null,
     ];
 
     const result = await pool.query(query, values);
@@ -188,6 +203,58 @@ export const createCustomerKyc = async (req, res) => {
     }
 
     return res.status(500).json({
+      message: "Server error",
+    });
+  }
+};
+
+export const getUnconvertedKyc = async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT
+        id,
+        full_name_company_name,
+        email_address,
+        telephone_number
+      FROM customer_kyc
+      WHERE converted = FALSE
+      ORDER BY created_at DESC
+    `);
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error(err);
+
+    res.status(500).json({
+      message: "Server error",
+    });
+  }
+};
+
+export const getCustomerKycById = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const result = await pool.query(
+      `
+      SELECT *
+      FROM customer_kyc
+      WHERE id = $1
+      `,
+      [id],
+    );
+
+    if (!result.rows.length) {
+      return res.status(404).json({
+        message: "KYC not found",
+      });
+    }
+
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error(err);
+
+    res.status(500).json({
       message: "Server error",
     });
   }

@@ -15,6 +15,7 @@ import {
   Textarea,
   VStack,
   useToast,
+  Stack,
 } from "@chakra-ui/react";
 import { AttachmentIcon } from "@chakra-ui/icons";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -379,23 +380,34 @@ export default function StoragePage() {
   };
 
   return (
-    <Box p={6}>
-      <Heading mb={6}>Storage</Heading>
+    <Box p={{ base: 3, md: 6 }}>
+      <Heading
+        size={{
+          base: "md",
+          md: "lg",
+        }}
+        mb={6}
+      >
+        Storage
+      </Heading>
 
       <VStack spacing={4} align="stretch">
         <Card>
           <CardHeader>
             <Heading size="md">Customer Details</Heading>
           </CardHeader>
-          <CardBody>
-            <Grid templateColumns={{ base: "1fr", lg: "1fr 1fr" }} gap={6}>
+          <CardBody p={{ base: 4, md: 6 }}>
+            <Grid
+              templateColumns={{ base: "1fr", lg: "1fr 1fr" }}
+              gap={{ base: 4, lg: 6 }}
+            >
               <CustomerSearch
                 value={selectedCustomer}
                 onSelect={setSelectedCustomer}
                 isDisabled={locked}
               />
 
-              <Box borderWidth="1px" borderRadius="lg" p={4}>
+              <Box borderWidth="1px" borderRadius="lg" p={4} minH="160px">
                 {selectedCustomer ? (
                   <VStack align="start" spacing={2}>
                     <Text>
@@ -425,8 +437,15 @@ export default function StoragePage() {
           <CardHeader>
             <Heading size="md">Storage Details</Heading>
           </CardHeader>
-          <CardBody>
-            <SimpleGrid columns={{ base: 1, md: 4 }} spacing={4}>
+          <CardBody p={{ base: 4, md: 6 }}>
+            <SimpleGrid
+              columns={{
+                base: 1,
+                sm: 2,
+                xl: 4,
+              }}
+              spacing={4}
+            >
               <Box>
                 <Text mb={1}>Received Date</Text>
                 <Input
@@ -509,9 +528,18 @@ export default function StoragePage() {
           <CardHeader>
             <Heading size="md">Product Selection</Heading>
           </CardHeader>
-          <CardBody>
+          <CardBody p={{ base: 4, md: 6 }}>
             <VStack spacing={4} align="stretch">
-              <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+              <SimpleGrid
+                columns={{
+                  base: 1,
+                  md: 2,
+                }}
+                spacing={{
+                  base: 3,
+                  md: 4,
+                }}
+              >
                 <Box>
                   <Text mb={1}>
                     {confirmationMode
@@ -554,10 +582,25 @@ export default function StoragePage() {
                   type="file"
                   accept=".zip"
                   onChange={handleAttachmentChange}
+                  size={{
+                    base: "sm",
+                    md: "md",
+                  }}
                 />
 
                 {attachmentFile && (
-                  <HStack mt={3} spacing={3}>
+                  <Stack
+                    mt={3}
+                    direction={{
+                      base: "column",
+                      md: "row",
+                    }}
+                    spacing={3}
+                    align={{
+                      base: "start",
+                      md: "center",
+                    }}
+                  >
                     <AttachmentIcon color="green.500" />
 
                     <Text fontSize="sm" color="green.600">
@@ -572,7 +615,7 @@ export default function StoragePage() {
                     >
                       Remove File
                     </Button>
-                  </HStack>
+                  </Stack>
                 )}
               </Box>
 
@@ -592,7 +635,7 @@ export default function StoragePage() {
           <CardHeader>
             <Heading size="md">Received Process</Heading>
           </CardHeader>
-          <CardBody>
+          <CardBody p={{ base: 4, md: 6 }}>
             <VStack spacing={5} align="stretch">
               <Box>
                 <Text mb={1}>Received Notes</Text>
@@ -620,15 +663,45 @@ export default function StoragePage() {
           </CardBody>
         </Card>
 
-        <HStack justify="flex-end">
-          <Button variant="outline" onClick={resetPage}>
-            Cancel
-          </Button>
+        <Box
+          position="sticky"
+          bottom="0"
+          bg="white"
+          py={3}
+          zIndex="10"
+          borderTopWidth="1px"
+        >
+          <Stack
+            direction={{
+              base: "column",
+              md: "row",
+            }}
+            justify="flex-end"
+            spacing={3}
+          >
+            <Button
+              variant="outline"
+              w={{
+                base: "100%",
+                md: "auto",
+              }}
+              onClick={resetPage}
+            >
+              Cancel
+            </Button>
 
-          <Button colorScheme="blue" onClick={handleSave}>
-            {saveButtonText}
-          </Button>
-        </HStack>
+            <Button
+              colorScheme="blue"
+              w={{
+                base: "100%",
+                md: "auto",
+              }}
+              onClick={handleSave}
+            >
+              {saveButtonText}
+            </Button>
+          </Stack>
+        </Box>
 
         <RecentStorageList
           storages={recentStorages}
@@ -644,7 +717,7 @@ export default function StoragePage() {
 
               printStorageLabels({
                 items: response.data.items || [],
-                business_name: "Storage King Limited",
+                business_name: "Storage Kings Limited",
               });
             } catch (err) {
               console.error(err);

@@ -16,6 +16,7 @@ import { DeleteIcon } from "@chakra-ui/icons";
 import { useState, useRef } from "react";
 import { searchProducts } from "../../services/receiveService";
 import api from "../../api/api";
+import ResponsiveTable from "../ResponsiveTable";
 
 export default function ReceiveItemsTable({
   items,
@@ -186,177 +187,185 @@ export default function ReceiveItemsTable({
 
   return (
     <>
-      <Table size="sm" variant="simple">
-        <Thead bg="gray.100">
-          <Tr>
-            <Th width="39%">Product</Th>
-            <Th width="10%">Unit</Th>
-            <Th width="16%">Cost</Th>
-            <Th width="10%">Qty</Th>
-            <Th width="10%">Discount</Th>
-            <Th width="10%">Tax</Th>
-            <Th width="2%">Cur</Th>
-            <Th width="2%">Min</Th>
-            <Th width="4%">S/P</Th>
-            <Th width="4%">LS/P</Th>
-            <Th width="12%">Total</Th>
-            <Th width="1%"></Th>
-          </Tr>
-        </Thead>
+      <ResponsiveTable minWidth="1500px">
+        <Table size="sm" variant="simple">
+          <Thead bg="gray.100">
+            <Tr>
+              <Th width="39%">Product</Th>
+              <Th width="10%">Unit</Th>
+              <Th width="16%">Cost</Th>
+              <Th width="10%">Qty</Th>
+              <Th width="10%">Discount</Th>
+              <Th width="10%">Tax</Th>
+              <Th width="2%">Cur</Th>
+              <Th width="2%">Min</Th>
+              <Th width="4%">S/P</Th>
+              <Th width="4%">LS/P</Th>
+              <Th width="12%">Total</Th>
+              <Th width="1%"></Th>
+            </Tr>
+          </Thead>
 
-        <Tbody>
-          {items.map((item, i) => {
-            if (!inputRefs.current[i]) {
-              inputRefs.current[i] = [];
-            }
+          <Tbody>
+            {items.map((item, i) => {
+              if (!inputRefs.current[i]) {
+                inputRefs.current[i] = [];
+              }
 
-            return (
-              <Tr key={i}>
-                {/* PRODUCT */}
-                <Td position="relative">
-                  <Input
-                    ref={(el) => setCellRef(i, 0, el)}
-                    value={item.product_name || ""}
-                    isDisabled={isView}
-                    placeholder="Search product..."
-                    onKeyDown={(e) => handleKey(e, i, 0)}
-                    onChange={(e) => handleSearch(e.target.value, i)}
-                  />
-
-                  {activeRow === i && searchResults.length > 0 && (
-                    <Box
-                      position="absolute"
-                      bg="white"
-                      border="1px solid #ddd"
-                      width="100%"
-                      zIndex={10}
-                      maxH="200px"
-                      overflowY="auto"
-                    >
-                      <List spacing={0}>
-                        {searchResults.map((p) => (
-                          <ListItem
-                            key={p.product_id}
-                            px={3}
-                            py={2}
-                            cursor="pointer"
-                            _hover={{ bg: "gray.100" }}
-                            onClick={() => selectProduct(p, i)}
-                          >
-                            {p.product_name}
-                          </ListItem>
-                        ))}
-                      </List>
-                    </Box>
-                  )}
-                </Td>
-
-                {/* UNIT */}
-                <Td>
-                  <Input
-                    ref={(el) => setCellRef(i, 1, el)}
-                    value={item.unit || ""}
-                    isDisabled={isView}
-                    onChange={(e) => updateItem(i, "unit", e.target.value)}
-                  />
-                </Td>
-
-                {/* COST PRICE */}
-                <Td>
-                  <Input
-                    ref={(el) => setCellRef(i, 2, el)}
-                    type="number"
-                    value={item.cost_price ?? ""}
-                    isDisabled={isView}
-                    onKeyDown={(e) => handleKey(e, i, 2)}
-                    onChange={(e) =>
-                      updateItem(i, "cost_price", Number(e.target.value) || 0)
-                    }
-                  />
-                </Td>
-
-                {/* QTY */}
-                <Td>
-                  <Input
-                    ref={(el) => setCellRef(i, 3, el)}
-                    type="number"
-                    value={item.qty ?? ""}
-                    isDisabled={isView}
-                    onKeyDown={(e) => handleKey(e, i, 3)}
-                    onChange={(e) =>
-                      updateItem(i, "qty", Number(e.target.value) || 0)
-                    }
-                  />
-                </Td>
-
-                {/* DISCOUNT */}
-                <Td>
-                  <Input
-                    ref={(el) => setCellRef(i, 4, el)}
-                    type="number"
-                    value={item.discount ?? ""}
-                    isDisabled={isView}
-                    onKeyDown={(e) => handleKey(e, i, 4)}
-                    onChange={(e) =>
-                      updateItem(i, "discount", Number(e.target.value) || 0)
-                    }
-                  />
-                </Td>
-
-                {/* TAX */}
-                <Td>
-                  <Input
-                    ref={(el) => setCellRef(i, 5, el)}
-                    type="number"
-                    value={item.tax ?? ""}
-                    isDisabled={isView}
-                    onKeyDown={(e) => handleKey(e, i, 5)}
-                    onChange={(e) =>
-                      updateItem(i, "tax", Number(e.target.value) || 0)
-                    }
-                  />
-                </Td>
-
-                {/* CURRENT STOCK */}
-                <Td
-                  color={
-                    (item.stock_quantity ?? 0) < (item.minimum_quantity ?? 0)
-                      ? "red.500"
-                      : "grey.700"
-                  }
-                >
-                  {item.stock_quantity ?? 0}
-                </Td>
-
-                {/* MINIMUM QUANTITY */}
-                <Td>{item.minimum_quantity ?? 0}</Td>
-
-                {/* SELLING PRICE */}
-                <Td>{item.selling_price ?? 0}</Td>
-
-                {/* LAST SELLING PRICE */}
-                <Td>{item.last_supplier_price ?? 0}</Td>
-
-                <Td>
-                  {Number(item.line_total || 0).toLocaleString(undefined, {
-                    minimumFractionDigits: 2,
-                  })}
-                </Td>
-
-                <Td>
-                  {!isView && (
-                    <IconButton
-                      size="sm"
-                      icon={<DeleteIcon />}
-                      onClick={() => removeRow(i)}
+              return (
+                <Tr key={i}>
+                  {/* PRODUCT */}
+                  <Td position="relative">
+                    <Input
+                      ref={(el) => setCellRef(i, 0, el)}
+                      value={item.product_name || ""}
+                      isDisabled={isView}
+                      placeholder="Search product..."
+                      onKeyDown={(e) => handleKey(e, i, 0)}
+                      onChange={(e) => handleSearch(e.target.value, i)}
                     />
-                  )}
-                </Td>
-              </Tr>
-            );
-          })}
-        </Tbody>
-      </Table>
+
+                    {activeRow === i && searchResults.length > 0 && (
+                      <Box
+                        position="absolute"
+                        borderRadius="md"
+                        boxShadow="lg"
+                        bg="white"
+                        border="1px solid #ddd"
+                        width="100%"
+                        zIndex={10}
+                        maxH="200px"
+                        overflowY="auto"
+                      >
+                        <List spacing={0}>
+                          {searchResults.map((p) => (
+                            <ListItem
+                              key={p.product_id}
+                              px={3}
+                              py={2}
+                              cursor="pointer"
+                              _hover={{ bg: "gray.100" }}
+                              onClick={() => selectProduct(p, i)}
+                            >
+                              {p.product_name}
+                            </ListItem>
+                          ))}
+                        </List>
+                      </Box>
+                    )}
+                  </Td>
+
+                  {/* UNIT */}
+                  <Td>
+                    <Input
+                      ref={(el) => setCellRef(i, 1, el)}
+                      value={item.unit || ""}
+                      isDisabled={isView}
+                      onChange={(e) => updateItem(i, "unit", e.target.value)}
+                    />
+                  </Td>
+
+                  {/* COST PRICE */}
+                  <Td>
+                    <Input
+                      ref={(el) => setCellRef(i, 2, el)}
+                      type="number"
+                      value={item.cost_price ?? ""}
+                      isDisabled={isView}
+                      onKeyDown={(e) => handleKey(e, i, 2)}
+                      onChange={(e) =>
+                        updateItem(i, "cost_price", Number(e.target.value) || 0)
+                      }
+                    />
+                  </Td>
+
+                  {/* QTY */}
+                  <Td>
+                    <Input
+                      ref={(el) => setCellRef(i, 3, el)}
+                      type="number"
+                      value={item.qty ?? ""}
+                      isDisabled={isView}
+                      onKeyDown={(e) => handleKey(e, i, 3)}
+                      onChange={(e) =>
+                        updateItem(i, "qty", Number(e.target.value) || 0)
+                      }
+                    />
+                  </Td>
+
+                  {/* DISCOUNT */}
+                  <Td>
+                    <Input
+                      ref={(el) => setCellRef(i, 4, el)}
+                      type="number"
+                      value={item.discount ?? ""}
+                      isDisabled={isView}
+                      onKeyDown={(e) => handleKey(e, i, 4)}
+                      onChange={(e) =>
+                        updateItem(i, "discount", Number(e.target.value) || 0)
+                      }
+                    />
+                  </Td>
+
+                  {/* TAX */}
+                  <Td>
+                    <Input
+                      ref={(el) => setCellRef(i, 5, el)}
+                      type="number"
+                      value={item.tax ?? ""}
+                      isDisabled={isView}
+                      onKeyDown={(e) => handleKey(e, i, 5)}
+                      onChange={(e) =>
+                        updateItem(i, "tax", Number(e.target.value) || 0)
+                      }
+                    />
+                  </Td>
+
+                  {/* CURRENT STOCK */}
+                  <Td
+                    whiteSpace="nowrap"
+                    color={
+                      (item.stock_quantity ?? 0) < (item.minimum_quantity ?? 0)
+                        ? "red.500"
+                        : "grey.700"
+                    }
+                  >
+                    {item.stock_quantity ?? 0}
+                  </Td>
+
+                  {/* MINIMUM QUANTITY */}
+                  <Td whiteSpace="nowrap">{item.minimum_quantity ?? 0}</Td>
+
+                  {/* SELLING PRICE */}
+                  <Td whiteSpace="nowrap">{item.selling_price ?? 0}</Td>
+
+                  {/* LAST SELLING PRICE */}
+                  <Td whiteSpace="nowrap">{item.last_supplier_price ?? 0}</Td>
+
+                  <Td whiteSpace="nowrap">
+                    {Number(item.line_total || 0).toLocaleString(undefined, {
+                      minimumFractionDigits: 2,
+                    })}
+                  </Td>
+
+                  <Td>
+                    {!isView && (
+                      <IconButton
+                        size={{
+                          base: "xs",
+                          md: "sm",
+                        }}
+                        icon={<DeleteIcon />}
+                        onClick={() => removeRow(i)}
+                      />
+                    )}
+                  </Td>
+                </Tr>
+              );
+            })}
+          </Tbody>
+        </Table>
+      </ResponsiveTable>
     </>
   );
 }

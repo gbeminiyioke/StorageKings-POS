@@ -17,7 +17,6 @@ import {
   Image,
   Link,
   useToast,
-  Toast,
 } from "@chakra-ui/react";
 import { ViewIcon, ViewOffIcon } from "@chakra-ui/icons";
 import { FaUser, FaUserTie } from "react-icons/fa";
@@ -27,7 +26,6 @@ import publicApi from "../api/publicApi";
 import api from "../api/api";
 import { useAuth } from "../context/AuthContext";
 import logo from "../assets/logo-storagekings.png";
-import { statsBuffer } from "framer-motion";
 import FingerprintJS from "@fingerprintjs/fingerprintjs";
 
 export default function Login() {
@@ -98,13 +96,23 @@ export default function Login() {
       });
 
       // Response should now include role_id
-      const { token, defaultPage, permissions, roleName, name } = res.data;
+      const {
+        token,
+        refreshToken,
+        defaultPage,
+        permissions,
+        roleName,
+        branchName,
+        name,
+      } = res.data;
 
       // SAVE FULL USER CONTEXT
       login({
         token,
+        refreshToken,
         permissions,
         roleName,
+        branchName,
         name,
         defaultPage,
       });
@@ -122,7 +130,7 @@ export default function Login() {
     } catch (err) {
       const message = err.response?.data?.message;
       if (err.response?.status === 423) {
-        Toast({
+        toast({
           title: "Account Locked",
           description: message,
           status: "error",
@@ -138,15 +146,32 @@ export default function Login() {
   };
 
   return (
-    <Flex minH="100vh" align="center" justify="center" bg="gray.50">
-      <Box bg="white" p={8} rounded="md" w="100%" maxW="420px" boxShadow="md">
+    <Flex
+      minH="100vh"
+      align="center"
+      justify="center"
+      bg="gray.50"
+      p={{ base: 4, md: 6 }}
+    >
+      <Box
+        bg="white"
+        p={{ base: 5, md: 8 }}
+        rounded="md"
+        w="100%"
+        maxW={{ base: "100%", sm: "420px" }}
+        boxShadow="md"
+      >
         {/* Logo */}
         <Flex justify="center" mb={4}>
-          <Image src={logo} alt="Client logo" maxH="60px" />
+          <Image
+            src={logo}
+            alt="Client logo"
+            maxH={{ base: "50px", md: "60px" }}
+          />
         </Flex>
 
         {/* Login type toggle */}
-        <Flex mb={6} gap={2}>
+        <Flex mb={6} gap={2} direction={{ base: "column", sm: "row" }}>
           <Button
             flex={1}
             leftIcon={<FaUser />}

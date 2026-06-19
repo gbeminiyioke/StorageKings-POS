@@ -54,7 +54,14 @@ export default function ForgotPassword() {
 
   return (
     <Flex minH="100vh" align="center" justify="center" bg="gray.50">
-      <Box bg="white" p={8} rounded="md" w="100%" maxW="420px" boxShadow="md">
+      <Box
+        bg="white"
+        p={{ base: 5, md: 8 }}
+        rounded="md"
+        w="100%"
+        maxW="420px"
+        mx={4}
+      >
         <Text fontSize="xl" mb={4} fontWeight="bold">
           Forgot Password
         </Text>

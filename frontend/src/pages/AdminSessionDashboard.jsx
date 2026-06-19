@@ -28,6 +28,7 @@ import {
 import { DeleteIcon, RepeatIcon } from "@chakra-ui/icons";
 import { useEffect, useMemo, useState } from "react";
 import api from "../api/api";
+import ResponsiveTable from "../components/ResponsiveTable";
 
 export default function AdminSessionDashboard() {
   const toast = useToast();
@@ -137,6 +138,26 @@ export default function AdminSessionDashboard() {
     };
   };
 
+  const getLastSeen = (date) => {
+    if (!date) return "-";
+
+    const diff = Date.now() - new Date(date).getTime();
+
+    const mins = Math.floor(diff / 60000);
+
+    if (mins < 1) return "Just now";
+
+    if (mins < 60) return `${mins} min ago`;
+
+    const hrs = Math.floor(mins / 60);
+
+    if (hrs < 24) return `${hrs} hr ago`;
+
+    const days = Math.floor(hrs / 24);
+
+    return `${days} day ago`;
+  };
+
   const filteredSessions = useMemo(() => {
     return sessions.filter((s) => {
       const searchTerm = search.toLowerCase();
@@ -156,6 +177,20 @@ export default function AdminSessionDashboard() {
     });
   }, [sessions, search, branchFilter, loginTypeFilter]);
 
+  const onlineUsers = sessions.filter((s) => {
+    const mins = (Date.now() - new Date(s.last_activity).getTime()) / 60000;
+
+    return mins <= 5;
+  }).length;
+
+  const getSessionDuration = (loginAt) => {
+    const diff = Date.now() - new Date(loginAt).getTime();
+    const hrs = Math.floor(diff / 3600000);
+    const mins = Math.floor((diff % 3600000) / 60000);
+
+    return `${hrs}h ${mins}m`;
+  };
+
   if (loading) {
     return (
       <Flex justify="center" py={20}>
@@ -165,8 +200,19 @@ export default function AdminSessionDashboard() {
   }
 
   return (
-    <Box p={6}>
-      <Flex justify="space-between" align="center" mb={6}>
+    <Box p={{ base: 3, md: 6 }}>
+      <Flex
+        justify="space-between"
+        align={{
+          base: "stretch",
+          md: "center",
+        }}
+        direction={{
+          base: "column",
+          md: "row",
+        }}
+        gap={4}
+      >
         <Heading size="lg">Session Dashboard</Heading>
 
         <Button leftIcon={<RepeatIcon />} onClick={loadData}>
@@ -208,12 +254,48 @@ export default function AdminSessionDashboard() {
             }
           </StatNumber>
         </Stat>
+
+        <Stat borderWidth="1px" borderRadius="md" p={4}>
+          <StatLabel>Online Users</StatLabel>
+          <StatNumber>{onlineUsers}</StatNumber>
+        </Stat>
       </SimpleGrid>
+
+      <Box borderWidth="1px" borderRadius="md" p={4} mb={6}>
+        <Heading size="sm" mb={3}>
+          Active Users
+        </Heading>
+
+        <VStack align="stretch" spacing={2}>
+          {sessions
+            .filter((s) => {
+              const mins =
+                (Date.now() - new Date(s.last_activity).getTime()) / 60000;
+
+              return mins <= 5;
+            })
+            .slice(0, 10)
+            .map((s) => (
+              <HStack key={s.id} justify="space-between">
+                <HStack>
+                  <Box w="10px" h="10px" borderRadius="full" bg="green.400" />
+
+                  <Text>{s.fullname}</Text>
+                </HStack>
+
+                <Text fontSize="sm" color="gray.500">
+                  {getLastSeen(s.last_activity)}
+                </Text>
+              </HStack>
+            ))}
+        </VStack>
+      </Box>
 
       <Grid
         templateColumns={{
           base: "1fr",
-          md: "repeat(4,1fr)",
+          md: "repeat(2,1fr)",
+          xl: "repeat(4,1fr)",
         }}
         gap={4}
         mb={6}
@@ -253,13 +335,7 @@ export default function AdminSessionDashboard() {
         </GridItem>
       </Grid>
 
-      <Box
-        overflowX="auto"
-        display={{
-          base: "none",
-          lg: "block",
-        }}
-      >
+      <ResponsiveTable minWidth="1100px">
         <Table>
           <Thead>
             <Tr>
@@ -270,6 +346,7 @@ export default function AdminSessionDashboard() {
               <Th>IP</Th>
               <Th>Status</Th>
               <Th>Last Activity</Th>
+              <Th>Session</Th>
               <Th>Action</Th>
             </Tr>
           </Thead>
@@ -302,7 +379,18 @@ export default function AdminSessionDashboard() {
                     <Badge colorScheme={status.color}>{status.label}</Badge>
                   </Td>
 
-                  <Td>{new Date(session.last_activity).toLocaleString()}</Td>
+                  {/*<Td>{new Date(session.last_activity).toLocaleString()}</Td>*/}
+                  <Td>
+                    <VStack align="start" spacing={0}>
+                      <Text>{getLastSeen(session.last_activity)}</Text>
+
+                      <Text fontSize="xs" color="gray.500">
+                        {new Date(session.last_activity).toLocaleString()}
+                      </Text>
+                    </VStack>
+                  </Td>
+
+                  <Td>{getSessionDuration(session.created_at)}</Td>
 
                   <Td>
                     <IconButton
@@ -318,7 +406,7 @@ export default function AdminSessionDashboard() {
             })}
           </Tbody>
         </Table>
-      </Box>
+      </ResponsiveTable>
 
       <VStack
         spacing={4}

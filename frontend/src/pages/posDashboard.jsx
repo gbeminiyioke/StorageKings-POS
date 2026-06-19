@@ -32,7 +32,7 @@ import {
 import { useEffect, useState } from "react";
 import api from "../api/api";
 
-export default function POSDashboard() {
+export default function POSDashboard({ showAlerts = true, embedded = false }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -62,8 +62,8 @@ export default function POSDashboard() {
   }));
 
   return (
-    <Box p={5}>
-      <Heading mb={5}>Sales Dashboard</Heading>
+    <Box p={embedded ? 0 : 5}>
+      {!embedded && <Heading mb={5}>Sales Dashboard</Heading>}
 
       {/* KPI CARDS */}
 
@@ -250,9 +250,7 @@ export default function POSDashboard() {
             {data.topProducts.map((p, index) => (
               <Tr key={index}>
                 <Td>{p.product_name}</Td>
-
                 <Td isNumeric>{p.qty_sold}</Td>
-
                 <Td isNumeric>₦ {Number(p.revenue).toLocaleString()}</Td>
               </Tr>
             ))}
@@ -262,21 +260,23 @@ export default function POSDashboard() {
 
       {/* ALERTS */}
 
-      <Box bg="white" p={5} borderRadius="md">
-        <Heading size="md" mb={4}>
-          Low Stock Alerts
-        </Heading>
+      {showAlerts && (
+        <Box bg="white" p={5} borderRadius="md">
+          <Heading size="md" mb={4}>
+            Low Stock Alerts
+          </Heading>
 
-        {data.alerts.length === 0 && <Text>No alerts</Text>}
+          {data.alerts.length === 0 && <Text>No alerts</Text>}
 
-        {data.alerts.map((a, index) => (
-          <Alert status="warning" mb={3} key={index}>
-            <AlertIcon />
-            {a.product_name} at {a.branch_name} is low on stock. Remaining:{" "}
-            {a.stock_quantity}
-          </Alert>
-        ))}
-      </Box>
+          {data.alerts.map((a, index) => (
+            <Alert status="warning" mb={3} key={index}>
+              <AlertIcon />
+              {a.product_name} at {a.branch_name} is low on stock. Remaining:{" "}
+              {a.stock_quantity}
+            </Alert>
+          ))}
+        </Box>
+      )}
     </Box>
   );
 }

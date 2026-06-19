@@ -295,7 +295,7 @@ export default function DischargePage() {
   };
 
   return (
-    <Box p={6}>
+    <Box p={{ base: 3, md: 6 }}>
       <Heading mb={6}>Item Discharge</Heading>
 
       <VStack spacing={6} align="stretch">
@@ -353,7 +353,7 @@ export default function DischargePage() {
               />
             </Box>
 
-            <SimpleGrid columns={{ base: 1, md: 2, lg: 6 }} spacing={4} mb={6}>
+            <SimpleGrid columns={{ base: 1, md: 2, lg: 6 }} spacing={4}>
               <Box>
                 <Text mb={1}>Discharge Date</Text>
                 <Input type="date" value={today} isReadOnly />
@@ -453,7 +453,7 @@ export default function DischargePage() {
           </CardBody>
         </Card>
 
-        <HStack justify="flex-end">
+        <HStack justify="flex-end" flexWrap="wrap">
           <Button variant="outline" onClick={resetPage}>
             Cancel
           </Button>

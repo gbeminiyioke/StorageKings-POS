@@ -29,6 +29,10 @@ export default function POSHeader({
   const [customerResults, setCustomerResults] = useState([]);
   const [branchName, setBranchName] = useState("");
 
+  const [refundSearch, setRefundSearch] = useState("");
+  const [refundResults, setRefundResults] = useState([]);
+  const [selectedSale, setSelectedSale] = useState(null);
+
   const transactionDate = useMemo(
     () => new Date().toISOString().split("T")[0],
     [],
@@ -97,6 +101,27 @@ export default function POSHeader({
     }
   }, [selectedCustomer]);
 
+  useEffect(() => {
+    if (transactionType !== "REFUND") return;
+
+    const timer = setTimeout(async () => {
+      if (!refundSearch.trim()) {
+        setRefundResults([]);
+        return;
+      }
+
+      try {
+        const res = await api.get(`/pos/search-sales?q=${refundSearch}`);
+
+        setRefundResults(res.data);
+      } catch (err) {
+        console.error(err);
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [refundSearch, transactionType]);
+
   const dueDate = selectedCustomer?.payment_terms
     ? new Date(
         new Date(transactionDate).getTime() +
@@ -109,7 +134,14 @@ export default function POSHeader({
   return (
     <Box bg="white" p={4} borderBottom="1px solid #e2e8f0">
       <VStack spacing={4} align="stretch">
-        <Grid templateColumns="repeat(4, 1fr)" gap={4}>
+        <Grid
+          templateColumns={{
+            base: "1fr",
+            md: "repeat(2,1fr)",
+            xl: "repeat(4,1fr)",
+          }}
+          gap={4}
+        >
           <Box>
             <Text fontSize="sm" mb={1}>
               Transaction Date
@@ -155,7 +187,14 @@ export default function POSHeader({
           </Box>
         </Grid>
 
-        <Grid templateColumns="2fr 1fr 1fr 1fr" gap={4}>
+        <Grid
+          templateColumns={{
+            base: "1fr",
+            md: "repeat(2,1fr)",
+            xl: "2fr 1fr 1fr 1fr",
+          }}
+          gap={4}
+        >
           <Box position="relative">
             <Text fontSize="sm" mb={1}>
               Customer
@@ -177,7 +216,11 @@ export default function POSHeader({
                 borderRadius="md"
                 mt={1}
                 zIndex={1000}
-                maxH="200px"
+                maxH={{
+                  base: "180px",
+                  md: "200px",
+                }}
+                boxShadow="lg"
                 overflowY="auto"
               >
                 {customerResults.map((customer) => (
@@ -220,6 +263,40 @@ export default function POSHeader({
             </Text>
             <Input value={dueDate} isReadOnly />
           </Box>
+
+          {transactionType === "REFUND" && (
+            <Box position="relative">
+              <Text fontSize="sm" mb={1}>
+                Original Invoice
+              </Text>
+
+              <Input
+                placeholder="Search invoice number"
+                value={refundSearch}
+                onChange={(e) => setRefundSearch(e.target.value)}
+              />
+
+              {refundResults.length > 0 && (
+                <List position="absolute" bg="white" zIndex={1000} width="100%">
+                  {refundResults.map((sale) => (
+                    <ListItem
+                      key={sale.sale_id}
+                      p={2}
+                      cursor="pointer"
+                      onClick={() => {
+                        setSelectedSale(sale);
+                        setRefundSearch(sale.invoice_no);
+                        setRefundResults([]);
+                      }}
+                    >
+                      {sale.invoice_no}
+                      {" - "}₦{Number(sale.grand_total).toLocaleString()}
+                    </ListItem>
+                  ))}
+                </List>
+              )}
+            </Box>
+          )}
         </Grid>
       </VStack>
     </Box>

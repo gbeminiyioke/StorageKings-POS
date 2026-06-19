@@ -5,6 +5,7 @@ export default function StatCard({ title, value, icon, color = "blue.500" }) {
     <Box
       bg="white"
       p={5}
+      minH="100px"
       rounded="lg"
       boxShadow="sm"
       border="1px solid"

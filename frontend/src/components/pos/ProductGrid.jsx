@@ -150,11 +150,19 @@ export default function ProductGrid({ search, setSearch, category }) {
         )}
       </Box>
 
-      <SimpleGrid columns={[1, 2, 3]} spacing={3}>
+      <SimpleGrid
+        columns={{
+          base: 1,
+          sm: 2,
+          xl: 3,
+        }}
+        spacing={3}
+      >
         {filteredProducts.map((product) => (
           <Box
             key={product.product_id}
             p={3}
+            minH="140px"
             bg="white"
             borderRadius="md"
             shadow="sm"

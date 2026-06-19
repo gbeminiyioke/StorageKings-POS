@@ -43,6 +43,8 @@ import {
   Select,
   Image,
   AspectRatio,
+  Stack,
+  SimpleGrid,
 } from "@chakra-ui/react";
 import {
   FiAlignJustify,
@@ -117,7 +119,11 @@ export default function CustomerHome() {
 
   const [tabIndex, setTabIndex] = useState(0);
 
-  const FILE_BASE_URL = import.meta.env.VITE_API_URL.replace("/api", "");
+  //const FILE_BASE_URL = import.meta.env.VITE_API_URL.replace("/api", "");
+  const FILE_BASE_URL = (import.meta.env.VITE_API_URL || "").replace(
+    /\/api\/?$/,
+    "",
+  );
 
   useEffect(() => {
     loadData();
@@ -130,6 +136,9 @@ export default function CustomerHome() {
       });
     }
   }, []);
+
+  //console.log("VITE_API_URL =", import.meta.env.VITE_API_URL);
+  //console.log("FILE_BASE_URL =", FILE_BASE_URL);
 
   const loadData = async () => {
     try {
@@ -527,22 +536,28 @@ export default function CustomerHome() {
   };
 
   return (
-    <Box p={6}>
+    <Box p={{ base: 3, md: 6 }} maxW="100%" overflowX="hidden">
       {/* =========================
         HEADER
     ========================== */}
-      <Flex mb={6} align="center">
-        <Text fontSize="2xl" fontWeight="bold">
+      <Flex
+        mb={6}
+        align="center"
+        direction={{ base: "column", md: "row" }}
+        gap={3}
+      >
+        <Text fontSize={{ base: "xl", md: "2xl" }} fontWeight="bold">
           Customer Portal
         </Text>
 
-        <Spacer />
+        <Spacer display={{ base: "none", md: "block" }} />
 
         <Button
           leftIcon={<FiLogOut />}
           colorScheme="blue"
           variant="outline"
-          size="sm"
+          w={{ base: "100%", md: "auto" }}
+          size={{ base: "md", md: "sm" }}
           onClick={handleLogout}
         >
           Logout
@@ -555,239 +570,236 @@ export default function CustomerHome() {
           You have <strong>{overdueInvoices.length}</strong> overdue invoice(s).
         </Alert>
       )}
-      {/*
-      <Box mb={6}>
-        {overdueInvoices.map((invoice) => (
-          <Box
-            key={invoice.invoice_no}
-            p={3}
-            borderWidth="1px"
-            borderRadius="md"
-            mb={2}
-          >
-            <Text fontWeight="bold">{invoice.invoice_no}</Text>
 
-            <Text>
-              Balance: ₦{Number(invoice.balance_due).toLocaleString()}
-            </Text>
-
-            <Text>Due: {formatDate(invoice.due_date)}</Text>
-          </Box>
-        ))}
-      </Box>
-*/}
-      <Tabs variant="enclosed" index={tabIndex} onChange={setTabIndex}>
-        <TabList>
-          <Tab>My Stored Items</Tab>
-          <Tab>Transactions</Tab>
-          <Tab>Overdue Invoices</Tab>
-          <Tab>Profile</Tab>
-        </TabList>
+      <Tabs variant="enclosed" isLazy index={tabIndex} onChange={setTabIndex}>
+        <Box overflowX="auto">
+          <TabList>
+            <Tab>My Stored Items</Tab>
+            <Tab>Transactions</Tab>
+            <Tab>Overdue Invoices</Tab>
+            <Tab>Profile</Tab>
+          </TabList>
+        </Box>
 
         <TabPanels>
           {/* =====================================
               STORED ITEMS
           ===================================== */}
           <TabPanel>
-            <Table size="sm" variant="striped">
-              <Thead>
-                <Tr>
-                  <Th></Th>
-                  <Th>Storage No</Th>
-                  <Th>Branch</Th>
-                  <Th>Storage Space</Th>
-                  <Th>Received Date</Th>
-                  <Th>Status</Th>
-                  <Th>No of Items</Th>
-                  <Th>Discharge Date</Th>
-                  <Th>Expiry Countdown</Th>
-                  <Th>Visits</Th>
-                  <Th>Actions</Th>
-                </Tr>
-              </Thead>
+            <Box overflowX="auto">
+              <Table size="sm" variant="striped" minW="1100px">
+                <Thead>
+                  <Tr>
+                    <Th></Th>
+                    <Th>Storage No</Th>
+                    <Th>Branch</Th>
+                    <Th>Storage Space</Th>
+                    <Th>Received Date</Th>
+                    <Th>Status</Th>
+                    <Th>No of Items</Th>
+                    <Th>Discharge Date</Th>
+                    <Th>Expiry Countdown</Th>
+                    <Th>Visits</Th>
+                    <Th>Actions</Th>
+                  </Tr>
+                </Thead>
 
-              <Tbody>
-                {storedItems.map((item) => (
-                  <React.Fragment key={item.storage_id}>
-                    <Tr>
-                      <Td>
-                        <IconButton
-                          size="sm"
-                          icon={
-                            expandedStorage === item.storage_id ? (
-                              <ChevronUpIcon />
-                            ) : (
-                              <ChevronDownIcon />
-                            )
-                          }
-                          onClick={() => toggleStorage(item.storage_id)}
-                        />
-                      </Td>
-                      <Td fontWeight="bold">{item.storage_no}</Td>
-                      <Td>{item.branch_name}</Td>
-                      <Td>{item.storage_space}</Td>
-                      <Td>{formatDate(item.received_date)}</Td>
-                      <Td>
-                        <Badge
-                          colorScheme={
-                            item.status === "ACTIVE" ? "green" : "red"
-                          }
-                        >
-                          {item.status}
-                        </Badge>
-                      </Td>
-                      <Td>{item.total_items}</Td>
-                      <Td>{formatDate(item.discharge_date)}</Td>
-                      <Td>
-                        <Badge
-                          colorScheme={
-                            Number(item.days_remaining) < 7
-                              ? "red"
-                              : Number(item.days_remaining) < 30
-                                ? "orange"
-                                : "green"
-                          }
-                        >
-                          {item.days_remaining} days
-                        </Badge>
-                      </Td>
-                      <Td>
-                        <VStack spacing={1} align="start">
-                          <Text>
-                            {item.current_visits || 0}/
-                            {item.max_monthly_visits || 0}
-                          </Text>
+                <Tbody>
+                  {storedItems.map((item) => (
+                    <React.Fragment key={item.storage_id}>
+                      <Tr>
+                        <Td>
+                          <IconButton
+                            size="sm"
+                            icon={
+                              expandedStorage === item.storage_id ? (
+                                <ChevronUpIcon />
+                              ) : (
+                                <ChevronDownIcon />
+                              )
+                            }
+                            onClick={() => toggleStorage(item.storage_id)}
+                          />
+                        </Td>
+                        <Td fontWeight="bold">{item.storage_no}</Td>
+                        <Td>{item.branch_name}</Td>
+                        <Td>{item.storage_space}</Td>
+                        <Td>{formatDate(item.received_date)}</Td>
+                        <Td>
+                          <Badge
+                            colorScheme={
+                              item.status === "ACTIVE" ? "green" : "red"
+                            }
+                          >
+                            {item.status}
+                          </Badge>
+                        </Td>
+                        <Td>{item.total_items}</Td>
+                        <Td>{formatDate(item.discharge_date)}</Td>
+                        <Td>
+                          <Badge
+                            colorScheme={
+                              Number(item.days_remaining) < 7
+                                ? "red"
+                                : Number(item.days_remaining) < 30
+                                  ? "orange"
+                                  : "green"
+                            }
+                          >
+                            {item.days_remaining} days
+                          </Badge>
+                        </Td>
+                        <Td>
+                          <VStack spacing={1} align="start">
+                            <Text>
+                              {item.current_visits || 0}/
+                              {item.max_monthly_visits || 0}
+                            </Text>
 
-                          {item.quota_exhausted && (
-                            <Badge colorScheme="red">Quota Exhausted</Badge>
-                          )}
-                        </VStack>
-                      </Td>
-                      <Td>
-                        <HStack spacing={2}>
-                          {/*==========================
+                            {item.quota_exhausted && (
+                              <Badge colorScheme="red">Quota Exhausted</Badge>
+                            )}
+                          </VStack>
+                        </Td>
+                        <Td>
+                          <HStack spacing={2} flexWrap="wrap">
+                            {/*==========================
                             REQUEST VISIT
                           ============================= */}
-                          <Tooltip label="Request Visit to Storage Unit">
-                            <span>
-                              <IconButton
-                                size="sm"
-                                icon={<FiAlignJustify />}
-                                colorScheme="orange"
-                                isDisabled={
-                                  Number(item.current_visits || 0) >=
-                                    Number(item.max_monthly_visits || 0) ||
-                                  item.has_pending_visit_request
-                                }
-                                onClick={() => {
-                                  /* ============================
+                            <Tooltip label="Request Visit to Storage Unit">
+                              <span>
+                                <IconButton
+                                  size={{
+                                    base: "xs",
+                                    md: "sm",
+                                  }}
+                                  icon={<FiAlignJustify />}
+                                  colorScheme="orange"
+                                  isDisabled={
+                                    Number(item.current_visits || 0) >=
+                                      Number(item.max_monthly_visits || 0) ||
+                                    item.has_pending_visit_request
+                                  }
+                                  onClick={() => {
+                                    /* ============================
                                   CHECK STORAGE EXPIRY
                                   ============================ */
 
-                                  if (
-                                    item.discharge_date &&
-                                    new Date(item.discharge_date) < new Date()
-                                  ) {
-                                    toast({
-                                      title: "Storage has expired",
-                                      status: "error",
+                                    if (
+                                      item.discharge_date &&
+                                      new Date(item.discharge_date) < new Date()
+                                    ) {
+                                      toast({
+                                        title: "Storage has expired",
+                                        status: "error",
+                                      });
+
+                                      return;
+                                    }
+
+                                    setSelectedStorage(item);
+                                    setVisitForm({
+                                      fullname: profile.fullname || "",
+                                      telephone: profile.telephone || "",
+                                      visit_date: "",
+                                      visitors_name: "",
+                                      visitors_telephone: "",
                                     });
+                                    setVisitModalOpen(true);
+                                  }}
+                                />
+                              </span>
+                            </Tooltip>
 
-                                    return;
-                                  }
-
-                                  setSelectedStorage(item);
-                                  setVisitForm({
-                                    fullname: profile.fullname || "",
-                                    telephone: profile.telephone || "",
-                                    visit_date: "",
-                                    visitors_name: "",
-                                    visitors_telephone: "",
-                                  });
-                                  setVisitModalOpen(true);
-                                }}
-                              />
-                            </span>
-                          </Tooltip>
-
-                          {/*==========================
+                            {/*==========================
                             DOWNLOAD ZIP
                           ============================= */}
-                          <Tooltip label="Download zipped file">
-                            <span>
-                              <IconButton
-                                size="sm"
-                                icon={<FiDownload />}
-                                colorScheme="blue"
-                                isDisabled={!item.attachment_path}
-                                onClick={() => handleDownload(item.storage_id)}
-                              />
-                            </span>
-                          </Tooltip>
+                            <Tooltip label="Download zipped file">
+                              <span>
+                                <IconButton
+                                  size={{
+                                    base: "xs",
+                                    md: "sm",
+                                  }}
+                                  icon={<FiDownload />}
+                                  colorScheme="blue"
+                                  isDisabled={!item.attachment_path}
+                                  onClick={() =>
+                                    handleDownload(item.storage_id)
+                                  }
+                                />
+                              </span>
+                            </Tooltip>
 
-                          {/*==========================
+                            {/*==========================
                             VIEW STORAGE FORM
                           ============================= */}
-                          <Tooltip label="View storage form">
-                            <span>
-                              <IconButton
-                                size="sm"
-                                icon={<FiBookOpen />}
-                                colorScheme="green"
-                                isDisabled={["PRINTED", "REJECTED"].includes(
-                                  String(item.status).toUpperCase(),
-                                )}
-                                onClick={() => {
-                                  handleViewStorageForm(item.storage_id);
-                                }}
-                              />
-                            </span>
-                          </Tooltip>
-                        </HStack>
-                      </Td>
-                    </Tr>
+                            <Tooltip label="View storage form">
+                              <span>
+                                <IconButton
+                                  size={{
+                                    base: "xs",
+                                    md: "sm",
+                                  }}
+                                  icon={<FiBookOpen />}
+                                  colorScheme="green"
+                                  isDisabled={["PRINTED", "REJECTED"].includes(
+                                    String(item.status).toUpperCase(),
+                                  )}
+                                  onClick={() => {
+                                    handleViewStorageForm(item.storage_id);
+                                  }}
+                                />
+                              </span>
+                            </Tooltip>
+                          </HStack>
+                        </Td>
+                      </Tr>
 
-                    <Tr>
-                      <Td colSpan={10} p={0}>
-                        <Collapse in={expandedStorage === item.storage_id}>
-                          <Box p={4} bg="gray.50">
-                            <Table size="sm" variant="simple">
-                              <Thead>
-                                <Tr>
-                                  <Th>Item Name</Th>
-                                  <Th>Condition</Th>
-                                  <Th>Received Qty</Th>
-                                  <Th>Discharged Qty</Th>
-                                  <Th>Remaining Qty</Th>
-                                  <Th>Generated Barcode</Th>
-                                </Tr>
-                              </Thead>
-
-                              <Tbody>
-                                {(storageDetails[item.storage_id] || []).map(
-                                  (detail) => (
-                                    <Tr key={detail.storage_item_id}>
-                                      <Td>{detail.product_name}</Td>
-                                      <Td>{detail.condition}</Td>
-                                      <Td>{detail.quantity}</Td>
-                                      <Td>{detail.retrieved_quantity}</Td>
-                                      <Td>{detail.remaining_quantity}</Td>
-                                      <Td fontFamily="mono">
-                                        {detail.generated_barcode}
-                                      </Td>
+                      <Tr>
+                        <Td colSpan={10} p={0}>
+                          <Collapse in={expandedStorage === item.storage_id}>
+                            <Box p={4} bg="gray.50">
+                              <Box overflowX="auto">
+                                <Table size="sm" variant="simple" minW="700px">
+                                  <Thead>
+                                    <Tr>
+                                      <Th>Item Name</Th>
+                                      <Th>Condition</Th>
+                                      <Th>Received Qty</Th>
+                                      <Th>Discharged Qty</Th>
+                                      <Th>Remaining Qty</Th>
+                                      <Th>Generated Barcode</Th>
                                     </Tr>
-                                  ),
-                                )}
-                              </Tbody>
-                            </Table>
-                          </Box>
-                        </Collapse>
-                      </Td>
-                    </Tr>
-                  </React.Fragment>
-                ))}
-              </Tbody>
-            </Table>
+                                  </Thead>
+
+                                  <Tbody>
+                                    {(
+                                      storageDetails[item.storage_id] || []
+                                    ).map((detail) => (
+                                      <Tr key={detail.storage_item_id}>
+                                        <Td>{detail.product_name}</Td>
+                                        <Td>{detail.condition}</Td>
+                                        <Td>{detail.quantity}</Td>
+                                        <Td>{detail.retrieved_quantity}</Td>
+                                        <Td>{detail.remaining_quantity}</Td>
+                                        <Td fontFamily="mono">
+                                          {detail.generated_barcode}
+                                        </Td>
+                                      </Tr>
+                                    ))}
+                                  </Tbody>
+                                </Table>
+                              </Box>
+                            </Box>
+                          </Collapse>
+                        </Td>
+                      </Tr>
+                    </React.Fragment>
+                  ))}
+                </Tbody>
+              </Table>
+            </Box>
 
             <Box mt={10}>
               <Text fontWeight="bold" fontSize="lg" mb={4}>
@@ -836,15 +848,30 @@ export default function CustomerHome() {
                     bg={n.is_read ? "gray.50" : "blue.50"}
                     opacity={n.is_read ? 0.85 : 1}
                     mb={3}
+                    direction={{
+                      base: "column",
+                      md: "row",
+                    }}
+                    align={{
+                      base: "start",
+                      md: "center",
+                    }}
                     justify="space-between"
-                    align="center"
+                    gap={3}
                   >
                     {/* =====================
                       MESSAGE
                     ====================== */}
 
                     <Box>
-                      <HStack mb={1}>
+                      <HStack
+                        spacing={2}
+                        w={{ base: "100%", md: "auto" }}
+                        justify={{
+                          base: "flex-end",
+                          md: "start",
+                        }}
+                      >
                         <Badge colorScheme={notificationColor}>
                           {notificationLabel}
                         </Badge>
@@ -863,7 +890,14 @@ export default function CustomerHome() {
                       ACTIONS
                     ====================== */}
 
-                    <HStack spacing={2}>
+                    <HStack
+                      spacing={2}
+                      w={{ base: "100%", md: "auto" }}
+                      justify={{
+                        base: "flex-end",
+                        md: "start",
+                      }}
+                    >
                       {/* ===================
                         MARK AS READ
                       ==================== */}
@@ -873,7 +907,10 @@ export default function CustomerHome() {
                           <IconButton
                             icon={<FiCheckCircle />}
                             colorScheme="green"
-                            size="sm"
+                            size={{
+                              base: "xs",
+                              md: "sm",
+                            }}
                             onClick={() =>
                               markNotificationAsRead(n.notification_id)
                             }
@@ -894,7 +931,10 @@ export default function CustomerHome() {
                           <IconButton
                             icon={<FiTrash2 />}
                             colorScheme="red"
-                            size="sm"
+                            size={{
+                              base: "xs",
+                              md: "sm",
+                            }}
                             onClick={() =>
                               deleteNotification(n.notification_id)
                             }
@@ -912,46 +952,48 @@ export default function CustomerHome() {
               TRANSACTIONS
           ===================================== */}
           <TabPanel>
-            <Table size="sm" variant="striped">
-              <Thead>
-                <Tr>
-                  <Th>Date</Th>
-                  <Th>Type</Th>
-                  <Th>Reference</Th>
-                  <Th>Branch</Th>
-                  <Th>Amount</Th>
-                  <Th>Status</Th>
-                  <Th>Actions</Th>
-                </Tr>
-              </Thead>
-
-              <Tbody>
-                {transactions.map((txn, index) => (
-                  <Tr key={index}>
-                    <Td>{new Date(txn.created_at).toLocaleString()}</Td>
-                    <Td>
-                      <Badge colorScheme="blue">{txn.transaction_type}</Badge>
-                    </Td>
-                    <Td>{txn.reference_no}</Td>
-                    <Td>{txn.branch_name}</Td>
-                    <Td>₦{Number(txn.amount).toLocaleString()}</Td>
-                    <Td>{txn.status}</Td>
-
-                    <Td>
-                      {txn.transaction_type === "PURCHASE" && (
-                        <Button
-                          size="sm"
-                          colorScheme="blue"
-                          onClick={() => openInvoice(txn)}
-                        >
-                          View Invoice
-                        </Button>
-                      )}
-                    </Td>
+            <Box overflowX="auto">
+              <Table size="sm" variant="striped" minW="900px">
+                <Thead>
+                  <Tr>
+                    <Th>Date</Th>
+                    <Th>Type</Th>
+                    <Th>Reference</Th>
+                    <Th>Branch</Th>
+                    <Th>Amount</Th>
+                    <Th>Status</Th>
+                    <Th>Actions</Th>
                   </Tr>
-                ))}
-              </Tbody>
-            </Table>
+                </Thead>
+
+                <Tbody>
+                  {transactions.map((txn, index) => (
+                    <Tr key={index}>
+                      <Td>{new Date(txn.created_at).toLocaleString()}</Td>
+                      <Td>
+                        <Badge colorScheme="blue">{txn.transaction_type}</Badge>
+                      </Td>
+                      <Td>{txn.reference_no}</Td>
+                      <Td>{txn.branch_name}</Td>
+                      <Td>₦{Number(txn.amount).toLocaleString()}</Td>
+                      <Td>{txn.status}</Td>
+
+                      <Td>
+                        {txn.transaction_type === "PURCHASE" && (
+                          <Button
+                            size="sm"
+                            colorScheme="blue"
+                            onClick={() => openInvoice(txn)}
+                          >
+                            View Invoice
+                          </Button>
+                        )}
+                      </Td>
+                    </Tr>
+                  ))}
+                </Tbody>
+              </Table>
+            </Box>
           </TabPanel>
 
           {/*======================================
@@ -961,84 +1003,89 @@ export default function CustomerHome() {
             {overdueInvoices.length === 0 ? (
               <Text>No overdue invoices</Text>
             ) : (
-              <Table size="sm" variant="striped">
-                <Thead>
-                  <Tr>
-                    <Th>Invoice No</Th>
-                    <Th>Balance Due</Th>
-                    <Th>Due Date</Th>
-                    <Th>Actions</Th>
-                  </Tr>
-                </Thead>
-
-                <Tbody>
-                  {overdueInvoices.map((invoice) => (
-                    <Tr key={invoice.sale_id}>
-                      <Td>{invoice.invoice_no}</Td>
-                      <Td>₦{Number(invoice.balance_due).toLocaleString()}</Td>
-                      <Td>{formatDate(invoice.due_date)}</Td>
-                      <Td>
-                        <HStack>
-                          {/* ===================
-                          VIEW
-                          ==================== */}
-                          <Button
-                            size="sm"
-                            colorScheme="blue"
-                            onClick={() => {
-                              setSelectedInvoice(invoice);
-
-                              onInvoiceOpen();
-                            }}
-                          >
-                            View Invoice
-                          </Button>
-
-                          {/* ===================
-                            DOWNLOAD
-                          ==================== */}
-                          <IconButton
-                            size="sm"
-                            colorScheme="green"
-                            icon={<FiDownload />}
-                            onClick={async () => {
-                              try {
-                                const res = await api.get(
-                                  `/pos/invoice-pdf/${invoice.sale_id}`,
-                                  {
-                                    responseType: "blob",
-                                  },
-                                );
-
-                                const url = window.URL.createObjectURL(
-                                  new Blob([res.data]),
-                                );
-
-                                const link = document.createElement("a");
-                                link.href = url;
-                                link.setAttribute(
-                                  "download",
-                                  `${invoice.invoice_no}.pdf`,
-                                );
-                                document.body.appendChild(link);
-                                link.click();
-                                link.remove();
-                              } catch (err) {
-                                console.error(err);
-
-                                toast({
-                                  title: "Download failed",
-                                  status: "error",
-                                });
-                              }
-                            }}
-                          />
-                        </HStack>
-                      </Td>
+              <Box overflowX="auto">
+                <Table size="sm" variant="striped" minW="700px">
+                  <Thead>
+                    <Tr>
+                      <Th>Invoice No</Th>
+                      <Th>Balance Due</Th>
+                      <Th>Due Date</Th>
+                      <Th>Actions</Th>
                     </Tr>
-                  ))}
-                </Tbody>
-              </Table>
+                  </Thead>
+
+                  <Tbody>
+                    {overdueInvoices.map((invoice) => (
+                      <Tr key={invoice.sale_id}>
+                        <Td>{invoice.invoice_no}</Td>
+                        <Td>₦{Number(invoice.balance_due).toLocaleString()}</Td>
+                        <Td>{formatDate(invoice.due_date)}</Td>
+                        <Td>
+                          <HStack flexWrap="wrap" spacing={2}>
+                            {/* ===================
+                              VIEW
+                            ==================== */}
+                            <Button
+                              size="sm"
+                              colorScheme="blue"
+                              onClick={() => {
+                                setSelectedInvoice(invoice);
+
+                                onInvoiceOpen();
+                              }}
+                            >
+                              View Invoice
+                            </Button>
+
+                            {/* ===================
+                              DOWNLOAD
+                            ==================== */}
+                            <IconButton
+                              size={{
+                                base: "xs",
+                                md: "sm",
+                              }}
+                              colorScheme="green"
+                              icon={<FiDownload />}
+                              onClick={async () => {
+                                try {
+                                  const res = await api.get(
+                                    `/pos/invoice-pdf/${invoice.sale_id}`,
+                                    {
+                                      responseType: "blob",
+                                    },
+                                  );
+
+                                  const url = window.URL.createObjectURL(
+                                    new Blob([res.data]),
+                                  );
+
+                                  const link = document.createElement("a");
+                                  link.href = url;
+                                  link.setAttribute(
+                                    "download",
+                                    `${invoice.invoice_no}.pdf`,
+                                  );
+                                  document.body.appendChild(link);
+                                  link.click();
+                                  link.remove();
+                                } catch (err) {
+                                  console.error(err);
+
+                                  toast({
+                                    title: "Download failed",
+                                    status: "error",
+                                  });
+                                }
+                              }}
+                            />
+                          </HStack>
+                        </Td>
+                      </Tr>
+                    ))}
+                  </Tbody>
+                </Table>
+              </Box>
             )}
           </TabPanel>
 
@@ -1051,7 +1098,7 @@ export default function CustomerHome() {
                 base: "1fr",
                 xl: "1.2fr 420px",
               }}
-              gap={8}
+              gap={{ base: 4, xl: 8 }}
               alignItems="start"
               px={{
                 base: 2,
@@ -1102,7 +1149,14 @@ export default function CustomerHome() {
                   <FormControl isRequired>
                     <FormLabel>Customer Type</FormLabel>
 
-                    <HStack>
+                    <Stack
+                      direction={{
+                        base: "column",
+                        md: "row",
+                      }}
+                      w="100%"
+                      spacing={2}
+                    >
                       <Select
                         value={profile.customer_type || ""}
                         isDisabled={!isEditing}
@@ -1112,11 +1166,7 @@ export default function CustomerHome() {
                             customer_type: e.target.value,
                           })
                         }
-                        w={
-                          profile.customer_type === "Individual"
-                            ? "50%"
-                            : "100%"
-                        }
+                        flex={1}
                       >
                         <option value="">Select</option>
                         <option value="Individual">Individual</option>
@@ -1133,14 +1183,14 @@ export default function CustomerHome() {
                               sex: e.target.value,
                             })
                           }
-                          w="50%"
+                          flex={1}
                         >
                           <option value="">Sex</option>
                           <option value="Male">Male</option>
                           <option value="Female">Female</option>
                         </Select>
                       )}
-                    </HStack>
+                    </Stack>
                   </FormControl>
 
                   <Box />
@@ -1391,7 +1441,15 @@ export default function CustomerHome() {
                 {/* =====================================
                   IMAGE PLACEHOLDERS
                 ===================================== */}
-                <HStack spacing={6} mt={8} flexWrap="wrap">
+                <SimpleGrid
+                  columns={{
+                    base: 1,
+                    md: 2,
+                    xl: 3,
+                  }}
+                  spacing={6}
+                  mt={8}
+                >
                   {/* CUSTOMER ID */}
                   <VStack align="start">
                     <Text fontWeight="bold">Customer ID</Text>
@@ -1415,7 +1473,8 @@ export default function CustomerHome() {
                       borderWidth="1px"
                       borderRadius="md"
                       overflow="hidden"
-                      w="220px"
+                      w="100%"
+                      maxW="250px"
                       h="220px"
                       bg="gray.50"
                       cursor={isEditing ? "pointer" : "default"}
@@ -1479,7 +1538,8 @@ export default function CustomerHome() {
                       borderWidth="1px"
                       borderRadius="md"
                       overflow="hidden"
-                      w="220px"
+                      w="100%"
+                      maxW="250px"
                       h="220px"
                       bg="gray.50"
                       cursor={isEditing ? "pointer" : "default"}
@@ -1543,7 +1603,8 @@ export default function CustomerHome() {
                       borderWidth="1px"
                       borderRadius="md"
                       overflow="hidden"
-                      w="220px"
+                      w="100%"
+                      maxW="250px"
                       h="220px"
                       bg="gray.50"
                       cursor={isEditing ? "pointer" : "default"}
@@ -1584,15 +1645,25 @@ export default function CustomerHome() {
                       </Button>
                     )}
                   </VStack>
-                </HStack>
+                </SimpleGrid>
 
                 {/* =====================================
                   ACTION BUTTONS
                 ===================================== */}
-                <HStack mt={8}>
+                <Stack
+                  mt={8}
+                  direction={{
+                    base: "column",
+                    md: "row",
+                  }}
+                >
                   {!isEditing ? (
                     <Button
                       colorScheme="blue"
+                      w={{
+                        base: "100%",
+                        md: "auto",
+                      }}
                       onClick={() => setIsEditing(true)}
                     >
                       Edit Details
@@ -1601,6 +1672,10 @@ export default function CustomerHome() {
                     <>
                       <Button
                         colorScheme="blue"
+                        w={{
+                          base: "100%",
+                          md: "auto",
+                        }}
                         onClick={updateProfile}
                         isLoading={saving}
                       >
@@ -1609,6 +1684,10 @@ export default function CustomerHome() {
 
                       <Button
                         variant="outline"
+                        w={{
+                          base: "100%",
+                          md: "auto",
+                        }}
                         onClick={() => {
                           setIsEditing(false);
                           setActivePdf(null);
@@ -1620,7 +1699,7 @@ export default function CustomerHome() {
                       </Button>
                     </>
                   )}
-                </HStack>
+                </Stack>
               </Box>
 
               {/* =====================================
@@ -1637,7 +1716,13 @@ export default function CustomerHome() {
                   {activePdfTitle || "Document Reader"}
                 </Box>
 
-                <AspectRatio ratio={0.7} h="900px">
+                <AspectRatio
+                  ratio={0.7}
+                  h={{
+                    base: "500px",
+                    md: "900px",
+                  }}
+                >
                   {activePdf ? (
                     <iframe title="PDF Viewer" src={activePdf} />
                   ) : (
@@ -1654,6 +1739,10 @@ export default function CustomerHome() {
 
       <Modal
         isOpen={isDownloading}
+        size={{
+          base: "sm",
+          md: "md",
+        }}
         onClose={() => {}}
         closeOnOverlayClick={false}
         isCentered
@@ -1696,6 +1785,10 @@ export default function CustomerHome() {
       =================================================*/}
       <Modal
         isOpen={visitModalOpen}
+        size={{
+          base: "full",
+          md: "lg",
+        }}
         onClose={() => setVisitModalOpen(false)}
         isCentered
       >
@@ -1830,7 +1923,14 @@ export default function CustomerHome() {
       {/*=====================================
         INVOICE MODAL
       ========================================*/}
-      <Modal isOpen={isInvoiceOpen} onClose={onInvoiceClose} size="6xl">
+      <Modal
+        isOpen={isInvoiceOpen}
+        onClose={onInvoiceClose}
+        size={{
+          base: "full",
+          lg: "6xl",
+        }}
+      >
         <ModalOverlay />
 
         <ModalContent h="90vh">

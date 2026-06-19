@@ -5,10 +5,17 @@ import {
   Text,
   Flex,
   Divider,
+  Drawer,
+  DrawerBody,
+  DrawerContent,
+  DrawerOverlay,
   Icon,
+  IconButton,
   Avatar,
   Collapse,
   Badge,
+  useDisclosure,
+  useBreakpointValue,
   useStatStyles,
 } from "@chakra-ui/react";
 import { NavLink } from "react-router-dom";
@@ -240,6 +247,11 @@ export default function Sidebar({ collapsed, setCollapsed }) {
     pending_discharge: 0,
   });
 
+  const isMobile = useBreakpointValue({
+    base: true,
+    md: false,
+  });
+
   /*-------------------------------------------
     HELPER: CHECK PERMISSION
   ---------------------------------------------*/
@@ -272,29 +284,36 @@ export default function Sidebar({ collapsed, setCollapsed }) {
       interval = setInterval(fetchCounts, 30000);
     }
 
-    console.log("Sidebar permissions:", user.permissions);
+    //console.log("Sidebar permissions:", user.permissions);
     return () => clearInterval(interval);
   }, []);
 
   return (
     <Box
       w={collapsed ? "70px" : "260px"}
+      maxW="100vw"
       h="100vh"
       bg="gray.100"
       transition="width 0.3s ease"
       display="flex"
       flexDirection="column"
       justifyContent="space-between"
-      overflow="hidden"
+      overflowY="auto"
     >
       {/* TOP SECTION */}
       <Box overflow="auto" flex="1" p={4}>
         {/* HEADER + COLLAPSE BUTTON */}
         <Flex align="center" justify="space-between" mb={6}>
           {!collapsed && (
-            <Text fontSize="md" fontWeight="bold">
-              StorageKings POS
-            </Text>
+            <Box>
+              <Text fontSize="md" fontWeight="bold">
+                StorageKings POS
+              </Text>
+
+              <Badge mt={1} colorScheme="blue" borderRadius="full" px={2}>
+                {user?.branchName || "No Branch"}
+              </Badge>
+            </Box>
           )}
 
           <Box cursor="pointer" onClick={() => setCollapsed(!collapsed)}>
@@ -379,7 +398,13 @@ export default function Sidebar({ collapsed, setCollapsed }) {
                           {!collapsed &&
                             item.permission === "inventory" &&
                             counts.total_stock_value > 0 && (
-                              <Badge colorScheme="cyan" borderRadius="full">
+                              <Badge
+                                colorScheme="cyan"
+                                maxW="80px"
+                                overflow="hidden"
+                                textOverflow="ellipsis"
+                                borderRadius="full"
+                              >
                                 {counts.total_stock_value}
                               </Badge>
                             )}
@@ -401,7 +426,7 @@ export default function Sidebar({ collapsed, setCollapsed }) {
         <Divider mb={4} />
 
         <Flex align="center" gap={3} mb={4}>
-          <Avatar size="sm" name={user?.name} />
+          <Avatar size={{ base: "xs", md: "sm" }} name={user?.name} />
           {!collapsed && (
             <Box>
               <Text fontSize="sm" fontWeight="bold">

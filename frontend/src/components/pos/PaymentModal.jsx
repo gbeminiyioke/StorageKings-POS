@@ -46,6 +46,9 @@ export default function PaymentModal({
 
   const [emailInvoice, setEmailInvoice] = useState(false);
   const { user } = useAuth();
+
+  const [refundReason, setRefundReason] = useState("");
+
   const totalPaid = payments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
   const balance = total - totalPaid;
 
@@ -83,6 +86,10 @@ export default function PaymentModal({
                 .toISOString()
                 .split("T")[0]
             : null,
+        original_sale_id:
+          transactionType === "REFUND" ? selectedSale?.sale_id : null,
+
+        refund_reason: transactionType === "REFUND" ? refundReason : null,
         items: cart.map((item) => ({
           product_id: item.product_id,
           product_name: item.product_name,
@@ -126,13 +133,32 @@ export default function PaymentModal({
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} isCentered size="lg">
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      isCentered
+      size={{
+        base: "full",
+        md: "lg",
+      }}
+    >
       <ModalOverlay />
 
       <ModalContent>
         <ModalHeader>Complete Payment</ModalHeader>
 
         <ModalBody pb={6}>
+          {transactionType === "REFUND" && (
+            <FormControl>
+              <FormLabel>Refund Reason</FormLabel>
+
+              <Input
+                value={refundReason}
+                onChange={(e) => setRefundReason(e.target.value)}
+              />
+            </FormControl>
+          )}
+
           <Text fontSize="xl" mb={4}>
             Total: ₦ {total.toFixed(2)}
           </Text>
@@ -140,7 +166,7 @@ export default function PaymentModal({
           {/* UPDATED: shared payment rows */}
           <VStack spacing={3}>
             {payments.map((p, i) => (
-              <HStack key={i} w="100%">
+              <HStack key={i} w="100%" flexWrap="wrap">
                 <Select
                   value={p.method}
                   onChange={(e) => updatePayment(i, "method", e.target.value)}
@@ -159,6 +185,10 @@ export default function PaymentModal({
                 />
 
                 <Button
+                  size={{
+                    base: "sm",
+                    md: "md",
+                  }}
                   colorScheme="red"
                   onClick={() => removePaymentRow(i)}
                   isDisabled={payments.length === 1}

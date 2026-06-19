@@ -33,6 +33,7 @@ import { useForm } from "react-hook-form";
 import api from "../api/api";
 import { useAuth } from "../context/AuthContext";
 import { generateSupplierPdf } from "../services/supplierPdf.service";
+import ResponsiveTable from "../components/ResponsiveTable";
 
 export default function Suppliers() {
   const { hasPermission } = useAuth();
@@ -267,14 +268,15 @@ export default function Suppliers() {
   };
 
   return (
-    <Box p={6}>
+    <Box p={{ base: 3, md: 6 }}>
       {/* ========== FORM ========== */}
-      <Box bg="white" p={6} rounded="md" shadow="md">
+      <Box bg="white" p={{ base: 4, md: 6 }} rounded="md" shadow="md">
         <form onSubmit={handleSubmit(onSubmit)}>
           <Grid
-            templateColumns={
-              supplierType === "Individual" ? "2fr 1fr 1fr" : "2fr 2fr"
-            }
+            templateColumns={{
+              base: "1fr",
+              md: supplierType === "Individual" ? "2fr 1fr 1fr" : "2fr 2fr",
+            }}
             gap={4}
           >
             <FormControl isInvalid={errors.supplier_name} isRequired>
@@ -303,7 +305,13 @@ export default function Suppliers() {
             )}
           </Grid>
 
-          <Grid templateColumns="1fr 1fr" gap={4} mt={4}>
+          <Grid
+            templateColumns={{
+              base: "1fr",
+              md: "1fr 1fr",
+            }}
+            gap={4}
+          >
             <FormControl>
               <FormLabel>Address 1</FormLabel>
               <Input {...register("address_1")} />
@@ -315,7 +323,13 @@ export default function Suppliers() {
             </FormControl>
           </Grid>
 
-          <Grid templateColumns="1fr 1fr" gap={4} mt={4}>
+          <Grid
+            templateColumns={{
+              base: "1fr",
+              md: "1fr 1fr",
+            }}
+            gap={4}
+          >
             <FormControl>
               <FormLabel>Address 3</FormLabel>
               <Input {...register("address_3")} />
@@ -328,7 +342,13 @@ export default function Suppliers() {
             </FormControl>
           </Grid>
 
-          <Grid templateColumns="1fr 1fr" gap={4} mt={4}>
+          <Grid
+            templateColumns={{
+              base: "1fr",
+              md: "1fr 1fr",
+            }}
+            gap={4}
+          >
             <FormControl>
               <FormLabel>Fax</FormLabel>
               <Input {...register("fax")} />
@@ -340,7 +360,13 @@ export default function Suppliers() {
             </FormControl>
           </Grid>
 
-          <Grid templateColumns="1fr 1fr" gap={4} mt={4}>
+          <Grid
+            templateColumns={{
+              base: "1fr",
+              md: "1fr 1fr",
+            }}
+            gap={4}
+          >
             <FormControl>
               <FormLabel>Website</FormLabel>
               <Input {...register("website")} />
@@ -368,7 +394,13 @@ export default function Suppliers() {
           )}
 
           {/* ====== CURRENT BALANCE ====== */}
-          <Grid templateColumns="1fr 1fr" gap={4} mt={4}>
+          <Grid
+            templateColumns={{
+              base: "1fr",
+              md: "1fr 1fr",
+            }}
+            gap={4}
+          >
             <FormControl>
               <FormLabel>Current Balance</FormLabel>
               <Input
@@ -386,7 +418,13 @@ export default function Suppliers() {
             </FormControl>
           </Grid>
 
-          <Grid templateColumns="1fr 1fr" gap={4} mt={4}>
+          <Grid
+            templateColumns={{
+              base: "1fr",
+              md: "1fr 1fr",
+            }}
+            gap={4}
+          >
             <FormControl>
               <FormLabel>Whatsapp</FormLabel>
               <Input {...register("whatsapp")} />
@@ -398,7 +436,14 @@ export default function Suppliers() {
             </FormControl>
           </Grid>
 
-          <Grid templateColumns="1fr 1fr" gap={4} mt={4} alignItems="start">
+          <Grid
+            templateColumns={{
+              base: "1fr",
+              md: "1fr 1fr",
+            }}
+            gap={4}
+            alignItems="start"
+          >
             <Box>
               <FormControl>
                 <FormLabel>Facebook</FormLabel>
@@ -498,80 +543,93 @@ export default function Suppliers() {
       </Box>
 
       {/* =============== SEARCH ================= */}
-      <Flex mt={8} justify="space-between">
+      <Flex
+        mt={8}
+        justify="space-between"
+        direction={{
+          base: "column",
+          md: "row",
+        }}
+        gap={4}
+      >
         <Input
           placeholder="Search by name, supplier type or telephone"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          w="300px"
+          w={{
+            base: "100%",
+            md: "300px",
+          }}
         />
         <Text>Total: {total}</Text>
       </Flex>
 
       {/* =========== TABLE =========== */}
-      <Table mt={4}>
-        <Thead>
-          <Tr>
-            <Th>Name</Th>
-            <Th>Address</Th>
-            <Th>Type</Th>
-            <Th>Telephone</Th>
-            <Th>Enable</Th>
-            <Th>Actions</Th>
-          </Tr>
-        </Thead>
-
-        <Tbody>
-          {suppliers.map((s) => (
-            <Tr key={s.id}>
-              <Td>{s.supplier_name}</Td>
-              <Td>{s.address_1}</Td>
-              <Td>{s.supplier_type}</Td>
-              <Td>{s.telephone}</Td>
-              <Td>{s.enable ? "Yes" : "No"}</Td>
-              <Td>
-                {hasPermission("can_edit") && (
-                  <>
-                    <IconButton
-                      icon={<EditIcon />}
-                      size="sm"
-                      mr={2}
-                      onClick={() => handleEdit(s)}
-                    />
-                    <IconButton
-                      icon={<CopyIcon />}
-                      size="sm"
-                      mr={2}
-                      onClick={() => handleClone(s)}
-                    />
-                  </>
-                )}
-
-                {hasPermission("can_delete") && (
-                  <IconButton
-                    icon={<DeleteIcon />}
-                    size="sm"
-                    colorScheme="red"
-                    onClick={() => handleDelete(s.id)}
-                  />
-                )}
-
-                {hasPermission("can_view") && (
-                  <IconButton
-                    icon={<FaPrint />}
-                    size="sm"
-                    ml={2}
-                    colorScheme="blue"
-                    variant="outline"
-                    aria-label="Print Supplier"
-                    onClick={() => generateSupplierPdf(s)}
-                  />
-                )}
-              </Td>
+      <ResponsiveTable minWidth="950px">
+        <Table mt={4}>
+          <Thead>
+            <Tr>
+              <Th>Name</Th>
+              <Th>Address</Th>
+              <Th>Type</Th>
+              <Th>Telephone</Th>
+              <Th>Enable</Th>
+              <Th>Actions</Th>
             </Tr>
-          ))}
-        </Tbody>
-      </Table>
+          </Thead>
+
+          <Tbody>
+            {suppliers.map((s) => (
+              <Tr key={s.id}>
+                <Td>{s.supplier_name}</Td>
+                <Td>{s.address_1}</Td>
+                <Td>{s.supplier_type}</Td>
+                <Td>{s.telephone}</Td>
+                <Td>{s.enable ? "Yes" : "No"}</Td>
+                <Td>
+                  {hasPermission("can_edit") && (
+                    <>
+                      <IconButton
+                        icon={<EditIcon />}
+                        size="sm"
+                        mr={2}
+                        onClick={() => handleEdit(s)}
+                      />
+                      <IconButton
+                        icon={<CopyIcon />}
+                        size="sm"
+                        mr={2}
+                        onClick={() => handleClone(s)}
+                      />
+                    </>
+                  )}
+
+                  {hasPermission("can_delete") && (
+                    <IconButton
+                      icon={<DeleteIcon />}
+                      size="sm"
+                      colorScheme="red"
+                      onClick={() => handleDelete(s.id)}
+                    />
+                  )}
+
+                  {hasPermission("can_view") && (
+                    <IconButton
+                      icon={<FaPrint />}
+                      size="sm"
+                      ml={2}
+                      colorScheme="blue"
+                      variant="outline"
+                      aria-label="Print Supplier"
+                      onClick={() => generateSupplierPdf(s)}
+                    />
+                  )}
+                </Td>
+              </Tr>
+            ))}
+          </Tbody>
+        </Table>
+      </ResponsiveTable>
 
       <AlertDialog
         isOpen={deleteId !== null}
@@ -604,7 +662,7 @@ export default function Suppliers() {
       </AlertDialog>
 
       {/* =========== PAGINATION =========== */}
-      <Flex mt={4} gap={2}>
+      <Flex mt={4} gap={2} flexWrap="wrap">
         <Button disabled={page === 1} onClick={() => setPage(page - 1)}>
           Prev
         </Button>

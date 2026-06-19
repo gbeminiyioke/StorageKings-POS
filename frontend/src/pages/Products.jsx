@@ -36,6 +36,7 @@ import {
   MinusIcon,
 } from "@chakra-ui/icons";
 import { useAuth } from "../context/AuthContext";
+import ResponsiveTable from "../components/ResponsiveTable";
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 
@@ -402,13 +403,21 @@ export default function Products() {
   const totalPages = Math.ceil(total / 10) || 1;
 
   return (
-    <Box p={6}>
+    <Box p={{ base: 3, md: 6 }} maxW="100%" overflowX="hidden">
       <Text fontSize="xl" mb={4} fontWeight="bold">
         Product Details
       </Text>
 
       {/* ================= FORM ================= */}
-      <Grid templateColumns="repeat(3,1fr)" gap={6} mb={6}>
+      <Grid
+        templateColumns={{
+          base: "1fr",
+          md: "repeat(2,1fr)",
+          xl: "repeat(3,1fr)",
+        }}
+        gap={6}
+        mb={6}
+      >
         <FormControl isInvalid={skuExists}>
           <FormLabel>Product Code</FormLabel>
           <Input {...register("product_code")} isDisabled={isEdit} />
@@ -455,8 +464,9 @@ export default function Products() {
             position="relative"
             _hover={{ borderColor: "blue.400", bg: "gray.100" }}
             transition="0.2s"
-            width={imageDimensions ? imageDimensions.width : "200px"}
-            height={imageDimensions ? imageDimensions.height : "170px"}
+            w="100%"
+            maxW="300px"
+            h="170px"
           >
             {previewImage ? (
               <Image
@@ -564,7 +574,14 @@ export default function Products() {
         </FormControl>
       </Grid>
 
-      <Grid templateColumns="repeat(4, 1fr)" gap={6} mb={6}>
+      <Grid
+        templateColumns={{
+          base: "1fr",
+          sm: "repeat(2,1fr)",
+          lg: "repeat(4,1fr)",
+        }}
+        gap={6}
+      >
         <FormControl>
           <FormLabel>Stock Quantity</FormLabel>
           <Input type="number" {...register("stock_quantity")} isDisabled />
@@ -610,8 +627,19 @@ export default function Products() {
         </Flex>
 
         {branches.map((branch, idx) => (
-          <Flex key={branch.branch_id} mb={2} gap={3} align="center">
-            <Text w="150px">{branch.branch_name}</Text>
+          <Flex
+            key={branch.branch_id}
+            direction={{ base: "column", md: "row" }}
+            align={{ base: "stretch", md: "center" }}
+            gap={3}
+            mb={4}
+            p={3}
+            borderWidth="1px"
+            borderRadius="md"
+          >
+            <Text minW={{ base: "100%", md: "150px" }} fontWeight="bold">
+              {branch.branch_name}
+            </Text>
 
             <NumberInput
               value={branchData[idx]?.selling_price ?? 0}
@@ -652,7 +680,15 @@ export default function Products() {
         </Text>
 
         {fields.map((pkg, idx) => (
-          <HStack key={pkg.id} mb={2}>
+          <VStack
+            key={pkg.id}
+            spacing={2}
+            align="stretch"
+            mb={4}
+            p={3}
+            borderWidth="1px"
+            borderRadius="md"
+          >
             <Input
               placeholder="Description"
               {...register(`packages.${idx}.description`)}
@@ -672,7 +708,7 @@ export default function Products() {
               size="sm"
               onClick={() => remove(idx)}
             />
-          </HStack>
+          </VStack>
         ))}
 
         <Button
@@ -690,25 +726,43 @@ export default function Products() {
         </Button>
       </Box>
 
-      <HStack mb={10}>
+      <Flex
+        mb={10}
+        gap={3}
+        direction={{
+          base: "column",
+          md: "row",
+        }}
+      >
         <Button
           colorScheme={isEdit ? "orange" : "blue"}
+          w={{
+            base: "100%",
+            md: "auto",
+          }}
           onClick={handleSubmit(onSubmit)}
           isLoading={loading}
         >
           {isEdit ? "Update Product" : "Save Product"}
         </Button>
 
-        <Button variant="outline" onClick={clearForm}>
+        <Button
+          variant="outline"
+          w={{
+            base: "100%",
+            md: "auto",
+          }}
+          onClick={clearForm}
+        >
           Cancel
         </Button>
-      </HStack>
+      </Flex>
 
       {/* ================= PRODUCT LIST ================= */}
       <Flex mb={4} justify="space-between" align="center" wrap="wrap" gap={3}>
         <Input
           placeholder="Search products..."
-          w={{ base: "180px", md: "220px", lg: "240px" }}
+          w={{ base: "100%", md: "220px", lg: "240px" }}
           size="sm"
           onChange={(e) => {
             setSearch(e.target.value);
@@ -726,65 +780,76 @@ export default function Products() {
           <Spinner />
         </Flex>
       ) : (
-        <Table>
-          <Thead>
-            <Tr>
-              <Th>Code</Th>
-              <Th>Name</Th>
-              <Th>Category</Th>
-              <Th>Selling</Th>
-              <Th></Th>
-            </Tr>
-          </Thead>
-          <Tbody>
-            {products.map((p) => (
-              <Tr key={p.product_id}>
-                <Td>{p.product_code}</Td>
-                <Td>
-                  <Flex align="center" gap={2}>
-                    {p.image_url && (
-                      <Image
-                        src={`${BACKEND_URL}${p.image_url}`}
-                        boxSize="50px"
-                        objectFit="cover"
-                        borderRadius="md"
-                      />
-                    )}
-                    {p.product_name}
-                  </Flex>
-                </Td>
-                <Td>{p.category_name}</Td>
-                <Td>{p.selling_price}</Td>
-                <Td>
-                  <Flex gap={2}>
-                    <IconButton
-                      icon={<EditIcon />}
-                      size="sm"
-                      onClick={() => handleEdit(p.product_id)}
-                    />
-                    <IconButton
-                      icon={<CopyIcon />}
-                      size="sm"
-                      onClick={() => handleClone(p.product_id)}
-                    />
-                    <IconButton
-                      icon={<DeleteIcon />}
-                      size="sm"
-                      colorScheme="red"
-                      onClick={() =>
-                        api
-                          .delete(`/products/${p.product_id}`)
-                          .then(loadProducts)
-                      }
-                    />
-                  </Flex>
-                </Td>
+        <ResponsiveTable minWidth="1100px">
+          <Table size="sm">
+            <Thead>
+              <Tr>
+                <Th>Code</Th>
+                <Th>Name</Th>
+                <Th>Category</Th>
+                <Th>Selling</Th>
+                <Th></Th>
               </Tr>
-            ))}
-          </Tbody>
-        </Table>
+            </Thead>
+            <Tbody>
+              {products.map((p) => (
+                <Tr key={p.product_id}>
+                  <Td>{p.product_code}</Td>
+                  <Td>
+                    <Flex align="center" gap={2}>
+                      {p.image_url && (
+                        <Image
+                          src={`${BACKEND_URL}${p.image_url}`}
+                          boxSize={{
+                            base: "40px",
+                            md: "50px",
+                          }}
+                          objectFit="cover"
+                          borderRadius="md"
+                        />
+                      )}
+                      {p.product_name}
+                    </Flex>
+                  </Td>
+                  <Td>{p.category_name}</Td>
+                  <Td>{p.selling_price}</Td>
+                  <Td>
+                    <Flex gap={2} wrap="wrap">
+                      <IconButton
+                        icon={<EditIcon />}
+                        size="sm"
+                        onClick={() => handleEdit(p.product_id)}
+                      />
+                      <IconButton
+                        icon={<CopyIcon />}
+                        size="sm"
+                        onClick={() => handleClone(p.product_id)}
+                      />
+                      <IconButton
+                        icon={<DeleteIcon />}
+                        size="sm"
+                        colorScheme="red"
+                        onClick={() =>
+                          api
+                            .delete(`/products/${p.product_id}`)
+                            .then(loadProducts)
+                        }
+                      />
+                    </Flex>
+                  </Td>
+                </Tr>
+              ))}
+            </Tbody>
+          </Table>
+        </ResponsiveTable>
       )}
-      <Flex mt={6} justify="center" align="center" gap={4}>
+      <Flex
+        mt={6}
+        justify="center"
+        align="center"
+        gap={4}
+        direction={{ base: "column", md: "row" }}
+      >
         <Button
           onClick={() => setPage((p) => Math.max(p - 1, 1))}
           isDisabled={page === 1}

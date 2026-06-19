@@ -113,6 +113,10 @@ export default function CustomerSearch({
   return (
     <Box position="relative" ref={wrapperRef}>
       <Input
+        fontSize={{
+          base: "sm",
+          md: "md",
+        }}
         placeholder="Search customer by fullname, phone number or email"
         value={query}
         onChange={(e) => {
@@ -160,7 +164,11 @@ export default function CustomerSearch({
           borderRadius="md"
           boxShadow="lg"
           zIndex={1000}
-          maxH="260px"
+          maxH={{
+            base: "220px",
+            md: "260px",
+          }}
+          maxW="100%"
           overflowY="auto"
         >
           {results.map((customer, index) => (

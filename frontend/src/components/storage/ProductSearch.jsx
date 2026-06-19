@@ -118,6 +118,10 @@ export default function ProductSearch({ onSelect, isDisabled = false }) {
     <Box position="relative" ref={wrapperRef}>
       <Input
         ref={inputRef}
+        size={{
+          base: "sm",
+          md: "md",
+        }}
         placeholder="Search product by name or product code"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
@@ -166,11 +170,14 @@ export default function ProductSearch({ onSelect, isDisabled = false }) {
               onMouseEnter={() => setHighlightedIndex(index)}
               onMouseDown={() => handleSelect(product)}
             >
-              <HStack spacing={3} align="start">
+              <HStack spacing={3} align="start" flexWrap="wrap">
                 <Image
                   src={product.image_url || PLACEHOLDER_IMAGE}
                   fallbackSrc={PLACEHOLDER_IMAGE}
-                  boxSize="48px"
+                  boxSize={{
+                    base: "40px",
+                    md: "48px",
+                  }}
                   objectFit="cover"
                   borderRadius="md"
                   border="1px solid"
