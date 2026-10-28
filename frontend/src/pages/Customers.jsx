@@ -97,6 +97,7 @@ export default function Customers() {
     defaultValues,
   });
 
+  const topRef = useRef(null);
   const customerType = watch("customer_type", "Coporate");
 
   const [customers, setCustomers] = useState([]);
@@ -345,8 +346,14 @@ export default function Customers() {
           isClosable: true,
         });
       } else {
-        payload.append("kyc_id", selectedKycId);
-        payload.append("from_kyc", !!selectedKycId);
+        //payload.append("kyc_id", selectedKycId);
+        //payload.append("from_kyc", !!selectedKycId);
+        if (selectedKycId) {
+          payload.append("kyc_id", selectedKycId);
+          payload.append("from_kyc", "true");
+        } else {
+          payload.append("from_kyc", "false");
+        }
 
         if (selectedKycId) {
           setPendingPayload(payload);
@@ -436,6 +443,8 @@ export default function Customers() {
       password: "",
       confirmPassword: "",
     });
+
+    scrollToTop();
   };
 
   /*===================================
@@ -462,6 +471,8 @@ export default function Customers() {
     reset(clone);
     setEditingId(null);
     setDisableKycButton(true);
+
+    scrollToTop();
   };
 
   /*====================================
@@ -525,8 +536,44 @@ export default function Customers() {
     }
   };
 
+  const handlePreviewPdf = (value) => {
+    if (!value) {
+      toast({
+        title: "Please select a PDF first.",
+        status: "warning",
+      });
+      return;
+    }
+
+    // Newly selected file
+    if (value instanceof File) {
+      const url = URL.createObjectURL(value);
+      window.open(url, "_blank");
+      return;
+    }
+
+    // Existing file already stored
+    if (typeof value === "string") {
+      const apiBase = (import.meta.env.VITE_API_URL || "").replace(
+        /\/api\/?$/,
+        "",
+      );
+
+      const url = `${apiBase}/${value.replace(/\\/g, "/")}`;
+
+      window.open(url, "_blank");
+    }
+  };
+
+  const scrollToTop = () => {
+    topRef.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  };
+
   return (
-    <Box p={{ base: 3, md: 6 }}>
+    <Box p={{ base: 3, md: 6 }} ref={topRef}>
       {/* ========== FORM ========== */}
       <Box bg="white" p={{ base: 4, md: 6 }} rounded="md" shadow="md">
         <form onSubmit={handleSubmit(onSubmit)}>
@@ -539,7 +586,14 @@ export default function Customers() {
           >
             <FormControl isInvalid={errors.fullname} isRequired>
               <FormLabel>Customer Name</FormLabel>
-              <Input {...register("fullname", { required: true })} />
+              <Input
+                {...register("fullname")}
+                onChange={(e) =>
+                  setValue("fullname", e.target.value.toUpperCase(), {
+                    shouldValidate: true,
+                  })
+                }
+              />
               <FormErrorMessage>Customer name is required</FormErrorMessage>
             </FormControl>
 
@@ -694,7 +748,15 @@ export default function Customers() {
             >
               <FormControl isRequired>
                 <FormLabel>Contact Name</FormLabel>
-                <Input {...register("contact_name", { required: true })} />
+                {/*<Input {...register("contact_name", { required: true })} />*/}
+                <Input
+                  {...register("contact_name")}
+                  onChange={(e) =>
+                    setValue("contact_name", e.target.value.toUpperCase(), {
+                      shouldValidate: true,
+                    })
+                  }
+                />
               </FormControl>
 
               <FormControl isRequired>
@@ -777,14 +839,26 @@ export default function Customers() {
               <FormLabel>Indemnity Agreement (PDF)</FormLabel>
 
               <Flex direction="column" gap={2}>
-                <Input
-                  ref={indemnityRef}
-                  type="file"
-                  accept=".pdf"
-                  onChange={(e) =>
-                    setValue("indemnity_agreement", e.target.files[0])
-                  }
-                />
+                <Flex gap={2}>
+                  <Input
+                    ref={indemnityRef}
+                    type="file"
+                    accept=".pdf"
+                    onChange={(e) =>
+                      setValue("indemnity_agreement", e.target.files[0])
+                    }
+                  />
+
+                  <Tooltip label="Preview PDF">
+                    <IconButton
+                      icon={<ViewIcon />}
+                      colorScheme="blue"
+                      onClick={() =>
+                        handlePreviewPdf(watch("indemnity_agreement"))
+                      }
+                    />
+                  </Tooltip>
+                </Flex>
 
                 {editingId &&
                   watch("indemnity_agreement") &&
@@ -795,7 +869,7 @@ export default function Customers() {
                         {watch("indemnity_agreement").split("/").pop()}
                       </Text>
 
-                      <Tooltip label="Download file">
+                      <Tooltip label="Download PDF">
                         <IconButton
                           size="sm"
                           icon={<DownloadIcon />}
@@ -812,14 +886,26 @@ export default function Customers() {
               <FormLabel>Warehouse Agreement (PDF)</FormLabel>
 
               <Flex direction="column" gap={2}>
-                <Input
-                  ref={warehouseRef}
-                  type="file"
-                  accept=".pdf"
-                  onChange={(e) =>
-                    setValue("warehouse_agreement", e.target.files[0])
-                  }
-                />
+                <Flex gap={2}>
+                  <Input
+                    ref={warehouseRef}
+                    type="file"
+                    accept=".pdf"
+                    onChange={(e) =>
+                      setValue("warehouse_agreement", e.target.files[0])
+                    }
+                  />
+
+                  <Tooltip label="Preview PDF">
+                    <IconButton
+                      icon={<ViewIcon />}
+                      colorScheme="blue"
+                      onClick={() =>
+                        handlePreviewPdf(watch("warehouse_agreement"))
+                      }
+                    />
+                  </Tooltip>
+                </Flex>
 
                 {editingId &&
                   watch("warehouse_agreement") &&
@@ -830,7 +916,7 @@ export default function Customers() {
                         {watch("warehouse_agreement").split("/").pop()}
                       </Text>
 
-                      <Tooltip label="Download file">
+                      <Tooltip label="Download PDF">
                         <IconButton
                           size="sm"
                           icon={<DownloadIcon />}

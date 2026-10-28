@@ -44,13 +44,14 @@ export const getInventoryMetrics = async (req, res) => {
 
     const from = req.query.from || null;
     const to = req.query.to || null;
-
+    /*
     console.log("Inventory Metrics Request:", {
       raw: req.query.branch_id,
       parsed: branchId,
       from,
       to,
     });
+*/
 
     // =========================
     // STORAGE CAPACITY
@@ -144,9 +145,11 @@ export const getInventoryMetrics = async (req, res) => {
       storageFilter.params,
     );
 
+    /*
     console.log("Capacity:", capacity.rows);
     console.log("Discharge:", dischargeStats.rows);
     console.log("Storage:", storageStats.rows);
+*/
 
     res.json({
       capacity: capacity.rows,
@@ -1817,7 +1820,7 @@ export const searchCustomers = async (req, res) => {
   try {
     const search = (req.query.search || "").trim();
 
-    console.log("CUSTOMER SEARCH:", search);
+    //console.log("CUSTOMER SEARCH:", search);
 
     // =========================
     // EMPTY SEARCH
@@ -1857,7 +1860,7 @@ export const searchCustomers = async (req, res) => {
       [`%${search}%`],
     );
 
-    console.log("CUSTOMER RESULTS:", result.rows);
+    //console.log("CUSTOMER RESULTS:", result.rows);
 
     res.json(result.rows);
   } catch (err) {

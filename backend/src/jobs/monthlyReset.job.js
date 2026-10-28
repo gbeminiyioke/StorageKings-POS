@@ -44,7 +44,7 @@ export const runMonthlyStorageReset = async () => {
 
     await client.query("COMMIT");
 
-    console.log("✅ Monthly storage reset done");
+    //console.log("✅ Monthly storage reset done");
   } catch (err) {
     await client.query("ROLLBACK");
     console.error(err);

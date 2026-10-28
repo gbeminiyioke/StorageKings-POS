@@ -17,6 +17,11 @@ import {
   processStorageVisitCheckout,
   getActiveStorageVisits,
   getStorageVisitHistory,
+  getOnboardingQueue,
+  startOnboarding,
+  completeOnboarding,
+  cancelOnboarding,
+  getCurrentOnboarding,
 } from "../controllers/storage.controller.js";
 
 import { authenticate } from "../middleware/auth.middleware.js";
@@ -27,29 +32,26 @@ import { storageUpload } from "../middleware/storageUpload.middleware.js";
 const router = express.Router();
 
 /* ======================================================
-   PUBLIC TOKEN PDF ROUTE
-   This must come BEFORE authenticate middleware because
-   the PDF is opened in a new browser tab.
+   PUBLIC ROUTES
 ====================================================== */
+
+/*
+ * PDF is opened in a new browser tab.
+ * Authentication is handled by the token parameter.
+ */
 router.get("/:storage_id/pdf", getStoragePdf);
 
 /* ======================================================
-   ALL OTHER ROUTES REQUIRE LOGIN
+   PROTECTED ROUTES
 ====================================================== */
+
 router.use(authenticate);
 router.use(sessionTimeout);
 
-/* =========================================
-   STORAGE VISITS
-========================================= */
-router.post("/visits/checkin", processStorageVisitCheckin);
-router.put("/visits/:id/checkout", processStorageVisitCheckout);
-router.get("/visits/active", getActiveStorageVisits);
-router.get("/visits/history", getStorageVisitHistory);
-
 /* ======================================================
-   CUSTOMER / BRANCH / PRODUCT LOOKUPS
+   LOOKUP ROUTES
 ====================================================== */
+
 router.get("/customers", authorize("can_view"), searchStorageCustomers);
 router.get("/branches", authorize("can_view"), getUserBranches);
 router.get("/spaces", authorize("can_view"), getStorageSpaces);
@@ -64,9 +66,42 @@ router.get(
 router.get("/next-number/:branch_id", authorize("can_view"), getNextStorageNo);
 
 /* ======================================================
+   STORAGE VISITS
+====================================================== */
+
+router.post("/visits/checkin", processStorageVisitCheckin);
+router.put("/visits/:id/checkout", processStorageVisitCheckout);
+router.get("/visits/active", getActiveStorageVisits);
+router.get("/visits/history", getStorageVisitHistory);
+
+/* ======================================================
+   STORAGE WORKFLOW
+====================================================== */
+router.get("/onboarding/current", getCurrentOnboarding);
+router.get("/onboarding-queue", authorize("can_view"), getOnboardingQueue);
+
+router.post(
+  "/onboarding/:onboardingId/start",
+  authorize("can_edit"),
+  startOnboarding,
+);
+
+router.post(
+  "/onboarding/:onboardingId/cancel",
+  authorize("can_edit"),
+  cancelOnboarding,
+);
+
+router.post(
+  "/onboarding/:onboardingId/complete",
+  authorize("can_edit"),
+  completeOnboarding,
+);
+
+/* ======================================================
    STORAGE TRANSACTIONS
 ====================================================== */
-//router.post("/", authorize("can_create"), createStorage);
+
 router.post(
   "/",
   authorize("can_create"),
@@ -75,8 +110,10 @@ router.post(
 );
 
 router.get("/recent", authorize("can_view"), getRecentStorages);
-router.get("/:storage_id", authorize("can_view"), getStorageDetails);
-router.get("/:storage_id/items", authorize("can_view"), getStorageItems);
+
+/* ======================================================
+   STORAGE ACTIONS
+====================================================== */
 
 router.post(
   "/:storage_id/confirm-barcode",
@@ -84,9 +121,15 @@ router.post(
   confirmStorageBarcode,
 );
 
-/* ======================================================
-   PDF / EMAIL
-====================================================== */
 router.post("/:storage_id/email", authorize("can_view"), emailStoragePdf);
+
+/* ======================================================
+   STORAGE DETAIL ROUTES
+   ALWAYS KEEP PARAMETER ROUTES LAST
+====================================================== */
+
+router.get("/:storage_id/items", authorize("can_view"), getStorageItems);
+
+router.get("/:storage_id", authorize("can_view"), getStorageDetails);
 
 export default router;

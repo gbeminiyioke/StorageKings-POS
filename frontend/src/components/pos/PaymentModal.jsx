@@ -28,6 +28,8 @@ export default function PaymentModal({
   transactionType,
   docNumber,
   setDocNumber,
+
+  transactionDate,
 }) {
   const {
     cart,
@@ -66,6 +68,7 @@ export default function PaymentModal({
 
       const payload = {
         customer_id: selectedCustomer?.id || null,
+        transaction_date: transactionDate,
         transaction_type: transactionType,
         invoice_no: transactionType === "INVOICE" ? docNumber : null,
         proforma_no: transactionType === "PROFORMA" ? docNumber : null,

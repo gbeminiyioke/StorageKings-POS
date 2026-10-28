@@ -5,6 +5,7 @@ import { signToken, signRefreshToken, REFRESH_SECRET } from "../config/jwt.js";
 import { sendResetEmail } from "../utils/mailer.js";
 import { logActivity } from "../utils/activityLogger.js";
 import jwt from "jsonwebtoken";
+import { releaseUserOnboardings } from "../services/onboarding.service.js";
 
 const MAX_ATTEMPTS = 5;
 const LOCK_TIME = 15 * 60 * 1000; // 15 minutes
@@ -369,9 +370,9 @@ export const login = async (req, res) => {
     });
 
     // Save session
-    await pool.query(
+    const sessionResult = await pool.query(
       `INSERT INTO user_sessions (user_id, login_type, branch_id, token, refresh_token, ip_address, user_agent, device_fingerprint, expires_at, refresh_expires_at, last_activity)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8, NOW() + INTERVAL '3 days', NOW() + INTERVAL '3 days', NOW())`,
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8, NOW() + INTERVAL '3 days', NOW() + INTERVAL '3 days', NOW()) RETURNING id`,
       [
         user.id,
         loginType,
@@ -396,6 +397,7 @@ export const login = async (req, res) => {
     });
 
     res.status(200).json({
+      sessionId: sessionResult.rows[0].id,
       token,
       refreshToken,
       loginType,
@@ -761,8 +763,10 @@ export const refresh = async (req, res) => {
     );
 
     return res.json({
+      success: true,
       token: newToken,
       refreshToken: newRefreshToken,
+      expiresIn: 8 * 60 * 60,
     });
   } catch (err) {
     console.error(err);

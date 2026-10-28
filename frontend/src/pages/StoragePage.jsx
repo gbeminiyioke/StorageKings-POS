@@ -1,4 +1,8 @@
 import {
+  Alert,
+  AlertIcon,
+  AlertTitle,
+  AlertDescription,
   Box,
   Button,
   Card,
@@ -25,11 +29,13 @@ import ProductSearch from "../../src/components/storage/ProductSearch";
 import StorageItemTable from "../../src/components/storage/StorageItemTable";
 import SignatureUpload from "../../src/components/storage/SignatureUpload";
 import RecentStorageList from "../../src/components/storage/RecentStorageList";
+import CustomerOnboardingCard from "../../src/components/storage/CustomerOnboardingCard";
 
 import {
   confirmStorageBarcode,
   createStorage,
   getNextStorageNo,
+  getOnboardingQueue,
   getRecentStorages,
   getStorageDetails,
   getStorageItems,
@@ -37,6 +43,10 @@ import {
   getStorageSpaces,
   getUserBranches,
   searchProductByBarcode,
+  startOnboarding,
+  completeOnboarding,
+  cancelOnboarding,
+  getCurrentOnboarding,
 } from "../../src/services/storageService";
 
 export default function StoragePage() {
@@ -73,20 +83,36 @@ export default function StoragePage() {
   const [maxVisits, setMaxVisits] = useState(3);
   const [currentVisits] = useState(0);
 
-  const locked = confirmationMode;
+  const [activeOnboarding, setActiveOnboarding] = useState(null);
+
+  const [onboardingQueue, setOnboardingQueue] = useState([]);
+
+  const [loadingQueue, setLoadingQueue] = useState(false);
+
+  const onboardingMode = activeOnboarding !== null;
+
+  const locked = confirmationMode || onboardingMode;
 
   useEffect(() => {
-    loadPage();
+    initializePage();
   }, []);
+
+  const initializePage = async () => {
+    await loadPage();
+
+    await recoverOnboarding();
+  };
 
   const loadPage = async () => {
     try {
-      const [branchRes, spaceRes, recentRes] = await Promise.all([
+      const [branchRes, spaceRes, recentRes, queueRes] = await Promise.all([
         getUserBranches(),
         getStorageSpaces(),
         getRecentStorages(),
+        getOnboardingQueue(),
       ]);
 
+      setOnboardingQueue(queueRes.data || []);
       setBranches(branchRes.data || []);
       setStorageSpaces(spaceRes.data || []);
       setRecentStorages(recentRes.data || []);
@@ -96,6 +122,118 @@ export default function StoragePage() {
         title: "Failed to load storage page",
         status: "error",
       });
+    }
+  };
+
+  const generateStorageNumber = async (branchId) => {
+    if (!branchId) return;
+
+    try {
+      const response = await getNextStorageNo(branchId);
+
+      setStorageNo(response.data.storage_no);
+    } catch (err) {
+      console.error(err);
+
+      toast({
+        title: "Failed to generate storage number",
+        status: "error",
+      });
+    }
+  };
+
+  const selectBranch = async (branchId) => {
+    setBranchId(String(branchId));
+
+    if (!branchId) {
+      setStorageNo("");
+      return;
+    }
+
+    await generateStorageNumber(branchId);
+  };
+
+  /*
+  const selectBranch = async (branchId) => {
+    setBranchId(String(branchId));
+
+    await generateStorageNumber(branchId);
+  };
+*/
+
+  const loadOnboarding = async (data) => {
+    setActiveOnboarding(data);
+    setSelectedCustomer(data.customer);
+    await selectBranch(data.branch.branch_id);
+    setStorageSpaceProductId(String(data.product.product_id));
+    setStoragePeriod(Number(data.product.duration));
+
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth",
+    });
+  };
+
+  const recoverOnboarding = async () => {
+    try {
+      const response = await getCurrentOnboarding();
+
+      if (!response.data.hasActiveOnboarding) {
+        return;
+      }
+
+      await loadOnboarding(response.data);
+
+      toast({
+        title: "Onboarding Restored",
+        description: `Customer: ${response.data.customer.fullname}`,
+        status: "info",
+        duration: 5000,
+        isClosable: true,
+      });
+    } catch (err) {
+      console.error("Recovery failed:", err);
+    }
+  };
+
+  const handleStartOnboarding = async (onboardingId) => {
+    try {
+      const response = await startOnboarding(onboardingId);
+      const data = response.data;
+
+      await loadOnboarding(data);
+      await loadOnboardingQueue();
+
+      toast({
+        title: "Customer loaded successfully",
+        status: "success",
+      });
+    } catch (err) {
+      console.error(err);
+
+      toast({
+        title: err?.response?.data?.message || "Failed to start onboarding",
+        status: "error",
+      });
+    }
+  };
+
+  const loadOnboardingQueue = async () => {
+    try {
+      setLoadingQueue(true);
+
+      const response = await getOnboardingQueue();
+
+      setOnboardingQueue(response.data);
+    } catch (err) {
+      console.error(err);
+
+      toast({
+        title: "Failed to load onboarding queue",
+        status: "error",
+      });
+    } finally {
+      setLoadingQueue(false);
     }
   };
 
@@ -110,7 +248,7 @@ export default function StoragePage() {
 
     setDischargeDate(d.toISOString().slice(0, 10));
   }, [storagePeriod, receivedDate]);
-
+  /*
   const handleBranchChange = async (value) => {
     setBranchId(value);
 
@@ -126,7 +264,7 @@ export default function StoragePage() {
       console.error(err);
     }
   };
-
+*/
   const addProduct = (product) => {
     const existing = items.find((x) => x.product_id === product.product_id);
 
@@ -266,6 +404,7 @@ export default function StoragePage() {
     setConfirmationMode(false);
     setEditingStorageId(null);
     setScanValue("");
+    setActiveOnboarding(null);
 
     if (attachmentInputRef.current) {
       attachmentInputRef.current.value = "";
@@ -337,10 +476,39 @@ export default function StoragePage() {
     }
   };
 
-  const saveButtonText = useMemo(
-    () => (confirmationMode ? "Update Storage" : "Save Storage"),
-    [confirmationMode],
-  );
+  const handleCancel = async () => {
+    try {
+      if (activeOnboarding) {
+        await cancelOnboarding(activeOnboarding.queue.onboarding_id);
+      }
+
+      resetPage();
+
+      await loadPage();
+
+      toast({
+        title: activeOnboarding
+          ? "Onboarding cancelled."
+          : "Storage cancelled.",
+        status: "info",
+      });
+    } catch (err) {
+      console.error(err);
+
+      toast({
+        title: "Failed to cancel onboarding.",
+        status: "error",
+      });
+    }
+  };
+
+  const saveButtonText = useMemo(() => {
+    if (confirmationMode) return "Update Storage";
+
+    if (onboardingMode) return "Complete Onboarding";
+
+    return "Save Storage";
+  }, [confirmationMode, onboardingMode]);
 
   const handleSave = async () => {
     try {
@@ -359,7 +527,16 @@ export default function StoragePage() {
         attachment: attachmentFile,
       };
 
-      await createStorage(payload);
+      const response = await createStorage(payload);
+      const storageId = response.data.storage.storage_id;
+
+      if (activeOnboarding) {
+        await completeOnboarding(
+          activeOnboarding.queue.onboarding_id,
+
+          storageId,
+        );
+      }
 
       toast({
         title: confirmationMode
@@ -369,7 +546,8 @@ export default function StoragePage() {
       });
 
       resetPage();
-      loadPage();
+
+      await loadPage();
     } catch (err) {
       console.error(err);
       toast({
@@ -390,6 +568,35 @@ export default function StoragePage() {
       >
         Storage
       </Heading>
+
+      {onboardingMode && (
+        <Alert status="info" borderRadius="md" mb={4}>
+          <AlertIcon />
+
+          <Box flex="1">
+            <AlertTitle>Customer Onboarding in Progress</AlertTitle>
+
+            <AlertDescription>
+              Invoice: {activeOnboarding.sale.invoice_no}
+              <br />
+              Customer: {activeOnboarding.customer.fullname}
+              <br />
+              Storage Product: {activeOnboarding.product.product_name}
+              <br />
+              Duration: {activeOnboarding.product.duration} Month
+              {Number(activeOnboarding.product.duration) > 1 ? "s" : ""}
+            </AlertDescription>
+          </Box>
+        </Alert>
+      )}
+
+      <CustomerOnboardingCard
+        queue={onboardingQueue}
+        loading={loadingQueue}
+        onRefresh={loadOnboardingQueue}
+        onStart={handleStartOnboarding}
+        activeOnboarding={onboardingMode}
+      />
 
       <VStack spacing={4} align="stretch">
         <Card>
@@ -453,7 +660,6 @@ export default function StoragePage() {
                   value={receivedDate}
                   max={new Date().toISOString().slice(0, 10)}
                   onChange={(e) => setReceivedDate(e.target.value)}
-                  isDisabled={locked}
                 />
               </Box>
 
@@ -461,7 +667,7 @@ export default function StoragePage() {
                 <Text mb={1}>Branch</Text>
                 <Select
                   value={branchId}
-                  onChange={(e) => handleBranchChange(e.target.value)}
+                  onChange={(e) => selectBranch(e.target.value)}
                   placeholder="Select Branch"
                   isDisabled={locked}
                 >
@@ -502,7 +708,7 @@ export default function StoragePage() {
                   type="number"
                   value={storagePeriod}
                   onChange={(e) => setStoragePeriod(e.target.value)}
-                  isDisabled={confirmationMode}
+                  isDisabled={locked}
                 />
               </Box>
 
@@ -685,7 +891,7 @@ export default function StoragePage() {
                 base: "100%",
                 md: "auto",
               }}
-              onClick={resetPage}
+              onClick={handleCancel}
             >
               Cancel
             </Button>

@@ -12,7 +12,7 @@ import { sendEmail } from "../utils/mailer.js";
 ======================================*/
 export const createCustomer = async (req, res) => {
   try {
-    const {
+    let {
       fullname,
       customer_type,
       sex,
@@ -37,6 +37,9 @@ export const createCustomer = async (req, res) => {
       kyc_id,
       from_kyc,
     } = req.body;
+
+    fullname = fullname?.trim().toUpperCase();
+    contact_name = contact_name?.trim().toUpperCase();
 
     let kycApproval = null;
 
@@ -208,6 +211,12 @@ export const createCustomer = async (req, res) => {
     res.status(201).json(result.rows[0]);
   } catch (err) {
     console.error("Create Customer Error", err);
+    //console.error("Create Customer Error");
+    //console.error("Code:", err.code);
+    //console.error("Message:", err.message);
+    //console.error("Where:", err.where);
+    //console.error("Detail:", err.detail);
+    //console.error(err);
     res.status(500).json({ message: "Server error" });
   }
 };
@@ -482,22 +491,44 @@ DOWNLOAD CUSTOMER PDF
 ========================================== */
 export const downloadIndemnityAgreement = async (req, res) => {
   try {
+    /*
     const customerId = req.user.customer_id || req.user.id;
 
     const { id } = req.params;
 
     console.log("REQ.USER =", req.user);
-
     console.log("PARAM ID =", req.params.id);
 
-    /* ==========================
+    * ==========================
          OWNERSHIP VALIDATION
-      ========================== */
+      ========================== *
 
     if (String(customerId) !== String(id)) {
       return res.status(403).json({
         message: "Unauthorized",
       });
+    }
+*/
+    const { id } = req.params;
+
+    // Customer login
+    if (req.user.loginType === "customer") {
+      const customerId = req.user.customer_id || req.user.id;
+
+      if (String(customerId) !== String(id)) {
+        return res.status(403).json({
+          message: "Unauthorized",
+        });
+      }
+    }
+
+    // Staff login
+    else if (req.user.loginType === "staff") {
+      if (!req.user.permissions?.customers) {
+        return res.status(403).json({
+          message: "You do not have permission to access customer documents.",
+        });
+      }
     }
 
     const result = await pool.query(
@@ -544,6 +575,7 @@ export const downloadIndemnityAgreement = async (req, res) => {
 
 export const downloadWarehouseAgreement = async (req, res) => {
   try {
+    /*
     const customerId = req.user.customer_id || req.user.id;
 
     const { id } = req.params;
@@ -551,14 +583,37 @@ export const downloadWarehouseAgreement = async (req, res) => {
     console.log("REQ.USER =", req.user);
 
     console.log("PARAM ID =", req.params.id);
-    /* ==========================
+    * ==========================
          OWNERSHIP VALIDATION
-      ========================== */
+      ========================== *
 
     if (String(customerId) !== String(id)) {
       return res.status(403).json({
         message: "Unauthorized",
       });
+    }
+    */
+
+    const { id } = req.params;
+
+    // Customer login
+    if (req.user.loginType === "customer") {
+      const customerId = req.user.customer_id || req.user.id;
+
+      if (String(customerId) !== String(id)) {
+        return res.status(403).json({
+          message: "Unauthorized",
+        });
+      }
+    }
+
+    // Staff login
+    else if (req.user.loginType === "staff") {
+      if (!req.user.permissions?.customers) {
+        return res.status(403).json({
+          message: "You do not have permission to access customer documents.",
+        });
+      }
     }
 
     const result = await pool.query(
@@ -932,7 +987,7 @@ export const downloadStorageAttachment = async (req, res) => {
     ========================================= */
 
     const filePath = path.join(process.cwd(), normalizedPath);
-    console.log("DOWNLOAD PATH =", filePath);
+    //console.log("DOWNLOAD PATH =", filePath);
 
     /* =========================================
        CHECK FILE EXISTS

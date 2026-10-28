@@ -12,7 +12,7 @@ export const cleanupSessions = async () => {
       `,
     );
 
-    console.log("Session cleanup complete");
+    //console.log("Session cleanup complete");
   } catch (err) {
     console.error(err);
   }

@@ -2,7 +2,8 @@
   "scripts": {
     "dev": "vite --host",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "deploy:uat": "npm run build && node scripts/deploy-uat.mjs"
   },
   "dependencies": {
     "@chakra-ui/icons": "^2.2.4",
@@ -11,7 +12,8 @@
     "@emotion/styled": "^11.14.1",
     "@fingerprintjs/fingerprintjs": "^5.2.0",
     "axios": "^1.13.4",
-    "framer-motion": "^12.29.2",
+    "bwip-js": "^4.11.3",
+    "framer-motion": "^12.42.2",
     "html5-qrcode": "^2.3.8",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.7",
@@ -27,6 +29,7 @@
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^5.1.2",
+    "fs-extra": "^11.3.6",
     "vite": "^8.0.16"
   }
 }

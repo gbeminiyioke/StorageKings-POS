@@ -25,7 +25,7 @@ import {
   Icon,
 } from "@chakra-ui/react";
 import { useForm, useFieldArray } from "react-hook-form";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import api from "../api/api";
 import Barcode from "react-barcode";
 import {
@@ -41,6 +41,7 @@ import ResponsiveTable from "../components/ResponsiveTable";
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 
 export default function Products() {
+  const topRef = useRef(null);
   const { user } = useAuth();
   const permissions = user?.permissions || {};
   const toast = useToast();
@@ -301,6 +302,8 @@ export default function Products() {
 
     setIsEdit(true);
     setEditingId(id);
+
+    scrollToTop();
   };
 
   const handleClone = async (id) => {
@@ -329,6 +332,8 @@ export default function Products() {
 
     setIsEdit(false);
     setEditingId(null);
+
+    scrollToTop();
   };
 
   const handleImageChange = (e) => {
@@ -355,6 +360,32 @@ export default function Products() {
   };
 
   const onSubmit = async (data) => {
+    data.product_code = data.product_code?.trim().toUpperCase();
+
+    if (!data.product_code) {
+      toast({
+        title: "Product Code is required",
+        status: "error",
+      });
+      return;
+    }
+
+    if (data.product_code.length !== 5) {
+      toast({
+        title: "Product Code must be exactly 5 characters",
+        status: "error",
+      });
+      return;
+    }
+
+    if (!/^[A-Z0-9]{5}$/.test(data.product_code)) {
+      toast({
+        title: "Product Code must contain only uppercase letters and numbers",
+        status: "error",
+      });
+      return;
+    }
+
     if (skuExists && !isEdit) {
       toast({
         title: "Duplicate SKU detected",
@@ -402,8 +433,15 @@ export default function Products() {
 
   const totalPages = Math.ceil(total / 10) || 1;
 
+  const scrollToTop = () => {
+    topRef.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  };
+
   return (
-    <Box p={{ base: 3, md: 6 }} maxW="100%" overflowX="hidden">
+    <Box p={{ base: 3, md: 6 }} maxW="100%" overflowX="hidden" ref={topRef}>
       <Text fontSize="xl" mb={4} fontWeight="bold">
         Product Details
       </Text>
@@ -420,8 +458,40 @@ export default function Products() {
       >
         <FormControl isInvalid={skuExists}>
           <FormLabel>Product Code</FormLabel>
-          <Input {...register("product_code")} isDisabled={isEdit} />
+          <Input
+            maxLength={5}
+            textTransform="uppercase"
+            {...register("product_code", {
+              required: "Product Code is required",
+              validate: {
+                length: (value) =>
+                  value.length === 5 ||
+                  "Product Code must be exactly 5 characters",
+
+                format: (value) =>
+                  /^[A-Z0-9]{5}$/.test(value.toUpperCase()) ||
+                  "Only uppercase letters and numbers are allowed",
+              },
+
+              onChange: (e) => {
+                const value = e.target.value
+                  .toUpperCase()
+                  .replace(/[^A-Z0-9]/g, "");
+
+                setValue("product_code", value, {
+                  shouldValidate: true,
+                });
+              },
+            })}
+            isDisabled={isEdit}
+          />
           {productCode && <Barcode value={productCode} />}
+
+          {errors.product_code && (
+            <Text color="red.500" fontSize="sm" mt={1}>
+              {errors.product_code.message}
+            </Text>
+          )}
 
           {checkingSku && (
             <Text fontSize="xs" color="gray.500">
@@ -736,6 +806,7 @@ export default function Products() {
       >
         <Button
           colorScheme={isEdit ? "orange" : "blue"}
+          isDisabled={skuExists || checkingSku || !!errors.product_code}
           w={{
             base: "100%",
             md: "auto",

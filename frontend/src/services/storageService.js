@@ -121,3 +121,19 @@ export const getStoragePdfUrl = (storageId) => {
     token || "",
   )}`;
 };
+
+export const getOnboardingQueue = () => api.get("/storage/onboarding-queue");
+
+export const startOnboarding = (id) =>
+  api.post(`/storage/onboarding/${id}/start`);
+
+export const completeOnboarding = (onboardingId, storage_id) =>
+  api.post(`/storage/onboarding/${onboardingId}/complete`, {
+    storage_id,
+  });
+
+export const cancelOnboarding = (id) =>
+  api.post(`/storage/onboarding/${id}/cancel`);
+
+export const getCurrentOnboarding = () =>
+  api.get("/storage/onboarding/current");

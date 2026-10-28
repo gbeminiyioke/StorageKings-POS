@@ -10,6 +10,7 @@ export const AuthProvider = ({ children }) => {
   const [branchId, setBranchId] = useState(null);
   const [permissions, setPermissions] = useState({});
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [authLoading, setAuthLoading] = useState(true);
 
   /*---------------------------------------
     LOAD FROM LOCAL STORAGE ON APP START
@@ -19,38 +20,91 @@ export const AuthProvider = ({ children }) => {
       const token = localStorage.getItem("token");
       const refreshToken = localStorage.getItem("refreshToken");
 
-      if (!token) return;
+      /*
+    No saved session.
+  */
+      if (!token) {
+        setAuthLoading(false);
+        return;
+      }
 
       try {
         let activeToken = token;
 
+        /*
+      Check whether the access token has expired.
+    */
         const decoded = jwtDecode(token);
 
-        if (decoded.exp * 1000 < Date.now()) {
+        if (decoded.exp * 1000 <= Date.now()) {
+          /*
+        Access token expired.
+        Try to refresh it.
+      */
           if (!refreshToken) {
-            logout();
-            return;
+            throw new Error("Missing refresh token.");
           }
 
           const res = await api.post("/auth/refresh", {
             refreshToken,
           });
+
           activeToken = res.data.token;
+
           localStorage.setItem("token", activeToken);
           localStorage.setItem("refreshToken", res.data.refreshToken);
         }
+
+        /*
+      Restore user information.
+    */
         const finalDecoded = jwtDecode(activeToken);
+
         const storedUser = localStorage.getItem("user");
+
         const parsedUser = storedUser ? JSON.parse(storedUser) : finalDecoded;
 
         setUser(parsedUser);
+
         setPermissions(parsedUser.permissions || {});
+
         setRole(parsedUser.role || null);
+
+        /*
+      Use the same property name everywhere.
+    */
         setBranchId(parsedUser.branchId || null);
+
         setIsAuthenticated(true);
       } catch (err) {
-        console.error(err);
-        logout();
+        console.error("Auth initialization failed:", err);
+
+        /*
+      If we're offline, keep the stored session.
+      api.js will recover automatically when
+      connectivity returns.
+    */
+        if (!navigator.onLine) {
+          return;
+        }
+
+        /*
+      Session is genuinely invalid.
+    */
+        localStorage.removeItem("token");
+        localStorage.removeItem("refreshToken");
+        localStorage.removeItem("user");
+
+        setUser(null);
+        setPermissions({});
+        setRole(null);
+        setBranchId(null);
+        setIsAuthenticated(false);
+      } finally {
+        /*
+      Allow ProtectedRoute to render.
+    */
+        setAuthLoading(false);
       }
     };
     initializeAuth();
@@ -67,7 +121,7 @@ export const AuthProvider = ({ children }) => {
       ...decoded,
       permissions: data.permissions || {},
       role: data.role || null,
-      branch_id: decoded.branchId || null,
+      branchId: decoded.branchId || null,
       branchName: decoded.branchName || null,
       name: data.name,
       roleName: data.roleName,
@@ -85,7 +139,7 @@ export const AuthProvider = ({ children }) => {
     setUser(userData);
     setRole(userData.role);
     setPermissions(userData.permissions);
-    setBranchId(userData.branch_id);
+    setBranchId(userData.branchId);
     setIsAuthenticated(true);
   };
 
@@ -94,6 +148,10 @@ export const AuthProvider = ({ children }) => {
   --------------------------------------*/
   const logout = async () => {
     try {
+      /*==================================
+      console.trace("LOGOUT CALLED");
+      ================================== */
+
       const token = localStorage.getItem("token");
 
       if (token) {
@@ -121,10 +179,22 @@ export const AuthProvider = ({ children }) => {
     return Boolean(permissions?.[key]);
   };
 
+  /*===================================
+  console.log("AuthContext state", {
+    authLoading,
+    isAuthenticated,
+    user,
+  });
+  =================================== */
+
   return (
     <AuthContext.Provider
       value={{
         user,
+        role,
+        branchId,
+        permissions,
+        authLoading,
         isAuthenticated,
         login,
         logout,

@@ -10,7 +10,7 @@ export const sendEmailWithAttachment = async ({
   const transporter = nodemailer.createTransport({
     host: process.env.SMTP_HOST,
     port: process.env.SMTP_PORT,
-    secure: false,
+    secure: process.env.SMTP_SECURE === "true",
     family: 4, //FORCE IPV4
     auth: {
       user: process.env.SMTP_USER,

@@ -44,12 +44,13 @@ export const getBranches = async (req, res) => {
       params.push(business_id);
     }
 
-    query += ` ORDER BY b.branch_id`;
+    query += ` ORDER BY b.branch_id LIMIT 4`;
 
     const result = await pool.query(query, params);
 
     res.json(result.rows);
   } catch (err) {
+    //console.log(query);
     console.error(err);
     res.status(500).json({ message: "Failed to fetch branches." });
   }
@@ -64,7 +65,7 @@ export const getEnabledBranches = async (req, res) => {
       `SELECT branch_id, branch_name, branch_prefix
        FROM branches
        WHERE enable = true
-       ORDER BY branch_name`,
+       ORDER BY branch_name LIMIT 4`,
     );
 
     res.json(result.rows);
@@ -108,7 +109,7 @@ export const createBranch = async (req, res) => {
 
   try {
     const business = await pool.query(
-      `SELECT max_branches, current_branches FROM business WHERE business_id = $1 AND enable = true`,
+      `SELECT 4 AS max_branches, current_branches FROM business WHERE business_id = $1 AND enable = true`,
       [business_id],
     );
 

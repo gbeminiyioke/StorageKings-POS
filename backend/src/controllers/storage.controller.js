@@ -4,6 +4,56 @@ import { generateStoragePdf } from "../services/storagePdf.service.js";
 import { sendEmailWithAttachment } from "../services/email.service.js";
 import logActivity from "../utils/activityLogger.js";
 import { transporter } from "../utils/mailer.js";
+import { buildOnboardingResponse } from "../services/onboardingResponse.service.js";
+import { recoverCurrentOnboarding } from "../services/onboardingRecovery.service.js";
+
+export const completeOnboarding = async (req, res) => {
+  const client = await pool.connect();
+
+  try {
+    const { onboardingId } = req.params;
+    const { storage_id } = req.body;
+    const { id: user_id } = req.user;
+
+    await client.query("BEGIN");
+
+    const result = await client.query(
+      `
+      UPDATE customer_onboarding_queue
+      SET
+        status = 'COMPLETED',
+        storage_id = $1,
+        completed_at = NOW(),
+        completed_by = $2,
+        last_activity=NOW()
+        WHERE onboarding_id = $3
+        AND status = 'IN_PROGRESS'
+      RETURNING onboarding_id
+      `,
+      [storage_id, user_id, onboardingId],
+    );
+
+    if (!result.rows.length) {
+      throw new Error("Onboarding is no longer in progress.");
+    }
+
+    await client.query("COMMIT");
+
+    return res.json({
+      message: "Onboarding completed successfully.",
+    });
+  } catch (err) {
+    await client.query("ROLLBACK");
+
+    console.error(err);
+
+    return res.status(500).json({
+      message: err.message || "Failed to complete onboarding.",
+    });
+  } finally {
+    client.release();
+  }
+};
 
 /* ======================================================
    CUSTOMER SEARCH
@@ -307,7 +357,14 @@ export const createStorage = async (req, res) => {
       for (let i = 1; i <= qty; i++) {
         const seq = String(i).padStart(3, "0");
 
-        const barcode = `${storage_no}/${item.product_code}/${seq}`;
+        const productCode = (item.product_code || "").trim().toUpperCase();
+
+        if (!productCode) {
+          throw new Error(`Product ${item.product_name} has no product code.`);
+        }
+
+        const barcode = `${storage_no}/${productCode}/${seq}`;
+        //const barcode = `${storage_no}/${item.product_code}/${seq}`;
 
         await client.query(
           `
@@ -341,12 +398,28 @@ export const createStorage = async (req, res) => {
       [branch_id],
     );
 
-    await client.query("COMMIT");
+    if (req.body.onboarding_id) {
+      await touchOnboarding(client, req.body.onboarding_id);
+    }
 
+    await client.query("COMMIT");
+    /*
     res.json({
       message: "Storage saved successfully",
       storage_id: storage.storage_id,
       storage_no,
+    });*/
+
+    return res.status(201).json({
+      message: "Storage created successfully.",
+      storage: {
+        storage_id: storage.storage_id,
+        storage_no: storage.storage_no,
+        customer_id: storage.customer_id,
+        branch_id: storage.branch_id,
+        status: storage.status,
+        discharge_date: storage.discharge_date,
+      },
     });
   } catch (error) {
     await client.query("ROLLBACK");
@@ -379,7 +452,7 @@ export const getRecentStorages = async (req, res) => {
       INNER JOIN branches b
         ON b.branch_id = sh.branch_id
       WHERE sh.deleted = false
-        AND sh.received_date >= CURRENT_DATE - INTERVAL '30 days'
+        AND sh.received_date >= CURRENT_DATE - INTERVAL '200 days'
       ORDER BY sh.storage_id DESC
       `,
     );
@@ -609,6 +682,10 @@ export const confirmStorageBarcode = async (req, res) => {
         `,
         [storage_id],
       );
+    }
+
+    if (req.body.onboarding_id) {
+      await touchOnboarding(client, req.body.onboarding_id);
     }
 
     await client.query("COMMIT");
@@ -1248,5 +1325,241 @@ export const getStorageVisitHistory = async (req, res) => {
     res.status(500).json({
       message: "Server error",
     });
+  }
+};
+
+export const getOnboardingQueue = async (req, res) => {
+  try {
+    const { branchId, roleid } = req.user;
+
+    /**========================================
+    console.log("===== getOnboardingQueue =====");
+    console.log(req.user);
+    ======================================== */
+
+    let query = `
+      SELECT
+        q.onboarding_id,
+        q.sale_id,
+        q.customer_id,
+        q.branch_id,
+        q.product_id,
+        q.quantity AS duration,
+        q.status,
+        q.created_at,
+
+        s.invoice_no,
+        s.transaction_date,
+
+        c.fullname,
+        c.telephone,
+        c.email,
+
+        b.branch_name,
+
+        p.product_name
+
+      FROM customer_onboarding_queue q
+
+      INNER JOIN pos_sales s
+        ON s.sale_id = q.sale_id
+
+      INNER JOIN customers c
+        ON c.id = q.customer_id
+
+      INNER JOIN branches b
+        ON b.branch_id = q.branch_id
+
+      INNER JOIN products p
+        ON p.product_id = q.product_id
+
+      WHERE
+        q.status IN ('PENDING','IN_PROGRESS')
+    `;
+
+    const params = [];
+
+    if (!req.user.can_view_security) {
+      params.push(Number(req.user.branchId));
+
+      query += `
+        AND q.branch_id = $1
+    `;
+    }
+
+    query += `
+      ORDER BY
+        q.created_at ASC
+    `;
+
+    const result = await pool.query(query, params);
+
+    /**======================================= 
+    console.log(result.rows);
+    ======================================= */
+
+    return res.json(result.rows);
+  } catch (err) {
+    console.error(err);
+
+    return res.status(500).json({
+      message: "Failed to load onboarding queue.",
+    });
+  }
+};
+
+export const startOnboarding = async (req, res) => {
+  const client = await pool.connect();
+
+  try {
+    const { onboardingId } = req.params;
+
+    const { id: user_id, branchId, roleid, sessionId } = req.user;
+
+    await client.query("BEGIN");
+
+    const queueResult = await client.query(
+      `SELECT * FROM customer_onboarding_queue WHERE onboarding_id = $1
+      FOR UPDATE`,
+      [onboardingId],
+    );
+
+    if (!queueResult.rows.length) {
+      throw new Error("Onboarding request not found.");
+    }
+
+    const queue = queueResult.rows[0];
+
+    if (!req.user.can_view_security && queue.branch_id !== Number(branchId)) {
+      throw new Error("You cannot access another branch's onboarding.");
+    }
+
+    if (queue.status === "COMPLETED") {
+      throw new Error("This onboarding has already been completed.");
+    }
+
+    if (queue.status === "IN_PROGRESS") {
+      // Someone else owns it
+      if (queue.assigned_to !== req.user.id) {
+        await client.query("ROLLBACK");
+
+        return res.status(409).json({
+          message:
+            "Another staff member is already processing this onboarding.",
+        });
+      }
+
+      // Same user, same session
+      if (queue.assigned_session_id === req.user.sessionId) {
+        await client.query("COMMIT");
+
+        const response = await buildOnboardingResponse(client, onboardingId);
+
+        return res.json(response);
+      }
+
+      // Same user, different session
+      await client.query(
+        `
+        UPDATE customer_onboarding_queue
+        SET
+        assigned_session_id = $1,
+        last_activity = NOW(),
+        recovered_count = COALESCE(recovered_count,0) + 1
+        WHERE onboarding_id = $2
+        `,
+        [req.user.sessionId, onboardingId],
+      );
+
+      await client.query("COMMIT");
+
+      const response = await buildOnboardingResponse(client, onboardingId);
+
+      return res.json(response);
+    }
+
+    await client.query(
+      `UPDATE customer_onboarding_queue SET status = 'IN_PROGRESS',
+      started_at = NOW(), started_by = $1, assigned_to = $1, assigned_session_id=$2, last_activity=NOW()
+      WHERE onboarding_id = $3`,
+      [user_id, sessionId, onboardingId],
+    );
+
+    await client.query("COMMIT");
+
+    const response = await buildOnboardingResponse(client, onboardingId);
+
+    return res.json(response);
+  } catch (err) {
+    await client.query("ROLLBACK");
+
+    throw err;
+  } finally {
+    client.release();
+  }
+};
+
+export const cancelOnboarding = async (req, res) => {
+  const client = await pool.connect();
+
+  try {
+    const { onboardingId } = req.params;
+
+    const { id: user_id } = req.user;
+
+    await client.query("BEGIN");
+
+    const result = await client.query(
+      `
+      UPDATE customer_onboarding_queue
+      SET
+        status='PENDING',
+        started_at=NULL,
+        started_by=NULL,
+        assigned_to=NULL,
+        assigned_session_id=NULL,
+        last_activity=NULL
+      WHERE
+        onboarding_id=$1
+        AND assigned_to=$2
+        AND status='IN_PROGRESS'
+      RETURNING onboarding_id
+      `,
+      [onboardingId, user_id],
+    );
+
+    if (!result.rows.length) {
+      throw new Error("Unable to cancel onboarding.");
+    }
+
+    await client.query("COMMIT");
+
+    res.json({
+      message: "Onboarding cancelled.",
+    });
+  } catch (err) {
+    await client.query("ROLLBACK");
+
+    console.error(err);
+
+    res.status(500).json({
+      message: err.message || "Failed to cancel onboarding.",
+    });
+  } finally {
+    client.release();
+  }
+};
+
+export const getCurrentOnboarding = async (req, res, next) => {
+  const client = await pool.connect();
+
+  try {
+    const result = await recoverCurrentOnboarding(client, req.user);
+
+    return res.json(result);
+  } catch (err) {
+    next(err);
+  } finally {
+    client.release();
   }
 };

@@ -33,7 +33,7 @@ export default function ProductGrid({ search, setSearch, category }) {
         ? res.data
         : res.data.data || res.data.products || [];
 
-      console.log("POS PRODUCTS:", data);
+      //console.log("POS PRODUCTS:", data);
 
       setProducts(data);
     } catch (err) {

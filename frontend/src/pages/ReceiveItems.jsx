@@ -634,7 +634,7 @@ export default function ReceiveItems() {
         post,
       };
 
-      console.log("UPDATE PAYLOAD:", payload);
+      //console.log("UPDATE PAYLOAD:", payload);
 
       const res = await api.put(`/receive-items/${selectedId}`, payload);
 

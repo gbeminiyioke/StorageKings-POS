@@ -58,6 +58,28 @@ export const createProduct = async (req, res) => {
       return res.status(401).json({ message: "Unauthorized" });
     }
 
+    let productCode = (req.body.product_code || "").trim().toUpperCase();
+
+    if (!productCode) {
+      return res.status(400).json({
+        message: "Product Code is required",
+      });
+    }
+
+    if (productCode.length !== 5) {
+      return res.status(400).json({
+        message: "Product Code must be exactly 5 characters",
+      });
+    }
+
+    if (!/^[A-Z0-9]{5}$/.test(productCode)) {
+      return res.status(400).json({
+        message: "Product Code must contain only uppercase letters and numbers",
+      });
+    }
+
+    req.body.product_code = productCode;
+
     // =============================
     // Handle category
     // =============================

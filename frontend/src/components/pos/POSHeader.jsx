@@ -21,6 +21,9 @@ export default function POSHeader({
   setSelectedCustomer,
   docNumber,
   setDocNumber,
+
+  transactionDate,
+  setTransactionDate,
 }) {
   const { user } = useAuth();
 
@@ -32,11 +35,6 @@ export default function POSHeader({
   const [refundSearch, setRefundSearch] = useState("");
   const [refundResults, setRefundResults] = useState([]);
   const [selectedSale, setSelectedSale] = useState(null);
-
-  const transactionDate = useMemo(
-    () => new Date().toISOString().split("T")[0],
-    [],
-  );
 
   useEffect(() => {
     const loadNumber = async () => {
@@ -146,7 +144,13 @@ export default function POSHeader({
             <Text fontSize="sm" mb={1}>
               Transaction Date
             </Text>
-            <Input value={transactionDate} isReadOnly />
+
+            <Input
+              type="date"
+              value={transactionDate}
+              onChange={(e) => setTransactionDate(e.target.value)}
+              max={new Date().toISOString().split("T")[0]}
+            />
           </Box>
 
           <Box>

@@ -9,7 +9,26 @@ const ProtectedRoute = ({
   customerOnly = false,
   permission = null,
 }) => {
-  const { isAuthenticated, user, hasPermission } = useAuth();
+  const { authLoading, isAuthenticated, user, hasPermission } = useAuth();
+  /*==========================================
+  console.log("ProtectedRoute", {
+    authLoading,
+    isAuthenticated,
+    user,
+    path: window.location.pathname,
+  });
+
+  const auth = useAuth();
+
+  console.log("ProtectedRoute render", {
+    auth,
+    pathname: window.location.pathname,
+  });
+  =========================================== */
+
+  if (authLoading) {
+    return null;
+  }
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;

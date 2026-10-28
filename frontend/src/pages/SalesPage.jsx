@@ -16,6 +16,9 @@ export default function SalesPage() {
   const [transactionType, setTransactionType] = useState("INVOICE");
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [docNumber, setDocNumber] = useState("");
+  const [transactionDate, setTransactionDate] = useState(
+    new Date().toISOString().split("T")[0],
+  );
 
   return (
     <POSProvider>
@@ -29,6 +32,8 @@ export default function SalesPage() {
           setSelectedCustomer={setSelectedCustomer}
           docNumber={docNumber}
           setDocNumber={setDocNumber}
+          transactionDate={transactionDate}
+          setTransactionDate={setTransactionDate}
         />
 
         <Grid
@@ -91,6 +96,7 @@ export default function SalesPage() {
           transactionType={transactionType}
           docNumber={docNumber}
           setDocNumber={setDocNumber}
+          transactionDate={transactionDate}
         />
       </Grid>
     </POSProvider>

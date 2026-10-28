@@ -6,7 +6,7 @@ dns.setDefaultResultOrder("ipv4first");
 export const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST,
   port: Number(process.env.SMTP_PORT),
-  secure: false,
+  secure: process.env.SMTP_SECURE === "true",
   family: 4, //FORCE IPV4
   auth: {
     user: process.env.SMTP_USER,

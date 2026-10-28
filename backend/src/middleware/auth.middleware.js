@@ -40,6 +40,13 @@ export const authenticate = async (req, res, next) => {
       });
     }
 
+    const sessionId = sessionCheck.rows[0].id;
+
+    req.user = {
+      ...decode,
+      sessionId,
+    };
+
     const table = decoded.loginType === "staff" ? "users" : "customers";
 
     const result = await pool.query(
@@ -66,7 +73,11 @@ export const authenticate = async (req, res, next) => {
     }
 
     // ATTACH DECODED TOKEN TO REQUEST
-    req.user = decoded;
+    //req.user = decoded;
+    req.user = {
+      ...decoded,
+      sessionId,
+    };
 
     await pool.query(
       `

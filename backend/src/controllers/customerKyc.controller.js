@@ -192,7 +192,7 @@ export const createCustomerKyc = async (req, res) => {
       data: result.rows[0],
     });
   } catch (error) {
-    console.log(error);
+    //console.log(error);
 
     // Handle unique constraint errors
     if (error.code === "23505") {

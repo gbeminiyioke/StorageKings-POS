@@ -25,6 +25,10 @@ export const getDashboardCounts = async (req, res) => {
       `select count(*) from branches where enable=true`,
     );
 
+    const pendingStorageOnboarding = await pool.query(
+      `SELECT COUNT(*) FROM customer_onboarding_queue WHERE status = 'PENDING'`,
+    );
+
     res.json({
       low_stock: Number(lowStock.rows[0].count),
       pending_receive: Number(pendingReceive.rows[0].count),
@@ -33,6 +37,9 @@ export const getDashboardCounts = async (req, res) => {
         Number(stockValuation.rows[0].total_inventory_value) || 0,
       todays_sales: Number(todaySales.rows[0].total_sales) || 0,
       active_branches: Number(activeBranches.rows[0].count),
+      pending_storage_onboarding: Number(
+        pendingStorageOnboarding.rows[0].count,
+      ),
     });
   } catch (err) {
     console.error(err);

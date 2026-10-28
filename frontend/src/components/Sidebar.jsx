@@ -16,7 +16,6 @@ import {
   Badge,
   useDisclosure,
   useBreakpointValue,
-  useStatStyles,
 } from "@chakra-ui/react";
 import { NavLink } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
@@ -113,7 +112,7 @@ const menuConfig = [
       },
 
       {
-        label: "Received Items",
+        label: "Purchases",
         path: "/dashboard/receive-items",
         icon: FiShoppingBag,
         permission: "receive_items",
@@ -245,6 +244,7 @@ export default function Sidebar({ collapsed, setCollapsed }) {
     low_stock: 0,
     pending_receive: 0,
     pending_discharge: 0,
+    pending_storage_onboarding: 0,
   });
 
   const isMobile = useBreakpointValue({
@@ -395,6 +395,7 @@ export default function Sidebar({ collapsed, setCollapsed }) {
                               </Badge>
                             )}
 
+                          {/*
                           {!collapsed &&
                             item.permission === "inventory" &&
                             counts.total_stock_value > 0 && (
@@ -406,6 +407,15 @@ export default function Sidebar({ collapsed, setCollapsed }) {
                                 borderRadius="full"
                               >
                                 {counts.total_stock_value}
+                              </Badge>
+                            )}
+*/}
+
+                          {!collapsed &&
+                            item.permission === "storage" &&
+                            counts.pending_storage_onboarding > 0 && (
+                              <Badge colorScheme="orange" borderRadius="full">
+                                {counts.pending_storage_onboarding}
                               </Badge>
                             )}
                         </Flex>

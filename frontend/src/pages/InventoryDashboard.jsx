@@ -231,7 +231,7 @@ export default function InventoryDashboard() {
     try {
       const res = await api.get("/products");
 
-      console.log("PRODUCTS RESPONSE:", res.data);
+      //console.log("PRODUCTS RESPONSE:", res.data);
 
       // ✅ SAFE ARRAY EXTRACTION
       if (Array.isArray(res.data)) {
@@ -282,7 +282,7 @@ export default function InventoryDashboard() {
         return;
       }
 
-      console.log("SEARCHING:", value);
+      //console.log("SEARCHING:", value);
 
       const res = await api.get(`/inventory/customers/search`, {
         params: {
@@ -290,7 +290,7 @@ export default function InventoryDashboard() {
         },
       });
 
-      console.log("CUSTOMER SEARCH RESPONSE:", res.data);
+      //console.log("CUSTOMER SEARCH RESPONSE:", res.data);
 
       // SAFE ARRAY
       if (Array.isArray(res.data)) {
@@ -306,7 +306,7 @@ export default function InventoryDashboard() {
   };
 
   const handleStorageSelect = (storageId) => {
-    console.log("RAW STORAGE ID:", storageId);
+    //console.log("RAW STORAGE ID:", storageId);
 
     // =========================
     // FORCE INTEGER
@@ -319,7 +319,7 @@ export default function InventoryDashboard() {
       (s) => Number(s.storage_id) === parsedId,
     );
 
-    console.log("MATCHED STORAGE:", storage);
+    //console.log("MATCHED STORAGE:", storage);
 
     if (!storage) {
       setSelectedExpiredStorage(null);
@@ -457,7 +457,7 @@ export default function InventoryDashboard() {
       // =====================================================
       const res = await api.get(`/inventory/reports/${type}`, { params });
 
-      console.log(`${type.toUpperCase()} RESPONSE:`, res.data);
+      //console.log(`${type.toUpperCase()} RESPONSE:`, res.data);
 
       // =====================================================
       // PAGINATED REPORTS

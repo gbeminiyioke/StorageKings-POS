@@ -27,6 +27,9 @@ import api from "../api/api";
 import { useAuth } from "../context/AuthContext";
 import logo from "../assets/logo-storagekings.png";
 import FingerprintJS from "@fingerprintjs/fingerprintjs";
+import AnimatedBackground from "../components/login/AnimatedBackground";
+import LoginHero from "../components/login/LoginHero";
+import LoginCard from "../components/login/LoginCard";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -146,171 +149,175 @@ export default function Login() {
   };
 
   return (
-    <Flex
-      minH="100vh"
-      align="center"
-      justify="center"
-      bg="gray.50"
-      p={{ base: 4, md: 6 }}
-    >
-      <Box
-        bg="white"
-        p={{ base: 5, md: 8 }}
-        rounded="md"
-        w="100%"
-        maxW={{ base: "100%", sm: "420px" }}
-        boxShadow="md"
+    <>
+      <AnimatedBackground />
+
+      <Flex
+        minH="100vh"
+        position="relative"
+        zIndex={1}
+        align="center"
+        justify="space-between"
+        px={{ base: 6, lg: 20 }}
       >
-        {/* Logo */}
-        <Flex justify="center" mb={4}>
-          <Image
-            src={logo}
-            alt="Client logo"
-            maxH={{ base: "50px", md: "60px" }}
-          />
-        </Flex>
+        <LoginHero />
 
-        {/* Login type toggle */}
-        <Flex mb={6} gap={2} direction={{ base: "column", sm: "row" }}>
-          <Button
-            flex={1}
-            leftIcon={<FaUser />}
-            colorScheme="blue"
-            variant={loginType === "customer" ? "solid" : "outline"}
-            onClick={() => setLoginType("customer")}
-          >
-            Customer
-          </Button>
-          <Button
-            flex={1}
-            leftIcon={<FaUserTie />}
-            colorScheme="blue"
-            variant={loginType === "staff" ? "solid" : "outline"}
-            onClick={() => setLoginType("staff")}
-          >
-            Staff
-          </Button>
-        </Flex>
+        <LoginCard>
+          {/* EVERYTHING INSIDE YOUR CURRENT WHITE BOX GOES HERE */}
 
-        {error && (
-          <Alert status="error" mb={4} rounded="md">
-            <AlertIcon />
-            {error}
-          </Alert>
-        )}
-
-        <form onSubmit={handleSubmit(onSubmit)} autoComplete="off">
-          {/* Email */}
-          <FormControl mb={4} isInvalid={errors.email}>
-            <FormLabel>Email</FormLabel>
-            <Input
-              type="email"
-              placeholder="Enter your email"
-              autoComplete={isStaff ? "off" : "email"}
-              {...register("email", { required: "Enter your Email" })}
+          {/* Logo */}
+          <Flex justify="center" mb={4}>
+            <Image
+              src={logo}
+              alt="Client logo"
+              maxH={{ base: "50px", md: "60px" }}
             />
-            <FormErrorMessage>{errors.email?.message}</FormErrorMessage>
-          </FormControl>
-
-          {/* Branch select for staff */}
-          {isStaff && (
-            <FormControl mb={4} isInvalid={errors.branchId}>
-              <FormLabel>Branch</FormLabel>
-              <Select
-                placeholder="Select branch"
-                {...register("branchId", { required: "Select branch" })}
-              >
-                {branches.map((b) => (
-                  <option key={b.branch_id} value={b.branch_id}>
-                    {b.branch_name}
-                  </option>
-                ))}
-              </Select>
-              <FormErrorMessage>{errors.branchId?.message}</FormErrorMessage>
-            </FormControl>
-          )}
-
-          {/* Password */}
-          <FormControl mb={4} isInvalid={errors.password}>
-            <FormLabel>Password</FormLabel>
-            {isStaff && (
-              <>
-                <Input
-                  type="text"
-                  name="fake-user"
-                  style={{ display: "none" }}
-                />
-                <Input
-                  type="password"
-                  name="fake-pass"
-                  style={{ display: "none" }}
-                />
-              </>
-            )}
-            <InputGroup>
-              <Input
-                type={showPassword ? "text" : "password"}
-                autoComplete={isStaff ? "new-password" : "current-password"}
-                name={isStaff ? `password_${Math.random()}` : "password"}
-                onKeyUp={isStaff ? handleCapsLock : undefined}
-                {...register("password", { required: "Enter your password" })}
-              />
-              <InputRightElement>
-                <IconButton
-                  size="sm"
-                  variant="ghost"
-                  aria-label="Toggle password"
-                  icon={showPassword ? <ViewOffIcon /> : <ViewIcon />}
-                  onClick={() => setShowPassword(!showPassword)}
-                />
-              </InputRightElement>
-            </InputGroup>
-            <FormErrorMessage>{errors.password?.message}</FormErrorMessage>
-          </FormControl>
-
-          <Flex justify="flex-end" mb={4}>
-            <Link
-              fontSize="sm"
-              color="blue.500"
-              onClick={() => navigate("/forgot-password")}
-            >
-              Forgot password?
-            </Link>
           </Flex>
 
-          {isStaff && capsLockOn && (
-            <Alert status="warning" mb={4} rounded="md">
+          {/* Login type toggle */}
+          <Flex mb={6} gap={2} direction={{ base: "column", sm: "row" }}>
+            <Button
+              flex={1}
+              leftIcon={<FaUser />}
+              colorScheme="blue"
+              variant={loginType === "customer" ? "solid" : "outline"}
+              onClick={() => setLoginType("customer")}
+            >
+              Customer
+            </Button>
+            <Button
+              flex={1}
+              leftIcon={<FaUserTie />}
+              colorScheme="blue"
+              variant={loginType === "staff" ? "solid" : "outline"}
+              onClick={() => setLoginType("staff")}
+            >
+              Staff
+            </Button>
+          </Flex>
+
+          {error && (
+            <Alert status="error" mb={4} rounded="md">
               <AlertIcon />
-              Caps Lock is ON
+              {error}
             </Alert>
           )}
 
-          <Button type="submit" colorScheme="blue" w="100%" mt={2}>
-            Login
-          </Button>
-        </form>
+          <form onSubmit={handleSubmit(onSubmit)} autoComplete="off">
+            {/* Email */}
+            <FormControl mb={4} isInvalid={errors.email}>
+              <FormLabel>Email</FormLabel>
+              <Input
+                type="email"
+                placeholder="Enter your email"
+                autoComplete={isStaff ? "off" : "email"}
+                {...register("email", { required: "Enter your Email" })}
+              />
+              <FormErrorMessage>{errors.email?.message}</FormErrorMessage>
+            </FormControl>
 
-        {!isStaff && (
-          <Text mt={4} fontSize="sm" textAlign="center">
-            <Link color="blue.500" onClick={() => navigate("/kyc")}>
-              Customer KYC & Onboarding
-            </Link>
+            {/* Branch select for staff */}
+            {isStaff && (
+              <FormControl mb={4} isInvalid={errors.branchId}>
+                <FormLabel>Branch</FormLabel>
+                <Select
+                  placeholder="Select branch"
+                  {...register("branchId", { required: "Select branch" })}
+                >
+                  {branches.map((b) => (
+                    <option key={b.branch_id} value={b.branch_id}>
+                      {b.branch_name}
+                    </option>
+                  ))}
+                </Select>
+                <FormErrorMessage>{errors.branchId?.message}</FormErrorMessage>
+              </FormControl>
+            )}
+
+            {/* Password */}
+            <FormControl mb={4} isInvalid={errors.password}>
+              <FormLabel>Password</FormLabel>
+              {isStaff && (
+                <>
+                  <Input
+                    type="text"
+                    name="fake-user"
+                    style={{ display: "none" }}
+                  />
+                  <Input
+                    type="password"
+                    name="fake-pass"
+                    style={{ display: "none" }}
+                  />
+                </>
+              )}
+              <InputGroup>
+                <Input
+                  type={showPassword ? "text" : "password"}
+                  autoComplete={isStaff ? "new-password" : "current-password"}
+                  name={isStaff ? `password_${Math.random()}` : "password"}
+                  onKeyUp={isStaff ? handleCapsLock : undefined}
+                  {...register("password", {
+                    required: "Enter your password",
+                  })}
+                />
+                <InputRightElement>
+                  <IconButton
+                    size="sm"
+                    variant="ghost"
+                    aria-label="Toggle password"
+                    icon={showPassword ? <ViewOffIcon /> : <ViewIcon />}
+                    onClick={() => setShowPassword(!showPassword)}
+                  />
+                </InputRightElement>
+              </InputGroup>
+              <FormErrorMessage>{errors.password?.message}</FormErrorMessage>
+            </FormControl>
+
+            <Flex justify="flex-end" mb={4}>
+              <Link
+                fontSize="sm"
+                color="blue.500"
+                onClick={() => navigate("/forgot-password")}
+              >
+                Forgot password?
+              </Link>
+            </Flex>
+
+            {isStaff && capsLockOn && (
+              <Alert status="warning" mb={4} rounded="md">
+                <AlertIcon />
+                Caps Lock is ON
+              </Alert>
+            )}
+
+            <Button type="submit" colorScheme="blue" w="100%" mt={2}>
+              Login
+            </Button>
+          </form>
+
+          {!isStaff && (
+            <Text mt={4} fontSize="sm" textAlign="center">
+              <Link color="blue.500" onClick={() => navigate("/kyc")}>
+                Customer KYC & Onboarding
+              </Link>
+            </Text>
+          )}
+
+          {!isStaff && (
+            <Text mt={4} fontSize="sm" textAlign="center">
+              Don't have an account?{" "}
+              <Link color="blue.500" onClick={() => navigate("/register")}>
+                Create Account
+              </Link>
+            </Text>
+          )}
+
+          <Text mt={4} fontSize="sm" textAlign="center" color="gray.500">
+            {isStaff ? "Staff access - restricted" : "Customer access"}
           </Text>
-        )}
-
-        {!isStaff && (
-          <Text mt={4} fontSize="sm" textAlign="center">
-            Don't have an account?{" "}
-            <Link color="blue.500" onClick={() => navigate("/register")}>
-              Create Account
-            </Link>
-          </Text>
-        )}
-
-        <Text mt={4} fontSize="sm" textAlign="center" color="gray.500">
-          {isStaff ? "Staff access - restricted" : "Customer access"}
-        </Text>
-      </Box>
-    </Flex>
+        </LoginCard>
+      </Flex>
+    </>
   );
 }

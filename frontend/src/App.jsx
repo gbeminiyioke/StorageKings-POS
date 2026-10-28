@@ -32,11 +32,13 @@ import CustomerKyc from "./pages/CustomerKyc";
 import ActiveSessions from "./pages/ActiveSessions";
 import AdminSessionDashboard from "./pages/AdminSessionDashboard";
 import IdleWarningModal from "./components/IdleWarningModal";
+import NetworkBanner from "./components/common/NetworkBanner";
 
 export default function App() {
   return (
     <>
       <IdleWarningModal />
+      <NetworkBanner />
 
       <Routes>
         {/* ============= PUBLIC ROUTES ============= */}
